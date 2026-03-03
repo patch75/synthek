@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  nom        String
+  email      String    @unique
+  password   String
+  role       String    @default("moa") // "moa" | "architecte" | "bet_fluides" | "bet_thermique" | "bet_structure" | "bet_electricite" | "bet_vrd" | "bet_geotechnique" | "economiste" | "assistant_moa" | "bet_hqe" | "acousticien" | "bureau_controle" | "admin"
+  createdAt  DateTime  @default(now())
+
+  projets              ProjetUser[]
+  documents            Document[]
+  messages             MessageIA[]
+  visas                Visa[]
+  reglementationRefs   ReglementationRef[]
+  decisions            DecisionArbitrage[]
+}
+
+model Projet {
+  id              Int       @id @default(autoincrement())
+  nom             String
+  client          String
+  phase           String    @default("APS") // "APS" | "APD" | "PRO" | "DCE" | "EXE"
+  bloqueExe       Boolean   @default(false)
+  raisonBlocage   String?
+  dateCreation    DateTime  @default(now())
+
+  // V3 — Bloc 1 : données d'entrée enrichies
+  typeBatiment    String?   // 'logements_collectifs','bureaux','erp','industrie','mixte'
+  nombreNiveaux   Int?
+  shon            Float?    // surface de plancher m²
+  energieRetenue  String?   // 'gaz','electricite','pac','geothermie','bois','mixte'
+  zoneClimatique  String?   // 'H1a','H1b','H1c','H2a','H2b','H2c','H2d','H3'
+  classementErp   Boolean   @default(false)
+  typeErp         String?   // 'M','J','U','W','PS'... si classementErp=true
+  nombreLogements Int?      // si résidentiel
+  adresse         String?   // pour API GPU/PLU
+
+  membres         ProjetUser[]
+  documents       Document[]
+  alertes         Alerte[]
+  messages        MessageIA[]
+  puces           Puce[]
+  visas           Visa[]
+  syntheses       Synthese[]
+  config          ConfigProjet?
+  decisions       DecisionArbitrage[]
+}
+
+model ProjetUser {
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  projetId  Int
+  role      String @default("moa")
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projet    Projet @relation(fields: [projetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projetId])
+}
+
+model Document {
+  id                  Int       @id @default(autoincrement())
+  projetId            Int
+  userId              Int
+  nom                 String
+  type                String    // "pdf" | "docx" | "xlsx"
+  cheminFichier       String
+  contenuTexte        String?   @db.Text
+  resumeModif         String?
+  version             Int       @default(1)
+  dateDepot           DateTime  @default(now())
+  hashFichier         String?   // SHA-256 calculé à l'upload
+  versionPrecedenteId Int?      // FK vers Document précédent (même nom)
+  deltaModifications  String?   @db.Text  // résumé delta isolé par Claude
+
+  // V3 — Bloc 3 : suivi documentaire
+  statutDocument      String?   // 'provisoire','pour_visa','valide'
+  indiceRevision      String?   // 'v1','v2','v3'...
+
+  projet              Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  user                User      @relation(fields: [userId], references: [id])
+  alertes             AlerteDocument[]
+  puce                Puce?
+  visas               Visa[]
+  syntheses           Synthese[]
+  versionPrecedente   Document? @relation("versions", fields: [versionPrecedenteId], references: [id])
+  versionsUlterieures Document[] @relation("versions")
+}
+
+model Alerte {
+  id             Int       @id @default(autoincrement())
+  projetId       Int
+  message        String    @db.Text
+  statut         String    @default("active") // "active" | "resolue"
+  dateCreation   DateTime  @default(now())
+  dateResolution DateTime?
+
+  // V3 — Bloc 5 : résolution enrichie
+  resoluePar              String?   // 'manuelle' | 'automatique'
+  justificationDerogation String?   @db.Text
+
+  projet         Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  documents      AlerteDocument[]
+  decisions      DecisionArbitrage[]
+}
+
+model AlerteDocument {
+  id         Int      @id @default(autoincrement())
+  alerteId   Int
+  documentId Int
+
+  alerte     Alerte   @relation(fields: [alerteId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([alerteId, documentId])
+}
+
+model MessageIA {
+  id        Int      @id @default(autoincrement())
+  projetId  Int
+  userId    Int
+  question  String   @db.Text
+  reponse   String   @db.Text
+  date      DateTime @default(now())
+
+  projet    Projet   @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Puce {
+  id                  Int      @id @default(autoincrement())
+  documentId          Int      @unique
+  projetId            Int
+  intervenantId       Int?
+  typeLivrable        String?  // ex: CCTP, DPGF, Plan
+  valeurCle           String?  @db.Text
+  version             String?
+  resumeModification  String?  @db.Text
+  dateCreation        DateTime @default(now())
+
+  document            Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  projet              Projet   @relation(fields: [projetId], references: [id], onDelete: Cascade)
+}
+
+model Visa {
+  id            Int      @id @default(autoincrement())
+  projetId      Int
+  documentId    Int
+  userId        Int
+  action        String   // "FAVORABLE" | "AVEC_RESERVES" | "DEFAVORABLE"
+  commentaire   String?  @db.Text
+  dateVisa      DateTime @default(now())
+  hashDocument  String?
+
+  projet        Projet   @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Synthese {
+  id                  Int      @id @default(autoincrement())
+  projetId            Int
+  codeSynthese        String   // 'S-00', 'S-14', etc.
+  documentIdSource    Int
+  documentsCroisesIds String   @db.Text  // JSON array d'IDs
+  resultatVisa        String?  // 'FAVORABLE' | 'AVEC_RESERVES' | 'DEFAVORABLE'
+  rapportTexte        String?  @db.Text
+  dateAnalyse         DateTime @default(now())
+
+  projet              Projet   @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  documentSource      Document @relation(fields: [documentIdSource], references: [id], onDelete: Cascade)
+}
+
+model ReglementationRef {
+  id            Int      @id @default(autoincrement())
+  nom           String
+  description   String?
+  cheminFichier String
+  contenuTexte  String?  @db.Text
+  uploadedById  Int
+  dateUpload    DateTime @default(now())
+
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+}
+
+// V3 — Bloc 2 : configuration projet IA
+model ConfigProjet {
+  id                    Int     @id @default(autoincrement())
+  projetId              Int     @unique
+  promptSystemeGlobal   String? @db.Text
+  seuilsTolerance       Json?   // {"ecart_puissance": {"vigilance": 5, "bloquant": 10}}
+  vocabulaireMetier     Json?   // {"local CTA": ["local VMC", "local ventilation"]}
+  valeursReference      Json?   // puissances nominales, débits VMC
+  conventionNommage     String? // "TYPE_INTERVENANT_vX_STATUT.ext"
+
+  projet                Projet  @relation(fields: [projetId], references: [id], onDelete: Cascade)
+}
+
+// V3 — Bloc 5 : décisions d'arbitrage
+model DecisionArbitrage {
+  id              Int       @id @default(autoincrement())
+  projetId        Int
+  alerteId        Int?
+  type            String    // 'arbitrage_moa' | 'derogation_reglementaire'
+  justification   String    @db.Text
+  decideParId     Int
+  dateDecision    DateTime  @default(now())
+
+  projet          Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  alerte          Alerte?   @relation(fields: [alerteId], references: [id])
+  decidePar       User      @relation(fields: [decideParId], references: [id])
+}
