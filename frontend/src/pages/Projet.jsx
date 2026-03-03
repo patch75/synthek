@@ -712,7 +712,7 @@ export default function Projet() {
 
       {showEditProjet && (
         <div className="modal-overlay" onClick={() => setShowEditProjet(false)}>
-          <div className="modal-card" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Modifier le projet</h3>
               <button className="btn-ghost" onClick={() => setShowEditProjet(false)} style={{ padding: '4px 8px' }}>✕</button>
