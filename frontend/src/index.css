@@ -748,6 +748,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
   animation: modal-in 0.15s ease;
   margin: auto;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 @keyframes modal-in {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }

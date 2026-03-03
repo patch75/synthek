@@ -94,6 +94,7 @@ export default function Projet() {
   const [showJalon, setShowJalon] = useState(false)
   const [jalonChoisi, setJalonChoisi] = useState('DCE')
   const [showLexique, setShowLexique] = useState(false)
+  const [showAlertes, setShowAlertes] = useState(false)
   const [showEditProjet, setShowEditProjet] = useState(false)
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
@@ -431,33 +432,45 @@ export default function Projet() {
         {/* Alertes actives */}
         {alertesActives.length > 0 && (
           <section className="section">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showAlertes ? 12 : 0 }}
+              onClick={() => setShowAlertes(v => !v)}
+            >
               <h2 className="section-title alert-title" style={{ marginBottom: 0 }}>
                 ⚠ {alertesActives.length} alerte{alertesActives.length > 1 ? 's' : ''} active{alertesActives.length > 1 ? 's' : ''}
               </h2>
-              {isAdmin && alertesActives.length > 1 && (
-                <button onClick={toutResoudre} className="btn-ghost" style={{ fontSize: 13, padding: '4px 10px' }}>
-                  Tout résoudre
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {isAdmin && alertesActives.length > 1 && showAlertes && (
+                  <button
+                    onClick={e => { e.stopPropagation(); toutResoudre() }}
+                    className="btn-ghost"
+                    style={{ fontSize: 13, padding: '4px 10px' }}
+                  >
+                    Tout résoudre
+                  </button>
+                )}
+                <span style={{ fontSize: 18, color: 'var(--text-muted)' }}>{showAlertes ? '▲' : '▼'}</span>
+              </div>
             </div>
-            <div className="alertes-list">
-              {alertesActives.map(alerte => (
-                <div key={alerte.id} className="card alerte-card">
-                  <p>{alerte.message}</p>
-                  <div className="alerte-footer">
-                    <span className="text-muted text-sm">
-                      Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
-                    </span>
-                    {!isBureauControle && (
-                      <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
-                        Résoudre
-                      </button>
-                    )}
+            {showAlertes && (
+              <div className="alertes-list">
+                {alertesActives.map(alerte => (
+                  <div key={alerte.id} className="card alerte-card">
+                    <p>{alerte.message}</p>
+                    <div className="alerte-footer">
+                      <span className="text-muted text-sm">
+                        Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
+                      </span>
+                      {!isBureauControle && (
+                        <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
+                          Résoudre
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -491,7 +504,16 @@ export default function Projet() {
             </div>
           </div>
 
-          {analyseMsg && (
+          {analyseEnCours && (
+            <div className="card info-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
+              <div>
+                <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
+                <p className="text-muted text-sm" style={{ margin: 0 }}>Extraction des faits et détection d'incohérences. Cela peut prendre 15–30 secondes.</p>
+              </div>
+            </div>
+          )}
+          {!analyseEnCours && analyseMsg && (
             <p className={`analyse-msg ${analyseMsg.includes('alerte') ? 'analyse-alert' : 'analyse-ok'}`}>
               {analyseMsg}
             </p>
