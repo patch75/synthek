@@ -234,7 +234,7 @@ Si aucune incohérence n'est détectée, retourne { "alertes": [] }`
     messages: [{ role: 'user', content: prompt }]
   })
 
-  const text = response.content[0].text
+  const text = response.content[0].text.trim().replace(/^```json?\s*/i, '').replace(/\s*```$/i, '')
   const parsed = JSON.parse(text)
 
   // Créer les alertes en base

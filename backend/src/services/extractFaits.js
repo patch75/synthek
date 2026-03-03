@@ -29,6 +29,7 @@ Document : "${nomDocument}"
 Texte :
 ${texte}
 
+Retourne au maximum 80 faits (les plus importants en priorité).
 Réponds UNIQUEMENT avec un tableau JSON valide. Pas de texte avant ou après. Pas de balises markdown. Format exact :
 [
   {
