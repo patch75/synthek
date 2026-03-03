@@ -180,14 +180,26 @@ router.delete('/:id', async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Réservé aux administrateurs' })
   }
-  const doc = await prisma.document.findUnique({ where: { id: parseInt(req.params.id) } })
+  const docId = parseInt(req.params.id)
+  const doc = await prisma.document.findUnique({ where: { id: docId } })
   if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+
+  if (req.body?.resoudreAlertes) {
+    const liens = await prisma.alerteDocument.findMany({ where: { documentId: docId }, select: { alerteId: true } })
+    const alerteIds = liens.map(l => l.alerteId)
+    if (alerteIds.length > 0) {
+      await prisma.alerte.updateMany({
+        where: { id: { in: alerteIds } },
+        data: { statut: 'resolue', resoluePar: 'manuelle' }
+      })
+    }
+  }
 
   if (doc.cheminFichier && fs.existsSync(doc.cheminFichier)) {
     fs.unlinkSync(doc.cheminFichier)
   }
 
-  await prisma.document.delete({ where: { id: parseInt(req.params.id) } })
+  await prisma.document.delete({ where: { id: docId } })
   res.json({ message: 'Document supprimé' })
 })
 

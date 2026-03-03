@@ -95,6 +95,8 @@ export default function Projet() {
   const [jalonChoisi, setJalonChoisi] = useState('DCE')
   const [showLexique, setShowLexique] = useState(false)
   const [showAlertes, setShowAlertes] = useState(false)
+  const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
+  const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showEditProjet, setShowEditProjet] = useState(false)
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
@@ -211,11 +213,18 @@ export default function Projet() {
     }
   }
 
-  async function supprimerDocument(docId, nomDoc) {
-    if (!confirm(`Supprimer "${nomDoc}" ?`)) return
+  async function supprimerDocument() {
+    const { id: docId } = showDeleteDoc
     try {
-      await api.delete(`/documents/${docId}`)
+      await api.delete(`/documents/${docId}`, { data: { resoudreAlertes: deleteResoudreAlertes } })
       setProjet(prev => ({ ...prev, documents: prev.documents.filter(d => d.id !== docId) }))
+      if (deleteResoudreAlertes) {
+        setAlertes(prev => prev.map(a =>
+          a.documents?.some(d => d.documentId === docId) ? { ...a, statut: 'resolue' } : a
+        ))
+      }
+      setShowDeleteDoc(null)
+      setDeleteResoudreAlertes(false)
     } catch (err) {
       alert(err.response?.data?.error || 'Erreur lors de la suppression')
     }
@@ -585,7 +594,7 @@ export default function Projet() {
                         {isAdmin && (
                           <td>
                             <button
-                              onClick={() => supprimerDocument(doc.id, doc.nom)}
+                              onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
                               className="btn-ghost"
                               style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }}
                               title="Supprimer"
@@ -769,6 +778,35 @@ export default function Projet() {
       )}
 
       {showLexique && <LexiqueModal onClose={() => setShowLexique(false)} />}
+
+      {showDeleteDoc && (
+        <div className="modal-overlay" onClick={() => setShowDeleteDoc(null)}>
+          <div className="modal-card" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Supprimer le document</h3>
+              <button className="btn-ghost" onClick={() => setShowDeleteDoc(null)} style={{ padding: '4px 8px' }}>✕</button>
+            </div>
+            <p style={{ fontSize: 14, marginBottom: 16 }}>
+              Supprimer <strong>{showDeleteDoc.nom}</strong> ?
+            </p>
+            <div className="form-group">
+              <label style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={deleteResoudreAlertes}
+                  onChange={e => setDeleteResoudreAlertes(e.target.checked)}
+                  style={{ marginRight: 8 }}
+                />
+                Résoudre les alertes liées à ce document
+              </label>
+            </div>
+            <div className="form-actions" style={{ marginTop: 8 }}>
+              <button onClick={supprimerDocument} className="btn-ghost" style={{ color: '#ef4444' }}>Supprimer</button>
+              <button onClick={() => setShowDeleteDoc(null)} className="btn-ghost">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditProjet && (
         <div className="modal-overlay" onClick={() => setShowEditProjet(false)}>
