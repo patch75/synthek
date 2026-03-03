@@ -56,7 +56,7 @@ export default function Upload() {
               <label>Fichier <span className="text-muted">(PDF, Word, Excel — max 20 Mo)</span></label>
               <input
                 type="file"
-                accept=".pdf,.docx,.xlsx"
+                accept=".pdf,.docx,.xlsx,.xls"
                 onChange={e => {
                   const f = e.target.files[0]
                   if (f && f.size > 20 * 1024 * 1024) {

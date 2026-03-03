@@ -35,7 +35,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.docx', '.xlsx']
+    const allowed = ['.pdf', '.docx', '.xlsx', '.xls']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowed.includes(ext)) cb(null, true)
     else cb(new Error('Type de fichier non supporté'))
