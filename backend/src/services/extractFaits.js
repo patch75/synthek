@@ -3,7 +3,7 @@ const Anthropic = require('@anthropic-ai/sdk')
 const prisma = require('../lib/prisma')
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const TEXTE_MAX = 50000  // ~12 500 tokens — couvre la plupart des CCTP complets
+const TEXTE_MAX = 12000  // ~3 000 tokens — respecte le rate limit 10k tokens/min
 
 async function extraireFaits(documentId, projetId, contenuTexte, nomDocument) {
   if (!contenuTexte || contenuTexte.trim().length < 50) return []
