@@ -449,7 +449,7 @@ export default function Projet() {
                     Tout résoudre
                   </button>
                 )}
-                <span style={{ fontSize: 18, color: 'var(--text-muted)' }}>{showAlertes ? '▲' : '▼'}</span>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
               </div>
             </div>
             {showAlertes && (
