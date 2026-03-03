@@ -29,7 +29,7 @@ Document : "${nomDocument}"
 Texte :
 ${texte}
 
-Retourne au maximum 80 faits (les plus importants en priorité).
+Retourne au maximum 50 faits (les plus importants en priorité).
 Réponds UNIQUEMENT avec un tableau JSON valide. Pas de texte avant ou après. Pas de balises markdown. Format exact :
 [
   {
@@ -46,7 +46,7 @@ Si aucun fait technique n'est trouvé, retourne exactement : []`
   try {
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{ role: 'user', content: prompt }]
     })
 
