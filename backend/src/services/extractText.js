@@ -1,4 +1,5 @@
-const pdfParse = require('pdf-parse')
+const pdfParseMod = require('pdf-parse')
+const pdfParse = typeof pdfParseMod === 'function' ? pdfParseMod : pdfParseMod.default
 const mammoth = require('mammoth')
 const ExcelJS = require('exceljs')
 const XLSX = require('xlsx')

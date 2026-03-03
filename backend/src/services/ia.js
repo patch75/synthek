@@ -73,7 +73,8 @@ Réponds UNIQUEMENT en JSON avec ce format exact :
       messages: [{ role: 'user', content: prompt }]
     })
 
-    const parsed = JSON.parse(response.content[0].text)
+    const raw = response.content[0].text.trim().replace(/^```json?\s*/i, '').replace(/\s*```$/i, '')
+    const parsed = JSON.parse(raw)
 
     const puce = await prisma.puce.create({
       data: {
