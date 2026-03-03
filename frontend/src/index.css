@@ -191,6 +191,7 @@ input:focus, textarea:focus, select:focus {
 select option { background: #1a2235; color: var(--text); }
 textarea { resize: vertical; }
 input[type="file"] { padding: 7px; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: none; background: none; }
 
 .form-inline { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
 .form-inline input { flex: 1; min-width: 160px; }
