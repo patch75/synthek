@@ -146,6 +146,9 @@ async function analyserProjet(projetId) {
 
   if (documents.length < 2) return []
 
+  // Supprimer les alertes actives existantes avant de recréer
+  await prisma.alerte.deleteMany({ where: { projetId, statut: 'active' } })
+
   const [contenuReglementationRef, configProjet, contexteReglementaire, faitsParDoc] = await Promise.all([
     chargerReglementationRef(),
     chargerConfigProjet(projetId),
