@@ -7,6 +7,7 @@ const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const { extractText } = require('../services/extractText')
 const { analyserProjet, genererPuce, comparerVersions } = require('../services/ia')
+const { extraireFaits } = require('../services/extractFaits')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -148,24 +149,28 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
 
   const document = await prisma.document.create({ data: documentData })
 
-  // Génération Puce + Analyse IA + Delta (si version précédente) en arrière-plan
+  // Extraction faits → puis analyse projet (séquencé)
   const pid = parseInt(projetId)
-  const tasks = [
-    genererPuce(document.id, pid, contenuTexte, document.nom)
-      .catch(err => console.error('Erreur génération puce:', err.message)),
+  const backgroundTasks = async () => {
+    // 1. Puce + Faits en parallèle (indépendants l'un de l'autre)
+    await Promise.all([
+      genererPuce(document.id, pid, contenuTexte, document.nom)
+        .catch(err => console.error('Erreur génération puce:', err.message)),
+      extraireFaits(document.id, pid, contenuTexte, document.nom)
+        .catch(err => console.error('Erreur extraction faits:', err.message))
+    ])
+
+    // 2. Analyse projet une fois les faits en base
     analyserProjet(pid)
       .catch(err => console.error('Erreur analyse IA:', err.message))
-  ]
 
-  // Si nouvelle version : générer le delta en background
-  if (docExistant && docExistant.contenuTexte) {
-    tasks.push(
+    // 3. Delta si version précédente (indépendant)
+    if (docExistant && docExistant.contenuTexte) {
       comparerVersions(document.id, docExistant.id, contenuTexte, docExistant.contenuTexte, document.nom)
         .catch(err => console.error('Erreur comparaison versions:', err.message))
-    )
+    }
   }
-
-  Promise.all(tasks)
+  backgroundTasks()  // sans await — non-bloquant
 
   res.status(201).json(document)
 })

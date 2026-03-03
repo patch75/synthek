@@ -51,6 +51,7 @@ model Projet {
   syntheses       Synthese[]
   config          ConfigProjet?
   decisions       DecisionArbitrage[]
+  faits           FaitDocument[]
 }
 
 model ProjetUser {
@@ -92,6 +93,7 @@ model Document {
   syntheses           Synthese[]
   versionPrecedente   Document? @relation("versions", fields: [versionPrecedenteId], references: [id])
   versionsUlterieures Document[] @relation("versions")
+  faits               FaitDocument[]
 }
 
 model Alerte {
@@ -201,6 +203,25 @@ model ConfigProjet {
   conventionNommage     String? // "TYPE_INTERVENANT_vX_STATUT.ext"
 
   projet                Projet  @relation(fields: [projetId], references: [id], onDelete: Cascade)
+}
+
+// V4 — Faits structurés extraits à l'upload (Claude Haiku)
+model FaitDocument {
+  id             Int      @id @default(autoincrement())
+  documentId     Int
+  projetId       Int
+  categorie      String   // 'quantite'|'materiau'|'dimension'|'norme'|'performance'|'equipement'|'contrainte'
+  sujet          String   // ex: "tuyau PVC rouge"
+  valeur         String   // ex: "220" ou "DN32" ou "NF EN 12201"
+  unite          String?  // ex: "u", "ml", "m²", "kW"
+  contexte       String?  @db.Text  // phrase d'origine pour traçabilité
+  dateExtraction DateTime @default(now())
+
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  projet         Projet   @relation(fields: [projetId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([projetId])
 }
 
 // V3 — Bloc 5 : décisions d'arbitrage

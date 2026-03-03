@@ -145,18 +145,48 @@ async function analyserProjet(projetId) {
 
   if (documents.length < 2) return []
 
-  const [contenuReglementationRef, configProjet, contexteReglementaire] = await Promise.all([
+  const [contenuReglementationRef, configProjet, contexteReglementaire, faitsParDoc] = await Promise.all([
     chargerReglementationRef(),
     chargerConfigProjet(projetId),
-    enrichirContexteReglementaire(projetId)
+    enrichirContexteReglementaire(projetId),
+    prisma.faitDocument.findMany({
+      where: { projetId },
+      orderBy: [{ documentId: 'asc' }, { categorie: 'asc' }]
+    })
   ])
 
-  // Pour les documents avec delta, utiliser le delta ; sinon le texte complet
+  const faitsByDocId = {}
+  for (const fait of faitsParDoc) {
+    if (!faitsByDocId[fait.documentId]) faitsByDocId[fait.documentId] = []
+    faitsByDocId[fait.documentId].push(fait)
+  }
+
+  // Contexte hybride : tableau de faits si dispo, sinon texte brut (fallback)
   const contexte = documents
     .map(doc => {
-      const texte = doc.deltaModifications || doc.contenuTexte || ''
-      const labelVersion = doc.deltaModifications ? '(delta v' + doc.version + ')' : ''
-      return `--- Document: "${doc.nom}" ${labelVersion}(déposé par ${doc.user.nom}) ---\n${texte}`
+      const faits = faitsByDocId[doc.id] || []
+      const header = `--- Document: "${doc.nom}" (${doc.user.nom}) ---`
+
+      if (faits.length > 0) {
+        // Mode optimisé : tableau compact
+        const entete = `| catégorie   | sujet                                    | valeur      |`
+        const sep    = `|-------------|------------------------------------------|-------------|`
+        const lignes = faits
+          .map(f => {
+            const vu = f.unite ? `${f.valeur} ${f.unite}` : f.valeur
+            return `| ${f.categorie.padEnd(11)} | ${f.sujet.substring(0, 40).padEnd(40)} | ${vu} |`
+          })
+          .join('\n')
+        const delta = doc.deltaModifications
+          ? `\nModifications récentes :\n${doc.deltaModifications}`
+          : ''
+        return `${header}\n${entete}\n${sep}\n${lignes}${delta}`
+      } else {
+        // Fallback : aucun fait → texte complet (documents sans extraction)
+        const texte = doc.deltaModifications || doc.contenuTexte || ''
+        const label = doc.deltaModifications ? '(delta v' + doc.version + ')' : ''
+        return `--- Document: "${doc.nom}" ${label}(déposé par ${doc.user.nom}) ---\n${texte}`
+      }
     })
     .join('\n\n')
 
@@ -179,6 +209,9 @@ async function analyserProjet(projetId) {
 
 ${HIERARCHIE_VERITE}
 ${reglementationSection}${contexteReglementaire}${configSection}${seuilsSection}${vocabSection}
+
+Les documents sont présentés sous forme de tableaux de faits structurés (catégorie | sujet | valeur).
+Compare les valeurs de même sujet entre documents pour détecter les contradictions.
 
 ${contexte}
 
