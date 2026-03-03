@@ -1,6 +1,6 @@
 const pdfParse = require('pdf-parse')
 const mammoth = require('mammoth')
-const xlsx = require('xlsx')
+const ExcelJS = require('exceljs')
 const fs = require('fs')
 const path = require('path')
 const { extractTextVision } = require('./extractVision')
@@ -33,13 +33,15 @@ async function extractText(filePath, fileType, nomDocument) {
   }
 
   if (fileType === 'xlsx') {
-    const workbook = xlsx.read(buffer, { type: 'buffer' })
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(buffer)
     let text = ''
-    for (const sheetName of workbook.SheetNames) {
-      const sheet = workbook.Sheets[sheetName]
-      text += `\n=== Feuille: ${sheetName} ===\n`
-      text += xlsx.utils.sheet_to_csv(sheet)
-    }
+    workbook.eachSheet((sheet) => {
+      text += `\n=== Feuille: ${sheet.name} ===\n`
+      sheet.eachRow((row) => {
+        text += row.values.slice(1).join(',') + '\n'
+      })
+    })
     return text
   }
 
