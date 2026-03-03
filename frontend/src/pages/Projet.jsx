@@ -220,6 +220,14 @@ export default function Projet() {
     }
   }
 
+  async function toutResoudre() {
+    if (!confirm(`Résoudre les ${alertesActives.length} alertes actives ?`)) return
+    await Promise.all(alertesActives.map(a =>
+      api.patch(`/alertes/${a.id}/resoudre`, { resoluePar: 'manuelle', justificationDerogation: null })
+    ))
+    setAlertes(prev => prev.map(a => ({ ...a, statut: 'resolue' })))
+  }
+
   async function resoudreAlerte(alerteId) {
     await api.patch(`/alertes/${alerteId}/resoudre`, {
       resoluePar: resolType,
@@ -423,9 +431,16 @@ export default function Projet() {
         {/* Alertes actives */}
         {alertesActives.length > 0 && (
           <section className="section">
-            <h2 className="section-title alert-title">
-              ⚠ {alertesActives.length} alerte{alertesActives.length > 1 ? 's' : ''} active{alertesActives.length > 1 ? 's' : ''}
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 className="section-title alert-title" style={{ marginBottom: 0 }}>
+                ⚠ {alertesActives.length} alerte{alertesActives.length > 1 ? 's' : ''} active{alertesActives.length > 1 ? 's' : ''}
+              </h2>
+              {isAdmin && alertesActives.length > 1 && (
+                <button onClick={toutResoudre} className="btn-ghost" style={{ fontSize: 13, padding: '4px 10px' }}>
+                  Tout résoudre
+                </button>
+              )}
+            </div>
             <div className="alertes-list">
               {alertesActives.map(alerte => (
                 <div key={alerte.id} className="card alerte-card">
