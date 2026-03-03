@@ -184,7 +184,7 @@ router.delete('/:id', async (req, res) => {
   const doc = await prisma.document.findUnique({ where: { id: docId } })
   if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
 
-  if (req.body?.resoudreAlertes) {
+  if (req.query.resoudreAlertes === 'true') {
     const liens = await prisma.alerteDocument.findMany({ where: { documentId: docId }, select: { alerteId: true } })
     const alerteIds = liens.map(l => l.alerteId)
     if (alerteIds.length > 0) {

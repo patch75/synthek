@@ -267,7 +267,7 @@ export default function Projet() {
   async function supprimerDocument() {
     const { id: docId } = showDeleteDoc
     try {
-      await api.delete(`/documents/${docId}`, { data: { resoudreAlertes: deleteResoudreAlertes } })
+      await api.delete(`/documents/${docId}?resoudreAlertes=${deleteResoudreAlertes}`)
       setProjet(prev => ({ ...prev, documents: prev.documents.filter(d => d.id !== docId) }))
       if (deleteResoudreAlertes) {
         setAlertes(prev => prev.map(a =>
