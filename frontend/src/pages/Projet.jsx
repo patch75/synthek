@@ -97,6 +97,15 @@ export default function Projet() {
   const [showEditProjet, setShowEditProjet] = useState(false)
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
+  const [editAdresse, setEditAdresse] = useState('')
+  const [editTypeBatiment, setEditTypeBatiment] = useState('')
+  const [editNombreNiveaux, setEditNombreNiveaux] = useState('')
+  const [editShon, setEditShon] = useState('')
+  const [editEnergieRetenue, setEditEnergieRetenue] = useState('')
+  const [editZoneClimatique, setEditZoneClimatique] = useState('')
+  const [editClassementErp, setEditClassementErp] = useState(false)
+  const [editTypeErp, setEditTypeErp] = useState('')
+  const [editNombreLogements, setEditNombreLogements] = useState('')
   const [editEnCours, setEditEnCours] = useState(false)
 
   // V3 — Config IA
@@ -162,6 +171,15 @@ export default function Projet() {
   function ouvrirEditProjet() {
     setEditNom(projet.nom)
     setEditClient(projet.client)
+    setEditAdresse(projet.adresse || '')
+    setEditTypeBatiment(projet.typeBatiment || '')
+    setEditNombreNiveaux(projet.nombreNiveaux ?? '')
+    setEditShon(projet.shon ?? '')
+    setEditEnergieRetenue(projet.energieRetenue || '')
+    setEditZoneClimatique(projet.zoneClimatique || '')
+    setEditClassementErp(projet.classementErp || false)
+    setEditTypeErp(projet.typeErp || '')
+    setEditNombreLogements(projet.nombreLogements ?? '')
     setShowEditProjet(true)
   }
 
@@ -169,8 +187,21 @@ export default function Projet() {
     e.preventDefault()
     setEditEnCours(true)
     try {
-      const res = await api.patch(`/projets/${id}`, { nom: editNom, client: editClient })
-      setProjet(prev => ({ ...prev, nom: res.data.nom, client: res.data.client }))
+      const body = {
+        nom: editNom,
+        client: editClient,
+        adresse: editAdresse,
+        typeBatiment: editTypeBatiment,
+        nombreNiveaux: editNombreNiveaux,
+        shon: editShon,
+        energieRetenue: editEnergieRetenue,
+        zoneClimatique: editZoneClimatique,
+        classementErp: editClassementErp,
+        typeErp: editTypeErp,
+        nombreLogements: editNombreLogements
+      }
+      const res = await api.patch(`/projets/${id}`, body)
+      setProjet(prev => ({ ...prev, ...res.data }))
       setShowEditProjet(false)
     } catch (err) {
       alert(err.response?.data?.error || 'Erreur lors de la modification')
@@ -681,20 +712,84 @@ export default function Projet() {
 
       {showEditProjet && (
         <div className="modal-overlay" onClick={() => setShowEditProjet(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Modifier le projet</h3>
               <button className="btn-ghost" onClick={() => setShowEditProjet(false)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
-            <form onSubmit={sauvegarderProjet}>
+            <form onSubmit={sauvegarderProjet} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="form-group">
-                <label>Nom du projet</label>
+                <label>Nom du projet *</label>
                 <input value={editNom} onChange={e => setEditNom(e.target.value)} required />
               </div>
               <div className="form-group">
-                <label>Client / Maître d'ouvrage</label>
+                <label>Client / Maître d'ouvrage *</label>
                 <input value={editClient} onChange={e => setEditClient(e.target.value)} required />
               </div>
+              <div className="form-group">
+                <label>Adresse</label>
+                <input value={editAdresse} onChange={e => setEditAdresse(e.target.value)} placeholder="Adresse du projet" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label>Type de bâtiment</label>
+                  <select value={editTypeBatiment} onChange={e => setEditTypeBatiment(e.target.value)}>
+                    <option value="">— Non défini —</option>
+                    <option value="logements_collectifs">Logements collectifs</option>
+                    <option value="bureaux">Bureaux</option>
+                    <option value="erp">ERP</option>
+                    <option value="industrie">Industrie</option>
+                    <option value="mixte">Mixte</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Énergie retenue</label>
+                  <select value={editEnergieRetenue} onChange={e => setEditEnergieRetenue(e.target.value)}>
+                    <option value="">— Non défini —</option>
+                    <option value="gaz">Gaz</option>
+                    <option value="electricite">Électricité</option>
+                    <option value="pac">PAC</option>
+                    <option value="geothermie">Géothermie</option>
+                    <option value="bois">Bois</option>
+                    <option value="mixte">Mixte</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Nombre de niveaux</label>
+                  <input type="number" min="1" value={editNombreNiveaux} onChange={e => setEditNombreNiveaux(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>SHON (m²)</label>
+                  <input type="number" min="0" step="0.1" value={editShon} onChange={e => setEditShon(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Zone climatique</label>
+                  <select value={editZoneClimatique} onChange={e => setEditZoneClimatique(e.target.value)}>
+                    <option value="">— Non défini —</option>
+                    {['H1a','H1b','H1c','H2a','H2b','H2c','H2d','H3'].map(z => (
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </select>
+                </div>
+                {(editTypeBatiment === 'logements_collectifs' || editTypeBatiment === 'mixte') && (
+                  <div className="form-group">
+                    <label>Nombre de logements</label>
+                    <input type="number" min="1" value={editNombreLogements} onChange={e => setEditNombreLogements(e.target.value)} />
+                  </div>
+                )}
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={editClassementErp} onChange={e => setEditClassementErp(e.target.checked)} />
+                  Classement ERP
+                </label>
+              </div>
+              {editClassementErp && (
+                <div className="form-group">
+                  <label>Type ERP</label>
+                  <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
+                </div>
+              )}
               <div className="form-actions">
                 <button type="submit" disabled={editEnCours} className="btn-primary">
                   {editEnCours ? 'Enregistrement...' : 'Enregistrer'}
