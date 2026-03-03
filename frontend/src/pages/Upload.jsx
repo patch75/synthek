@@ -10,6 +10,7 @@ export default function Upload() {
   const { theme, toggleTheme } = useTheme()
   const [fichier, setFichier] = useState(null)
   const [resumeModif, setResumeModif] = useState('')
+  const [categorieDoc, setCategorieDoc] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -23,6 +24,7 @@ export default function Upload() {
     formData.append('fichier', fichier)
     formData.append('projetId', id)
     formData.append('resumeModif', resumeModif)
+    formData.append('categorieDoc', categorieDoc)
 
     try {
       const res = await api.post('/documents/upload', formData, {
@@ -75,6 +77,21 @@ export default function Upload() {
                   {fichier.name} — {(fichier.size / 1024 / 1024).toFixed(2)} Mo
                 </p>
               )}
+            </div>
+
+            <div className="form-group">
+              <label>Catégorie <span className="text-muted">(optionnel)</span></label>
+              <select value={categorieDoc} onChange={e => setCategorieDoc(e.target.value)}>
+                <option value="">— Choisir une catégorie —</option>
+                <option value="plans">Plans</option>
+                <option value="pieces_ecrites">Pièces écrites</option>
+                <option value="etudes_th">Études thermiques</option>
+                <option value="bureau_controle">Bureau de contrôle</option>
+                <option value="programme">Programme</option>
+                <option value="notes_calcul">Notes de calcul</option>
+                <option value="comptes_rendus">Comptes-rendus</option>
+                <option value="autre">Autre</option>
+              </select>
             </div>
 
             <div className="form-group">

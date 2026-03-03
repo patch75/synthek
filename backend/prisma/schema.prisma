@@ -85,6 +85,9 @@ model Document {
   statutDocument      String?   // 'provisoire','pour_visa','valide'
   indiceRevision      String?   // 'v1','v2','v3'...
 
+  // V4 — Catégorie documentaire choisie à l'upload
+  categorieDoc        String?   // 'plans','pieces_ecrites','etudes_th','bureau_controle','programme','notes_calcul','comptes_rendus','autre'
+
   projet              Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
   user                User      @relation(fields: [userId], references: [id])
   alertes             AlerteDocument[]

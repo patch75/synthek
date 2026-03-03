@@ -6,7 +6,7 @@ const crypto = require('crypto')
 const prisma = require('../lib/prisma')
 const authMiddleware = require('../middleware/auth')
 const { extractText } = require('../services/extractText')
-const { analyserProjet, genererPuce, comparerVersions } = require('../services/ia')
+const { genererPuce, comparerVersions } = require('../services/ia')
 const { extraireFaits } = require('../services/extractFaits')
 
 const router = express.Router()
@@ -88,7 +88,7 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     return res.status(400).json({ error: 'Fichier requis' })
   }
 
-  const { projetId, resumeModif } = req.body
+  const { projetId, resumeModif, categorieDoc } = req.body
   if (!projetId) {
     return res.status(400).json({ error: 'projetId requis' })
   }
@@ -138,7 +138,8 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     resumeModif: resumeModif || null,
     hashFichier: hashNouveauFichier,
     statutDocument,
-    indiceRevision
+    indiceRevision,
+    categorieDoc: categorieDoc || null
   }
 
   // Si version précédente existe avec hash différent → nouvelle version
@@ -149,10 +150,10 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
 
   const document = await prisma.document.create({ data: documentData })
 
-  // Extraction faits → puis analyse projet (séquencé)
+  // Extraction puce + faits en background (analyse projet = manuelle)
   const pid = parseInt(projetId)
   const backgroundTasks = async () => {
-    // 1. Puce + Faits en parallèle (indépendants l'un de l'autre)
+    // 1. Puce + Faits en parallèle — analyse projet déclenchée manuellement
     await Promise.all([
       genererPuce(document.id, pid, contenuTexte, document.nom)
         .catch(err => console.error('Erreur génération puce:', err.message)),
@@ -160,11 +161,7 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         .catch(err => console.error('Erreur extraction faits:', err.message))
     ])
 
-    // 2. Analyse projet une fois les faits en base
-    analyserProjet(pid)
-      .catch(err => console.error('Erreur analyse IA:', err.message))
-
-    // 3. Delta si version précédente (indépendant)
+    // 2. Delta si version précédente (indépendant)
     if (docExistant && docExistant.contenuTexte) {
       comparerVersions(document.id, docExistant.id, contenuTexte, docExistant.contenuTexte, document.nom)
         .catch(err => console.error('Erreur comparaison versions:', err.message))

@@ -624,6 +624,7 @@ export default function Projet() {
                 <thead>
                   <tr>
                     <th>Nom</th>
+                    <th>Catégorie</th>
                     <th>Type</th>
                     <th>Statut</th>
                     <th>Indice</th>
@@ -637,9 +638,20 @@ export default function Projet() {
                   {projet.documents.map(doc => {
                     const statutColors = { provisoire: '#94a3b8', pour_visa: '#3b82f6', valide: '#22c55e' }
                     const statutLabels = { provisoire: 'Provisoire', pour_visa: 'Pour visa', valide: 'Validé' }
+                    const categorieLabels = {
+                      plans: 'Plans', pieces_ecrites: 'Pièces écrites', etudes_th: 'Études TH',
+                      bureau_controle: 'Bureau de contrôle', programme: 'Programme',
+                      notes_calcul: 'Notes de calcul', comptes_rendus: 'Comptes-rendus', autre: 'Autre'
+                    }
                     return (
                       <tr key={doc.id}>
                         <td>{doc.nom}</td>
+                        <td>
+                          {doc.categorieDoc
+                            ? <span className="badge" style={{ background: 'var(--bg-muted)', color: 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
+                            : <span className="text-muted text-sm">—</span>
+                          }
+                        </td>
                         <td><span className="badge">{doc.type.toUpperCase()}</span></td>
                         <td>
                           {doc.statutDocument ? (
