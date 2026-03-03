@@ -175,6 +175,22 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   res.status(201).json(document)
 })
 
+// DELETE /documents/:id — supprimer un document (admin only)
+router.delete('/:id', async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  }
+  const doc = await prisma.document.findUnique({ where: { id: parseInt(req.params.id) } })
+  if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+
+  if (doc.cheminFichier && fs.existsSync(doc.cheminFichier)) {
+    fs.unlinkSync(doc.cheminFichier)
+  }
+
+  await prisma.document.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ message: 'Document supprimé' })
+})
+
 // GET /documents/:projetId — liste les documents d'un projet
 router.get('/:projetId', async (req, res) => {
   const documents = await prisma.document.findMany({

@@ -210,6 +210,16 @@ export default function Projet() {
     }
   }
 
+  async function supprimerDocument(docId, nomDoc) {
+    if (!confirm(`Supprimer "${nomDoc}" ?`)) return
+    try {
+      await api.delete(`/documents/${docId}`)
+      setProjet(prev => ({ ...prev, documents: prev.documents.filter(d => d.id !== docId) }))
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur lors de la suppression')
+    }
+  }
+
   async function resoudreAlerte(alerteId) {
     await api.patch(`/alertes/${alerteId}/resoudre`, {
       resoluePar: resolType,
@@ -509,6 +519,7 @@ export default function Projet() {
                     <th>Puce IA</th>
                     <th>Déposé par</th>
                     <th>Date</th>
+                    {isAdmin && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -534,6 +545,18 @@ export default function Projet() {
                         <td><PuceCard puce={doc.puce} /></td>
                         <td>{doc.user?.nom}</td>
                         <td>{new Date(doc.dateDepot).toLocaleDateString('fr-FR')}</td>
+                        {isAdmin && (
+                          <td>
+                            <button
+                              onClick={() => supprimerDocument(doc.id, doc.nom)}
+                              className="btn-ghost"
+                              style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }}
+                              title="Supprimer"
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
