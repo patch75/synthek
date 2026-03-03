@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import logo from '../assets/images/synthek.png'
@@ -74,7 +74,12 @@ function PuceCard({ puce }) {
 export default function Projet() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
+  const [analyseBg, setAnalyseBg] = useState(false) // polling en cours
+  const [analyseTimer, setAnalyseTimer] = useState(0)
+  const pollingRef = useRef(null)
+  const timerRef = useRef(null)
   const { theme, toggleTheme } = useTheme()
   const [projet, setProjet] = useState(null)
   const [alertes, setAlertes] = useState([])
@@ -135,6 +140,52 @@ export default function Projet() {
       setLoading(false)
     })
   }, [id])
+
+  // Polling après upload
+  useEffect(() => {
+    const newDocId = location.state?.newDocId
+    if (!newDocId) return
+    setAnalyseBg(true)
+    setAnalyseTimer(0)
+    const start = Date.now()
+    const TIMEOUT = 90000 // 90s max
+
+    timerRef.current = setInterval(() => {
+      setAnalyseTimer(Math.floor((Date.now() - start) / 1000))
+    }, 1000)
+
+    pollingRef.current = setInterval(async () => {
+      if (Date.now() - start > TIMEOUT) {
+        clearInterval(pollingRef.current)
+        clearInterval(timerRef.current)
+        setAnalyseBg(false)
+        return
+      }
+      try {
+        const [pRes, aRes] = await Promise.all([
+          api.get(`/projets/${id}`),
+          api.get(`/alertes/${id}`)
+        ])
+        const doc = pRes.data.documents?.find(d => d.id === newDocId)
+        setProjet(pRes.data)
+        setAlertes(aRes.data)
+        if (doc?.puce) {
+          clearInterval(pollingRef.current)
+          clearInterval(timerRef.current)
+          setAnalyseBg(false)
+        }
+      } catch {
+        clearInterval(pollingRef.current)
+        clearInterval(timerRef.current)
+        setAnalyseBg(false)
+      }
+    }, 3000)
+
+    return () => {
+      clearInterval(pollingRef.current)
+      clearInterval(timerRef.current)
+    }
+  }, [location.state?.newDocId])
 
   async function chargerConfig() {
     try {
@@ -414,6 +465,20 @@ export default function Projet() {
             </button>
           )}
         </div>
+
+        {/* Banner analyse en arrière-plan */}
+        {analyseBg && (
+          <div className="card info-card" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block', flexShrink: 0 }}>⏳</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
+              <p className="text-muted text-sm" style={{ margin: 0 }}>Extraction des faits et détection d'incohérences. Les alertes apparaîtront automatiquement.</p>
+            </div>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+              {analyseTimer}s
+            </span>
+          </div>
+        )}
 
         {/* Banner BLOQUÉ EXE */}
         {projet.bloqueExe && (

@@ -25,10 +25,10 @@ export default function Upload() {
     formData.append('resumeModif', resumeModif)
 
     try {
-      await api.post('/documents/upload', formData, {
+      const res = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
-      navigate(`/projets/${id}`)
+      navigate(`/projets/${id}`, { state: { newDocId: res.data.id } })
     } catch (err) {
       setError(err.response?.data?.error || 'Erreur lors du dépôt')
     } finally {
