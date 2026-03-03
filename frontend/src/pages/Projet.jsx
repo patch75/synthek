@@ -717,80 +717,82 @@ export default function Projet() {
               <h3>Modifier le projet</h3>
               <button className="btn-ghost" onClick={() => setShowEditProjet(false)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
-            <form onSubmit={sauvegarderProjet} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-group">
-                <label>Nom du projet *</label>
-                <input value={editNom} onChange={e => setEditNom(e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label>Client / Maître d'ouvrage *</label>
-                <input value={editClient} onChange={e => setEditClient(e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label>Adresse</label>
-                <input value={editAdresse} onChange={e => setEditAdresse(e.target.value)} placeholder="Adresse du projet" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <form onSubmit={sauvegarderProjet}>
+              <div style={{ overflowY: 'auto', maxHeight: '65vh', display: 'flex', flexDirection: 'column', gap: 14, paddingRight: 4 }}>
                 <div className="form-group">
-                  <label>Type de bâtiment</label>
-                  <select value={editTypeBatiment} onChange={e => setEditTypeBatiment(e.target.value)}>
-                    <option value="">— Non défini —</option>
-                    <option value="logements_collectifs">Logements collectifs</option>
-                    <option value="bureaux">Bureaux</option>
-                    <option value="erp">ERP</option>
-                    <option value="industrie">Industrie</option>
-                    <option value="mixte">Mixte</option>
-                  </select>
+                  <label>Nom du projet *</label>
+                  <input value={editNom} onChange={e => setEditNom(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                  <label>Énergie retenue</label>
-                  <select value={editEnergieRetenue} onChange={e => setEditEnergieRetenue(e.target.value)}>
-                    <option value="">— Non défini —</option>
-                    <option value="gaz">Gaz</option>
-                    <option value="electricite">Électricité</option>
-                    <option value="pac">PAC</option>
-                    <option value="geothermie">Géothermie</option>
-                    <option value="bois">Bois</option>
-                    <option value="mixte">Mixte</option>
-                  </select>
+                  <label>Client / Maître d'ouvrage *</label>
+                  <input value={editClient} onChange={e => setEditClient(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                  <label>Nombre de niveaux</label>
-                  <input type="number" min="1" value={editNombreNiveaux} onChange={e => setEditNombreNiveaux(e.target.value)} />
+                  <label>Adresse</label>
+                  <input value={editAdresse} onChange={e => setEditAdresse(e.target.value)} placeholder="Adresse du projet" />
                 </div>
-                <div className="form-group">
-                  <label>SHON (m²)</label>
-                  <input type="number" min="0" step="0.1" value={editShon} onChange={e => setEditShon(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Zone climatique</label>
-                  <select value={editZoneClimatique} onChange={e => setEditZoneClimatique(e.target.value)}>
-                    <option value="">— Non défini —</option>
-                    {['H1a','H1b','H1c','H2a','H2b','H2c','H2d','H3'].map(z => (
-                      <option key={z} value={z}>{z}</option>
-                    ))}
-                  </select>
-                </div>
-                {(editTypeBatiment === 'logements_collectifs' || editTypeBatiment === 'mixte') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group">
-                    <label>Nombre de logements</label>
-                    <input type="number" min="1" value={editNombreLogements} onChange={e => setEditNombreLogements(e.target.value)} />
+                    <label>Type de bâtiment</label>
+                    <select value={editTypeBatiment} onChange={e => setEditTypeBatiment(e.target.value)}>
+                      <option value="">— Non défini —</option>
+                      <option value="logements_collectifs">Logements collectifs</option>
+                      <option value="bureaux">Bureaux</option>
+                      <option value="erp">ERP</option>
+                      <option value="industrie">Industrie</option>
+                      <option value="mixte">Mixte</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Énergie retenue</label>
+                    <select value={editEnergieRetenue} onChange={e => setEditEnergieRetenue(e.target.value)}>
+                      <option value="">— Non défini —</option>
+                      <option value="gaz">Gaz</option>
+                      <option value="electricite">Électricité</option>
+                      <option value="pac">PAC</option>
+                      <option value="geothermie">Géothermie</option>
+                      <option value="bois">Bois</option>
+                      <option value="mixte">Mixte</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Nombre de niveaux</label>
+                    <input type="number" min="1" value={editNombreNiveaux} onChange={e => setEditNombreNiveaux(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>SHON (m²)</label>
+                    <input type="number" min="0" step="0.1" value={editShon} onChange={e => setEditShon(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Zone climatique</label>
+                    <select value={editZoneClimatique} onChange={e => setEditZoneClimatique(e.target.value)}>
+                      <option value="">— Non défini —</option>
+                      {['H1a','H1b','H1c','H2a','H2b','H2c','H2d','H3'].map(z => (
+                        <option key={z} value={z}>{z}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {(editTypeBatiment === 'logements_collectifs' || editTypeBatiment === 'mixte') && (
+                    <div className="form-group">
+                      <label>Nombre de logements</label>
+                      <input type="number" min="1" value={editNombreLogements} onChange={e => setEditNombreLogements(e.target.value)} />
+                    </div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={editClassementErp} onChange={e => setEditClassementErp(e.target.checked)} />
+                    Classement ERP
+                  </label>
+                </div>
+                {editClassementErp && (
+                  <div className="form-group">
+                    <label>Type ERP</label>
+                    <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
                   </div>
                 )}
               </div>
-              <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={editClassementErp} onChange={e => setEditClassementErp(e.target.checked)} />
-                  Classement ERP
-                </label>
-              </div>
-              {editClassementErp && (
-                <div className="form-group">
-                  <label>Type ERP</label>
-                  <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
-                </div>
-              )}
-              <div className="form-actions">
+              <div className="form-actions" style={{ marginTop: 16 }}>
                 <button type="submit" disabled={editEnCours} className="btn-primary">
                   {editEnCours ? 'Enregistrement...' : 'Enregistrer'}
                 </button>
