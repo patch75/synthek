@@ -5,12 +5,14 @@ const { enrichirContexteReglementaire } = require('./reglementation')
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const HIERARCHIE_VERITE = `Ordre de priorité des documents en cas de conflit :
-1. CCTP (cahier des charges technique)
-2. DPGF (bordereau de prix)
-3. Plans architecte
-4. Notes de calcul ingénieurs
-5. Comptes-rendus de réunion
-→ En cas de conflit, désigner le document déviant et citer les deux valeurs contradictoires.`
+1. Programme (référence absolue du projet — exprime les exigences du maître d'ouvrage)
+2. CCTP (cahier des clauses techniques particulières — décline le programme lot par lot)
+3. DPGF (décomposition du prix global et forfaitaire — chiffrage des prestations du CCTP)
+4. Plans architecte
+5. Notes de calcul ingénieurs
+6. Comptes-rendus de réunion
+→ En cas de conflit, désigner le document déviant et citer les deux valeurs contradictoires.
+→ Le programme prime toujours : toute exigence du programme doit se retrouver dans le CCTP, et tout lot du CCTP doit être chiffré dans le DPGF.`
 
 const REGLEMENTATION = `Contexte réglementaire applicable :
 - DTU (Documents Techniques Unifiés) : normes d'exécution des travaux

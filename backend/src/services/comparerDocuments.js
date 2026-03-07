@@ -121,9 +121,10 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     return []
   }
 
-  // Résumé des écarts pour l'IA
+  // Résumé des écarts + extraits des deux côtés pour que Haiku puisse juger
   const resumeEcarts = resultats.map(r => {
     const a = r.analyse
+    const ref = docsRef.find(d => d.nom === a.nomRef)
     const lignes = [`== ${nomDoc} vs ${a.nomRef} (couverture ${a.couverture}%) ==`]
     if (a.termesManquants.length > 0) {
       lignes.push(`Termes du programme absents du document : ${a.termesManquants.slice(0, 12).join(', ')}`)
@@ -132,27 +133,35 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
       lignes.push(`Exigences potentiellement non couvertes :`)
       a.exigencesNonCouvertes.forEach(e => lignes.push(`  • ${e.substring(0, 120)}`))
     }
+    if (ref?.contenuTexte) {
+      lignes.push(`\nExtrait du programme de référence (${a.nomRef}) :`)
+      lignes.push(ref.contenuTexte.substring(0, 1500))
+    }
     return lignes.join('\n')
-  }).join('\n\n')
+  }).join('\n\n---\n\n')
 
   // Appel Haiku pour filtrer les vrais problèmes parmi les écarts détectés
   try {
-    const prompt = `Tu es un expert en coordination de chantier de construction (BET, maître d'œuvre).
+    const prompt = `Tu es un expert en bureau d'études thermiques et fluides (BET), spécialisé dans l'analyse de documents de construction (programmes, CCTP, DPGF).
 
-Un script d'analyse automatique a comparé "${nomDoc}" (${categorieDoc.toUpperCase()}) avec les documents de référence du projet et a détecté ces écarts :
+Un script d'analyse automatique a comparé le document "${nomDoc}" (${categorieDoc.toUpperCase()}) avec les documents de référence du projet.
+Voici les écarts détectés ainsi que les extraits des deux documents pour vérification :
 
 ${resumeEcarts}
 
+---
 Extrait du document analysé (${nomDoc}) :
-${texteDoc.substring(0, 2500)}
+${texteDoc.substring(0, 1500)}
 
-Mission : parmi ces écarts automatiques, identifie UNIQUEMENT les omissions ou incohérences importantes et réelles. Ignore les faux positifs (synonymes, reformulations, termes implicites, mots génériques).
+---
+Mission : en te basant sur les extraits ci-dessus, identifie UNIQUEMENT les omissions ou incohérences techniques importantes et réelles entre le ${categorieDoc.toUpperCase()} et le programme.
+Ignore les faux positifs : synonymes acceptables, reformulations équivalentes, termes génériques, différences de forme sans impact technique.
 
 Réponds UNIQUEMENT en JSON :
 {
   "alertes": [
     {
-      "message": "Description claire de l'omission/incohérence en 1-2 phrases maximum"
+      "message": "Description précise de l'omission ou incohérence technique, en citant les éléments des deux documents"
     }
   ]
 }
