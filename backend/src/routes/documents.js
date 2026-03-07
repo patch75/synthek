@@ -8,6 +8,7 @@ const authMiddleware = require('../middleware/auth')
 const { extractText } = require('../services/extractText')
 const { genererPuce, comparerVersions } = require('../services/ia')
 const { extraireFaits } = require('../services/extractFaits')
+const { comparerAvecReference } = require('../services/comparerDocuments')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -165,6 +166,14 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     if (docExistant && docExistant.contenuTexte) {
       comparerVersions(document.id, docExistant.id, contenuTexte, docExistant.contenuTexte, document.nom)
         .catch(err => console.error('Erreur comparaison versions:', err.message))
+    }
+
+    // 3. Comparaison vs référence si CCTP ou DPGF
+    const cat = categorieDoc || ''
+    if (cat === 'cctp' || cat === 'dpgf') {
+      const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
+      comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp)
+        .catch(err => console.error('Erreur comparaison documents:', err.message))
     }
   }
   backgroundTasks()  // sans await — non-bloquant

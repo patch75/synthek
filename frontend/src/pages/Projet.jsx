@@ -80,6 +80,8 @@ export default function Projet() {
   const [analyseTimer, setAnalyseTimer] = useState(0)
   const pollingRef = useRef(null)
   const timerRef = useRef(null)
+  const puceDetecteeRef = useRef(false)
+  const cyclesSupplRef = useRef(0)
   const { theme, toggleTheme } = useTheme()
   const [projet, setProjet] = useState(null)
   const [alertes, setAlertes] = useState([])
@@ -147,6 +149,8 @@ export default function Projet() {
     if (!newDocId) return
     setAnalyseBg(true)
     setAnalyseTimer(0)
+    puceDetecteeRef.current = false
+    cyclesSupplRef.current = 0
     const start = Date.now()
     const TIMEOUT = 90000 // 90s max
 
@@ -170,9 +174,19 @@ export default function Projet() {
         setProjet(pRes.data)
         setAlertes(aRes.data)
         if (doc?.puce) {
-          clearInterval(pollingRef.current)
-          clearInterval(timerRef.current)
-          setAnalyseBg(false)
+          if (!puceDetecteeRef.current) {
+            // Pour CCTP/DPGF : 4 cycles supplémentaires (~12s) pour laisser la comparaison se terminer
+            const cat = doc.categorieDoc
+            puceDetecteeRef.current = true
+            cyclesSupplRef.current = (cat === 'cctp' || cat === 'dpgf') ? 4 : 0
+          }
+          if (cyclesSupplRef.current <= 0) {
+            clearInterval(pollingRef.current)
+            clearInterval(timerRef.current)
+            setAnalyseBg(false)
+          } else {
+            cyclesSupplRef.current--
+          }
         }
       } catch {
         clearInterval(pollingRef.current)
@@ -548,6 +562,72 @@ export default function Projet() {
           </section>
         )}
 
+        {/* Programmes de référence */}
+        {(() => {
+          const programmes = projet.documents.filter(d => d.categorieDoc === 'programme')
+          return (
+            <section className="section">
+              <div className="section-header">
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
+                </h2>
+                {!isBureauControle && (
+                  <button
+                    onClick={() => navigate(`/projets/${id}/upload`)}
+                    className="btn-primary"
+                    style={{ fontSize: 13 }}
+                  >
+                    + Déposer un programme
+                  </button>
+                )}
+              </div>
+
+              {programmes.length === 0 ? (
+                <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '16px 20px' }}>
+                  <p style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
+                    Aucun programme déposé
+                  </p>
+                  <p className="text-muted text-sm" style={{ margin: 0 }}>
+                    Commencez par déposer le ou les programmes du projet. Ils serviront de référence pour la vérification automatique des CCTP et DPGF.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {programmes.map(doc => (
+                    <div key={doc.id} className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {doc.nom}
+                        </p>
+                        <p className="text-muted text-sm" style={{ margin: '2px 0 0' }}>
+                          Déposé par {doc.user?.nom} · {new Date(doc.dateDepot).toLocaleDateString('fr-FR')}
+                          {doc.indiceRevision && <> · <strong>{doc.indiceRevision}</strong></>}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        <span className="badge" style={{ background: '#7c3aed', color: 'white', fontSize: 11 }}>
+                          {doc.type.toUpperCase()}
+                        </span>
+                        <PuceCard puce={doc.puce} />
+                        {isAdmin && (
+                          <button
+                            onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
+                            className="btn-ghost"
+                            style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }}
+                            title="Supprimer"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )
+        })()}
+
         {/* Documents */}
         <section className="section">
           <div className="section-header">
@@ -616,39 +696,43 @@ export default function Projet() {
             </div>
           )}
 
-          {projet.documents.length === 0 ? (
-            <p className="text-muted">Aucun document déposé.</p>
-          ) : (
-            <div className="table-wrapper">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Catégorie</th>
-                    <th>Type</th>
-                    <th>Statut</th>
-                    <th>Indice</th>
-                    <th>Puce IA</th>
-                    <th>Déposé par</th>
-                    <th>Date</th>
-                    {isAdmin && <th></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {projet.documents.map(doc => {
-                    const statutColors = { provisoire: '#94a3b8', pour_visa: '#3b82f6', valide: '#22c55e' }
-                    const statutLabels = { provisoire: 'Provisoire', pour_visa: 'Pour visa', valide: 'Validé' }
-                    const categorieLabels = {
-                      plans: 'Plans', pieces_ecrites: 'Pièces écrites', etudes_th: 'Études TH',
-                      bureau_controle: 'Bureau de contrôle', programme: 'Programme',
-                      notes_calcul: 'Notes de calcul', comptes_rendus: 'Comptes-rendus', autre: 'Autre'
-                    }
-                    return (
+          {(() => {
+            const autresDoc = projet.documents.filter(d => d.categorieDoc !== 'programme')
+            const categorieLabels = {
+              cctp: 'CCTP', dpgf: 'DPGF', plans: 'Plans', pieces_ecrites: 'Pièces écrites',
+              etudes_th: 'Études TH', bureau_controle: 'Bureau de contrôle',
+              notes_calcul: 'Notes de calcul', comptes_rendus: 'Comptes-rendus', autre: 'Autre'
+            }
+            const statutColors = { provisoire: '#94a3b8', pour_visa: '#3b82f6', valide: '#22c55e' }
+            const statutLabels = { provisoire: 'Provisoire', pour_visa: 'Pour visa', valide: 'Validé' }
+            const categorieColors = { cctp: '#2563eb', dpgf: '#059669' }
+
+            if (autresDoc.length === 0) {
+              return <p className="text-muted">Aucun document déposé.</p>
+            }
+            return (
+              <div className="table-wrapper">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Nom</th>
+                      <th>Catégorie</th>
+                      <th>Type</th>
+                      <th>Statut</th>
+                      <th>Indice</th>
+                      <th>Puce IA</th>
+                      <th>Déposé par</th>
+                      <th>Date</th>
+                      {isAdmin && <th></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {autresDoc.map(doc => (
                       <tr key={doc.id}>
                         <td>{doc.nom}</td>
                         <td>
                           {doc.categorieDoc
-                            ? <span className="badge" style={{ background: 'var(--bg-muted)', color: 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
+                            ? <span className="badge" style={{ background: categorieColors[doc.categorieDoc] || 'var(--bg-muted)', color: categorieColors[doc.categorieDoc] ? 'white' : 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
                             : <span className="text-muted text-sm">—</span>
                           }
                         </td>
@@ -661,9 +745,9 @@ export default function Projet() {
                           ) : <span className="text-muted text-sm">—</span>}
                         </td>
                         <td>
-                          {doc.indiceRevision ? (
-                            <span style={{ fontWeight: 600, fontSize: 13 }}>{doc.indiceRevision}</span>
-                          ) : <span className="text-muted text-sm">—</span>}
+                          {doc.indiceRevision
+                            ? <span style={{ fontWeight: 600, fontSize: 13 }}>{doc.indiceRevision}</span>
+                            : <span className="text-muted text-sm">—</span>}
                         </td>
                         <td><PuceCard puce={doc.puce} /></td>
                         <td>{doc.user?.nom}</td>
@@ -681,12 +765,12 @@ export default function Projet() {
                           </td>
                         )}
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
         </section>
 
         {/* V3 — Configuration IA (admin uniquement) */}

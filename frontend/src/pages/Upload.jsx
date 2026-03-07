@@ -4,6 +4,38 @@ import api from '../services/api'
 import logo from '../assets/images/synthek.png'
 import { useTheme } from '../context/ThemeContext'
 
+const CATEGORIES = [
+  { value: '',               label: '— Choisir une catégorie —' },
+  { value: 'programme',      label: 'Programme' },
+  { value: 'cctp',           label: 'CCTP' },
+  { value: 'dpgf',           label: 'DPGF' },
+  { value: 'plans',          label: 'Plans' },
+  { value: 'pieces_ecrites', label: 'Pièces écrites' },
+  { value: 'etudes_th',      label: 'Études thermiques' },
+  { value: 'bureau_controle',label: 'Bureau de contrôle' },
+  { value: 'notes_calcul',   label: 'Notes de calcul' },
+  { value: 'comptes_rendus', label: 'Comptes-rendus' },
+  { value: 'autre',          label: 'Autre' },
+]
+
+const INFOS_CATEGORIE = {
+  programme: {
+    icon: '📌',
+    texte: 'Ce document deviendra la référence du projet. Les CCTP et DPGF uploadés ensuite seront automatiquement vérifiés par rapport à lui.',
+    style: { background: 'var(--accent-light, #ede9fe)', borderLeft: '3px solid #7c3aed', color: 'var(--text)' }
+  },
+  cctp: {
+    icon: '🔍',
+    texte: 'Ce CCTP sera automatiquement comparé aux programmes de référence du projet pour détecter les omissions ou incohérences.',
+    style: { background: 'var(--info-light, #dbeafe)', borderLeft: '3px solid #2563eb', color: 'var(--text)' }
+  },
+  dpgf: {
+    icon: '🔍',
+    texte: 'Ce DPGF sera comparé aux documents de référence sélectionnés ci-dessous.',
+    style: { background: 'var(--info-light, #dbeafe)', borderLeft: '3px solid #2563eb', color: 'var(--text)' }
+  }
+}
+
 export default function Upload() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -11,6 +43,7 @@ export default function Upload() {
   const [fichier, setFichier] = useState(null)
   const [resumeModif, setResumeModif] = useState('')
   const [categorieDoc, setCategorieDoc] = useState('')
+  const [comparaisonAvec, setComparaisonAvec] = useState('programme')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,6 +58,9 @@ export default function Upload() {
     formData.append('projetId', id)
     formData.append('resumeModif', resumeModif)
     formData.append('categorieDoc', categorieDoc)
+    if (categorieDoc === 'dpgf') {
+      formData.append('comparaisonAvec', comparaisonAvec)
+    }
 
     try {
       const res = await api.post('/documents/upload', formData, {
@@ -37,6 +73,8 @@ export default function Upload() {
       setLoading(false)
     }
   }
+
+  const infoCategorie = INFOS_CATEGORIE[categorieDoc]
 
   return (
     <div className="page">
@@ -54,6 +92,50 @@ export default function Upload() {
       <main className="container container-sm">
         <div className="card">
           <form onSubmit={handleSubmit}>
+
+            {/* Catégorie en premier — elle conditionne le reste */}
+            <div className="form-group">
+              <label>Catégorie <span className="text-muted">(important — détermine le traitement IA)</span></label>
+              <select value={categorieDoc} onChange={e => setCategorieDoc(e.target.value)}>
+                {CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Message contextuel selon la catégorie */}
+            {infoCategorie && (
+              <div style={{ ...infoCategorie.style, borderRadius: 8, padding: '10px 14px', fontSize: 13, lineHeight: 1.6, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{infoCategorie.icon}</span>
+                <span>{infoCategorie.texte}</span>
+              </div>
+            )}
+
+            {/* Options de comparaison pour DPGF */}
+            {categorieDoc === 'dpgf' && (
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label>Comparer avec</label>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+                  {[
+                    { value: 'programme', label: 'Programme uniquement' },
+                    { value: 'cctp',      label: 'CCTP uniquement' },
+                    { value: 'les_deux',  label: 'Programme + CCTP' },
+                  ].map(opt => (
+                    <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                      <input
+                        type="radio"
+                        name="comparaisonAvec"
+                        value={opt.value}
+                        checked={comparaisonAvec === opt.value}
+                        onChange={() => setComparaisonAvec(opt.value)}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Fichier <span className="text-muted">(PDF, Word, Excel — max 20 Mo)</span></label>
               <input
@@ -77,21 +159,6 @@ export default function Upload() {
                   {fichier.name} — {(fichier.size / 1024 / 1024).toFixed(2)} Mo
                 </p>
               )}
-            </div>
-
-            <div className="form-group">
-              <label>Catégorie <span className="text-muted">(optionnel)</span></label>
-              <select value={categorieDoc} onChange={e => setCategorieDoc(e.target.value)}>
-                <option value="">— Choisir une catégorie —</option>
-                <option value="plans">Plans</option>
-                <option value="pieces_ecrites">Pièces écrites</option>
-                <option value="etudes_th">Études thermiques</option>
-                <option value="bureau_controle">Bureau de contrôle</option>
-                <option value="programme">Programme</option>
-                <option value="notes_calcul">Notes de calcul</option>
-                <option value="comptes_rendus">Comptes-rendus</option>
-                <option value="autre">Autre</option>
-              </select>
             </div>
 
             <div className="form-group">
@@ -120,7 +187,11 @@ export default function Upload() {
         {loading && (
           <div className="card info-card">
             <p>Extraction du texte et analyse IA en cours...</p>
-            <p className="text-muted text-sm">Cette opération peut prendre quelques secondes.</p>
+            <p className="text-muted text-sm">
+              {(categorieDoc === 'cctp' || categorieDoc === 'dpgf')
+                ? 'Vérification de cohérence avec les documents de référence...'
+                : 'Cette opération peut prendre quelques secondes.'}
+            </p>
           </div>
         )}
       </main>
