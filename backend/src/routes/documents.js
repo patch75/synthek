@@ -13,6 +13,8 @@ const { comparerAvecReference } = require('../services/comparerDocuments')
 const router = express.Router()
 router.use(authMiddleware)
 
+const fixFilename = (name) => Buffer.from(name, 'latin1').toString('utf8')
+
 const STORAGE_ROOT = path.resolve(process.env.STORAGE_DIR || './storage')
 
 const storage = multer.diskStorage({
@@ -29,7 +31,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`
-    cb(null, `${unique}${path.extname(file.originalname)}`)
+    cb(null, `${unique}${path.extname(fixFilename(file.originalname))}`)
   }
 })
 
@@ -37,7 +39,7 @@ const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
     const allowed = ['.pdf', '.docx', '.xlsx', '.xls']
-    const ext = path.extname(file.originalname).toLowerCase()
+    const ext = path.extname(fixFilename(file.originalname)).toLowerCase()
     if (allowed.includes(ext)) cb(null, true)
     else cb(new Error('Type de fichier non supporté'))
   },
@@ -94,7 +96,8 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     return res.status(400).json({ error: 'projetId requis' })
   }
 
-  const ext = path.extname(req.file.originalname).toLowerCase().replace('.', '')
+  const nomFichier = fixFilename(req.file.originalname)
+  const ext = path.extname(nomFichier).toLowerCase().replace('.', '')
 
   // Calculer SHA-256 du fichier uploadé
   const hashNouveauFichier = calculerHash(req.file.path)
@@ -103,7 +106,7 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   const docExistant = await prisma.document.findFirst({
     where: {
       projetId: parseInt(projetId),
-      nom: req.file.originalname
+      nom: nomFichier
     },
     orderBy: { version: 'desc' }
   })
@@ -120,19 +123,19 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   // Extraction du texte
   let contenuTexte = null
   try {
-    contenuTexte = await extractText(req.file.path, ext, req.file.originalname)
+    contenuTexte = await extractText(req.file.path, ext, nomFichier)
   } catch (err) {
     console.error('Erreur extraction texte:', err.message)
   }
 
   // V3 — Bloc 3 : extraire statut et indice du nom de fichier
-  const { statutDocument, indiceRevision } = parseNomFichier(req.file.originalname)
+  const { statutDocument, indiceRevision } = parseNomFichier(nomFichier)
 
   // Construire les données du document
   const documentData = {
     projetId: parseInt(projetId),
     userId: req.user.id,
-    nom: req.file.originalname,
+    nom: nomFichier,
     type: ext,
     cheminFichier: req.file.path,
     contenuTexte,
