@@ -647,7 +647,7 @@ export default function Projet() {
                       className="btn-primary"
                       style={{ fontSize: 13 }}
                     >
-                      + Déposer un programme
+                      + Déposer un document
                     </button>
                   )}
                 </div>
