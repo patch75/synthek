@@ -231,7 +231,7 @@ export default function Projet() {
       clearInterval(pollingRef.current)
       clearInterval(timerRef.current)
     }
-  }, [location.state?.newDocId])
+  }, [location.state?.newDocId, id])
 
   async function chargerConfig() {
     try {
