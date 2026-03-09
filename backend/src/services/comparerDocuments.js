@@ -147,12 +147,27 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
   const categoriesRef = ['programme']
   if (avecCctp) categoriesRef.push('cctp')
 
-  // Récupérer le nom du sous-programme si défini
+  // Récupérer le nom du sous-programme + contexte projet
   let nomSousProgramme = null
   if (sousProgrammeId) {
     const sp = await prisma.sousProgramme.findUnique({ where: { id: sousProgrammeId }, select: { nom: true } })
     nomSousProgramme = sp?.nom || null
   }
+
+  const [projet, configProjet] = await Promise.all([
+    prisma.projet.findUnique({
+      where: { id: projetId },
+      select: {
+        nom: true, client: true, typeBatiment: true, energieRetenue: true,
+        zoneClimatique: true, nombreLogements: true,
+        sousProgrammes: { select: { nom: true } }
+      }
+    }),
+    prisma.configProjet.findUnique({
+      where: { projetId },
+      select: { promptSystemeGlobal: true, vocabulaireMetier: true }
+    })
+  ])
 
   const whereRef = {
     projetId,
@@ -219,28 +234,61 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
   const sectionCctp = extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte)
   const labelSection = nomSousProgramme ? ` — section "${nomSousProgramme}"` : ''
 
+  // Construire le contexte projet pour le prompt
+  const typologiesList = projet?.sousProgrammes?.length
+    ? `Typologies du projet : ${projet.sousProgrammes.map(s => s.nom).join(', ')}.`
+    : ''
+  const contextProjet = [
+    projet?.nom ? `Projet : ${projet.nom} (${projet.client || ''})` : '',
+    projet?.typeBatiment ? `Type de bâtiment : ${projet.typeBatiment}` : '',
+    projet?.nombreLogements ? `${projet.nombreLogements} logements` : '',
+    projet?.energieRetenue ? `Énergie retenue : ${projet.energieRetenue}` : '',
+    projet?.zoneClimatique ? `Zone climatique : ${projet.zoneClimatique}` : '',
+    typologiesList
+  ].filter(Boolean).join(' | ')
+
+  const contextSousProgramme = nomSousProgramme
+    ? `\nPérimètre analysé : "${nomSousProgramme}" — tu analyses UNIQUEMENT la section du CCTP correspondant à ce périmètre.`
+    : ''
+
+  const promptConfig = configProjet?.promptSystemeGlobal
+    ? `\nConsignes spécifiques du projet : ${configProjet.promptSystemeGlobal}`
+    : ''
+
+  const vocabMetier = configProjet?.vocabulaireMetier
+    ? `\nVocabulaire métier accepté comme équivalent : ${JSON.stringify(configProjet.vocabulaireMetier)}`
+    : ''
+
   // Appel Haiku pour filtrer les vrais problèmes parmi les écarts détectés
   try {
-    const prompt = `Tu es un expert en bureau d'études thermiques et fluides (BET), spécialisé dans l'analyse de documents de construction (programmes, CCTP, DPGF).
+    const prompt = `Tu es un ingénieur BET thermique et fluides senior, expert en analyse de documents de construction (programmes MOA, CCTP, DPGF).
 
-Un script d'analyse automatique a comparé le document "${nomDoc}" (${categorieDoc.toUpperCase()}${labelSection}) avec les documents de référence du projet.
-Voici les écarts détectés ainsi que les extraits des deux documents pour vérification :
+CONTEXTE DU PROJET
+${contextProjet}${contextSousProgramme}${promptConfig}${vocabMetier}
 
+RÈGLES MÉTIER À APPLIQUER
+- Les attiques (derniers niveaux en retrait) ont souvent une solution technique différente des niveaux courants : PAC air/eau plutôt que chaudière gaz, plancher chauffant basse température, etc. C'est normal et ne constitue pas une incohérence si le programme le prévoit.
+- RE2020 : vérifier la cohérence des solutions énergétiques (PAC, chaudière, plancher chauffant, radiateurs, VMC simple/double flux hygroréglable).
+- La VMC simple flux hygroréglable est compatible RE2020 pour le résidentiel collectif.
+- Un programme peut omettre certains détails techniques (canalisations, raccords) qui relèvent de l'entreprise — ce ne sont pas des incohérences.
+- Se concentrer sur les écarts qui ont un impact réel : système de chauffage différent, énergie différente, prestations manquantes ou contradictoires, performances non conformes.
+
+ÉCARTS DÉTECTÉS PAR L'ANALYSE AUTOMATIQUE
 ${resumeEcarts}
 
----
-Section pertinente du document analysé (${nomDoc}${labelSection}) :
+SECTION DU ${categorieDoc.toUpperCase()} ANALYSÉE${labelSection ? ` (${labelSection})` : ''}
 ${sectionCctp}
 
----
-Mission : en te basant sur les extraits ci-dessus, identifie UNIQUEMENT les omissions ou incohérences techniques importantes et réelles entre le ${categorieDoc.toUpperCase()} et le programme.
-Ignore les faux positifs : synonymes acceptables, reformulations équivalentes, termes génériques, différences de forme sans impact technique.
+MISSION
+En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus, identifie UNIQUEMENT les incohérences techniques réelles et significatives.
+Ignore : synonymes acceptables, reformulations équivalentes, détails d'exécution non prescrits au programme, différences sans impact technique.
+Pour chaque alerte, cite précisément les éléments contradictoires des deux documents.
 
 Réponds UNIQUEMENT en JSON :
 {
   "alertes": [
     {
-      "message": "Description précise de l'omission ou incohérence technique, en citant les éléments des deux documents"
+      "message": "Description précise de l'incohérence, en citant les deux documents"
     }
   ]
 }
