@@ -44,6 +44,66 @@ function extraireExigences(texte) {
 }
 
 /**
+ * Extrait la section la plus pertinente d'un CCTP pour un sous-programme donné.
+ * Cherche d'abord un titre de chapitre correspondant au nom du sous-programme,
+ * puis fallback sur la fenêtre glissante avec le plus de mots en commun avec le programme.
+ */
+function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
+  if (!texteDoc) return ''
+  const TAILLE = 4000
+
+  // Normalisation sans accents
+  const norm = s => s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+
+  // Chercher un titre de chapitre correspondant au sous-programme
+  if (nomSousProgramme) {
+    const motsCle = norm(nomSousProgramme).split(/\s+/).filter(m => m.length >= 3)
+    const lignes = texteDoc.split('\n')
+    let pos = 0
+    let meilleurePos = -1
+    let meilleurScore = 0
+
+    for (const ligne of lignes) {
+      const ligneNorm = norm(ligne)
+      const score = motsCle.filter(m => ligneNorm.includes(m)).length
+      // Favoriser les lignes courtes (titres) avec bonne correspondance
+      if (score > 0 && ligne.trim().length < 80 && score > meilleurScore) {
+        meilleurScore = score
+        meilleurePos = pos
+      }
+      pos += ligne.length + 1
+    }
+
+    if (meilleurePos >= 0) {
+      console.log(`[comparerDocuments] Section trouvée pour "${nomSousProgramme}" à pos ${meilleurePos}`)
+      return texteDoc.substring(meilleurePos, meilleurePos + TAILLE)
+    }
+  }
+
+  // Fallback : fenêtre glissante avec meilleure densité de mots du programme
+  if (texteRef && texteRef.length > 100) {
+    const motsRef = new Set(tokeniser(texteRef).filter(m => m.length >= 5).slice(0, 50))
+    const step = 500
+    let meilleurExtrait = texteDoc.substring(0, TAILLE)
+    let maxScore = 0
+
+    for (let i = 0; i < texteDoc.length - TAILLE; i += step) {
+      const extrait = texteDoc.substring(i, i + TAILLE)
+      const score = tokeniser(extrait).filter(m => motsRef.has(m)).length
+      if (score > maxScore) {
+        maxScore = score
+        meilleurExtrait = extrait
+      }
+    }
+    return meilleurExtrait
+  }
+
+  return texteDoc.substring(0, TAILLE)
+}
+
+/**
  * Analyse JS des écarts entre le texte d'un document et un document de référence
  */
 function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
@@ -86,6 +146,13 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
 
   const categoriesRef = ['programme']
   if (avecCctp) categoriesRef.push('cctp')
+
+  // Récupérer le nom du sous-programme si défini
+  let nomSousProgramme = null
+  if (sousProgrammeId) {
+    const sp = await prisma.sousProgramme.findUnique({ where: { id: sousProgrammeId }, select: { nom: true } })
+    nomSousProgramme = sp?.nom || null
+  }
 
   const whereRef = {
     projetId,
@@ -142,23 +209,28 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     }
     if (ref?.contenuTexte) {
       lignes.push(`\nExtrait du programme de référence (${a.nomRef}) :`)
-      lignes.push(ref.contenuTexte.substring(0, 1500))
+      lignes.push(ref.contenuTexte.substring(0, 2000))
     }
     return lignes.join('\n')
   }).join('\n\n---\n\n')
+
+  // Extraire la section pertinente du CCTP selon le sous-programme
+  const premiereRef = docsRef[0]
+  const sectionCctp = extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte)
+  const labelSection = nomSousProgramme ? ` — section "${nomSousProgramme}"` : ''
 
   // Appel Haiku pour filtrer les vrais problèmes parmi les écarts détectés
   try {
     const prompt = `Tu es un expert en bureau d'études thermiques et fluides (BET), spécialisé dans l'analyse de documents de construction (programmes, CCTP, DPGF).
 
-Un script d'analyse automatique a comparé le document "${nomDoc}" (${categorieDoc.toUpperCase()}) avec les documents de référence du projet.
+Un script d'analyse automatique a comparé le document "${nomDoc}" (${categorieDoc.toUpperCase()}${labelSection}) avec les documents de référence du projet.
 Voici les écarts détectés ainsi que les extraits des deux documents pour vérification :
 
 ${resumeEcarts}
 
 ---
-Extrait du document analysé (${nomDoc}) :
-${texteDoc.substring(0, 1500)}
+Section pertinente du document analysé (${nomDoc}${labelSection}) :
+${sectionCctp}
 
 ---
 Mission : en te basant sur les extraits ci-dessus, identifie UNIQUEMENT les omissions ou incohérences techniques importantes et réelles entre le ${categorieDoc.toUpperCase()} et le programme.

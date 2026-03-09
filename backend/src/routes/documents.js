@@ -174,8 +174,26 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     if (cat === 'cctp' || cat === 'dpgf') {
       const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
       const spId = sousProgrammeId ? parseInt(sousProgrammeId) : null
-      comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
-        .catch(err => console.error('Erreur comparaison documents:', err.message))
+
+      if (spId) {
+        // Sous-programme explicite → une seule comparaison ciblée
+        comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
+          .catch(err => console.error('Erreur comparaison documents:', err.message))
+      } else {
+        // Pas de sous-programme : vérifier si le projet en a
+        const sousProgrammes = await prisma.sousProgramme.findMany({ where: { projetId: pid } })
+        if (sousProgrammes.length > 0) {
+          // Lancer une comparaison par sous-programme (extraction automatique de section)
+          for (const sp of sousProgrammes) {
+            comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id)
+              .catch(err => console.error(`Erreur comparaison [${sp.nom}]:`, err.message))
+          }
+        } else {
+          // Projet sans sous-programmes → comportement classique
+          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null)
+            .catch(err => console.error('Erreur comparaison documents:', err.message))
+        }
+      }
     }
   }
   backgroundTasks()  // sans await — non-bloquant
