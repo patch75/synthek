@@ -89,7 +89,7 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     return res.status(400).json({ error: 'Fichier requis' })
   }
 
-  const { projetId, resumeModif, categorieDoc } = req.body
+  const { projetId, resumeModif, categorieDoc, sousProgrammeId } = req.body
   if (!projetId) {
     return res.status(400).json({ error: 'projetId requis' })
   }
@@ -140,7 +140,8 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     hashFichier: hashNouveauFichier,
     statutDocument,
     indiceRevision,
-    categorieDoc: categorieDoc || null
+    categorieDoc: categorieDoc || null,
+    sousProgrammeId: sousProgrammeId ? parseInt(sousProgrammeId) : null
   }
 
   // Si version précédente existe avec hash différent → nouvelle version
@@ -172,7 +173,8 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     const cat = categorieDoc || ''
     if (cat === 'cctp' || cat === 'dpgf') {
       const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
-      comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp)
+      const spId = sousProgrammeId ? parseInt(sousProgrammeId) : null
+      comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
         .catch(err => console.error('Erreur comparaison documents:', err.message))
     }
   }

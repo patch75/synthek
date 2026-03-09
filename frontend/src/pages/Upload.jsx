@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import logo from '../assets/images/synthek.png'
@@ -46,6 +46,14 @@ export default function Upload() {
   const [comparaisonAvec, setComparaisonAvec] = useState('programme')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sousProgrammes, setSousProgrammes] = useState([])
+  const [sousProgrammeId, setSousProgrammeId] = useState('')
+
+  useEffect(() => {
+    api.get(`/projets/${id}/sous-programmes`)
+      .then(res => setSousProgrammes(res.data))
+      .catch(() => {})
+  }, [id])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -60,6 +68,9 @@ export default function Upload() {
     formData.append('categorieDoc', categorieDoc)
     if (categorieDoc === 'dpgf') {
       formData.append('comparaisonAvec', comparaisonAvec)
+    }
+    if (sousProgrammeId) {
+      formData.append('sousProgrammeId', sousProgrammeId)
     }
 
     try {
@@ -102,6 +113,19 @@ export default function Upload() {
                 ))}
               </select>
             </div>
+
+            {/* Sous-programme — visible uniquement si le projet en a */}
+            {sousProgrammes.length > 0 && (
+              <div className="form-group">
+                <label>Sous-programme <span className="text-muted">(périmètre de ce document)</span></label>
+                <select value={sousProgrammeId} onChange={e => setSousProgrammeId(e.target.value)}>
+                  <option value="">— Projet entier (pas de sous-programme) —</option>
+                  {sousProgrammes.map(sp => (
+                    <option key={sp.id} value={sp.id}>{sp.nom}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Message contextuel selon la catégorie */}
             {infoCategorie && (

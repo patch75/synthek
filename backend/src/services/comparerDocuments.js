@@ -81,19 +81,26 @@ function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
  * Catégorie dpgf → compare vs programmes + optionnellement CCTPs
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
  */
-async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false) {
+async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null) {
   if (!texteDoc || texteDoc.trim().length < 200) return []
 
   const categoriesRef = ['programme']
   if (avecCctp) categoriesRef.push('cctp')
 
+  const whereRef = {
+    projetId,
+    id: { not: documentId },
+    categorieDoc: { in: categoriesRef },
+    contenuTexte: { not: null }
+  }
+
+  // Si un sous-programme est défini, on ne compare qu'avec les docs du même sous-programme
+  if (sousProgrammeId) {
+    whereRef.sousProgrammeId = sousProgrammeId
+  }
+
   const docsRef = await prisma.document.findMany({
-    where: {
-      projetId,
-      id: { not: documentId },
-      categorieDoc: { in: categoriesRef },
-      contenuTexte: { not: null }
-    },
+    where: whereRef,
     select: { id: true, nom: true, contenuTexte: true, categorieDoc: true }
   })
 

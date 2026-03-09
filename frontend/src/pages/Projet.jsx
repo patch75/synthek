@@ -61,6 +61,33 @@ function LexiqueModal({ onClose }) {
   )
 }
 
+function ProgrammeCard({ doc, isAdmin, onDelete }) {
+  return (
+    <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {doc.nom}
+        </p>
+        <p className="text-muted text-sm" style={{ margin: '2px 0 0' }}>
+          Déposé par {doc.user?.nom} · {new Date(doc.dateDepot).toLocaleDateString('fr-FR')}
+          {doc.indiceRevision && <> · <strong>{doc.indiceRevision}</strong></>}
+        </p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <span className="badge" style={{ background: '#7c3aed', color: 'white', fontSize: 11 }}>
+          {doc.type.toUpperCase()}
+        </span>
+        <PuceCard puce={doc.puce} />
+        {isAdmin && (
+          <button onClick={onDelete} className="btn-ghost" style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }} title="Supprimer">
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function PuceCard({ puce }) {
   if (!puce) return <span className="text-muted text-sm">—</span>
   return (
@@ -131,6 +158,11 @@ export default function Projet() {
   const [showResolModal, setShowResolModal] = useState(null)
   const [resolType, setResolType] = useState('manuelle')
   const [resolJustif, setResolJustif] = useState('')
+
+  // Sous-programmes
+  const [showSousProgrammes, setShowSousProgrammes] = useState(false)
+  const [nouveauSp, setNouveauSp] = useState('')
+  const [spEnCours, setSpEnCours] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -323,6 +355,31 @@ export default function Projet() {
       await resoudreAlerte(alerteId)
     } catch (err) {
       alert(err.response?.data?.error || 'Erreur lors de l\'arbitrage')
+    }
+  }
+
+  async function ajouterSousProgramme(e) {
+    e.preventDefault()
+    if (!nouveauSp.trim()) return
+    setSpEnCours(true)
+    try {
+      const res = await api.post(`/projets/${id}/sous-programmes`, { nom: nouveauSp.trim() })
+      setProjet(prev => ({ ...prev, sousProgrammes: [...(prev.sousProgrammes || []), res.data] }))
+      setNouveauSp('')
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur')
+    } finally {
+      setSpEnCours(false)
+    }
+  }
+
+  async function supprimerSousProgramme(spId) {
+    if (!confirm('Supprimer ce sous-programme ? Les documents associés ne seront pas supprimés.')) return
+    try {
+      await api.delete(`/projets/${id}/sous-programmes/${spId}`)
+      setProjet(prev => ({ ...prev, sousProgrammes: prev.sousProgrammes.filter(sp => sp.id !== spId) }))
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur')
     }
   }
 
@@ -565,22 +622,74 @@ export default function Projet() {
         {/* Programmes de référence */}
         {(() => {
           const programmes = projet.documents.filter(d => d.categorieDoc === 'programme')
+          const sousProgrammes = projet.sousProgrammes || []
+          const hasSousProgrammes = sousProgrammes.length > 0
           return (
             <section className="section">
               <div className="section-header">
                 <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
                 </h2>
-                {!isBureauControle && (
-                  <button
-                    onClick={() => navigate(`/projets/${id}/upload`)}
-                    className="btn-primary"
-                    style={{ fontSize: 13 }}
-                  >
-                    + Déposer un programme
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowSousProgrammes(v => !v)}
+                      className="btn-ghost"
+                      style={{ fontSize: 13 }}
+                      title="Gérer les sous-programmes"
+                    >
+                      Sous-programmes
+                    </button>
+                  )}
+                  {!isBureauControle && (
+                    <button
+                      onClick={() => navigate(`/projets/${id}/upload`)}
+                      className="btn-primary"
+                      style={{ fontSize: 13 }}
+                    >
+                      + Déposer un programme
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* Gestion sous-programmes (admin) */}
+              {isAdmin && showSousProgrammes && (
+                <div className="card" style={{ marginBottom: 14, padding: '14px 18px' }}>
+                  <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
+                    Sous-programmes de ce projet
+                  </p>
+                  {sousProgrammes.length === 0 ? (
+                    <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
+                      Aucun sous-programme — le projet est unique. Ajoutez des sous-programmes si l'opération comporte plusieurs typologies (accession, social, villas...).
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                      {sousProgrammes.map(sp => (
+                        <span key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-muted)', borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 600 }}>
+                          {sp.nom}
+                          <button
+                            onClick={() => supprimerSousProgramme(sp.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }}
+                            title="Supprimer"
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <form onSubmit={ajouterSousProgramme} style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={nouveauSp}
+                      onChange={e => setNouveauSp(e.target.value)}
+                      placeholder="Ex : Accession, Social, Villas..."
+                      style={{ flex: 1, fontSize: 13 }}
+                    />
+                    <button type="submit" disabled={spEnCours || !nouveauSp.trim()} className="btn-primary" style={{ fontSize: 13 }}>
+                      Ajouter
+                    </button>
+                  </form>
+                </div>
+              )}
 
               {programmes.length === 0 ? (
                 <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '16px 20px' }}>
@@ -591,37 +700,42 @@ export default function Projet() {
                     Commencez par déposer le ou les programmes du projet. Ils serviront de référence pour la vérification automatique des CCTP et DPGF.
                   </p>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {programmes.map(doc => (
-                    <div key={doc.id} className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {doc.nom}
+              ) : hasSousProgrammes ? (
+                // Affichage groupé par sous-programme
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Programmes avec sous-programme */}
+                  {sousProgrammes.map(sp => {
+                    const docs = programmes.filter(d => d.sousProgramme?.id === sp.id)
+                    return (
+                      <div key={sp.id}>
+                        <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7c3aed', marginBottom: 6 }}>
+                          {sp.nom}
                         </p>
-                        <p className="text-muted text-sm" style={{ margin: '2px 0 0' }}>
-                          Déposé par {doc.user?.nom} · {new Date(doc.dateDepot).toLocaleDateString('fr-FR')}
-                          {doc.indiceRevision && <> · <strong>{doc.indiceRevision}</strong></>}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        <span className="badge" style={{ background: '#7c3aed', color: 'white', fontSize: 11 }}>
-                          {doc.type.toUpperCase()}
-                        </span>
-                        <PuceCard puce={doc.puce} />
-                        {isAdmin && (
-                          <button
-                            onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
-                            className="btn-ghost"
-                            style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }}
-                            title="Supprimer"
-                          >
-                            ✕
-                          </button>
+                        {docs.length === 0 ? (
+                          <p className="text-muted text-sm" style={{ paddingLeft: 8 }}>Aucun programme pour ce périmètre.</p>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {docs.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
+                          </div>
                         )}
                       </div>
+                    )
+                  })}
+                  {/* Programmes sans sous-programme */}
+                  {programmes.filter(d => !d.sousProgramme).length > 0 && (
+                    <div>
+                      <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 6 }}>
+                        Sans périmètre
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {programmes.filter(d => !d.sousProgramme).map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
+                      </div>
                     </div>
-                  ))}
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {programmes.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
                 </div>
               )}
             </section>
@@ -717,6 +831,7 @@ export default function Projet() {
                     <tr>
                       <th>Nom</th>
                       <th>Catégorie</th>
+                      <th>Périmètre</th>
                       <th>Type</th>
                       <th>Statut</th>
                       <th>Indice</th>
@@ -733,6 +848,12 @@ export default function Projet() {
                         <td>
                           {doc.categorieDoc
                             ? <span className="badge" style={{ background: categorieColors[doc.categorieDoc] || 'var(--bg-muted)', color: categorieColors[doc.categorieDoc] ? 'white' : 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
+                            : <span className="text-muted text-sm">—</span>
+                          }
+                        </td>
+                        <td>
+                          {doc.sousProgramme
+                            ? <span className="badge" style={{ background: '#ede9fe', color: '#7c3aed', fontSize: 11, fontWeight: 700 }}>{doc.sousProgramme.nom}</span>
                             : <span className="text-muted text-sm">—</span>
                           }
                         </td>

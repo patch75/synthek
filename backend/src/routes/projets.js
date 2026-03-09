@@ -116,14 +116,40 @@ router.get('/:id', async (req, res) => {
         orderBy: { dateDepot: 'desc' },
         include: {
           user: { select: { nom: true, email: true } },
-          puce: true
+          puce: true,
+          sousProgramme: { select: { id: true, nom: true } }
         }
       },
-      alertes: { where: { statut: 'active' }, orderBy: { dateCreation: 'desc' } }
+      alertes: { where: { statut: 'active' }, orderBy: { dateCreation: 'desc' } },
+      sousProgrammes: { orderBy: { nom: 'asc' } }
     }
   })
   if (!projet) return res.status(404).json({ error: 'Projet non trouvé' })
   res.json(projet)
+})
+
+// GET /projets/:id/sous-programmes
+router.get('/:id/sous-programmes', async (req, res) => {
+  const projetId = parseInt(req.params.id)
+  const sps = await prisma.sousProgramme.findMany({ where: { projetId }, orderBy: { nom: 'asc' } })
+  res.json(sps)
+})
+
+// POST /projets/:id/sous-programmes
+router.post('/:id/sous-programmes', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { nom } = req.body
+  if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
+  const sp = await prisma.sousProgramme.create({ data: { projetId, nom: nom.trim() } })
+  res.status(201).json(sp)
+})
+
+// DELETE /projets/:id/sous-programmes/:spId
+router.delete('/:id/sous-programmes/:spId', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  await prisma.sousProgramme.delete({ where: { id: parseInt(req.params.spId) } })
+  res.json({ message: 'Sous-programme supprimé' })
 })
 
 // PATCH /projets/:id — modifier le projet (admin only)
