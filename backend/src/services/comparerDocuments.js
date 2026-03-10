@@ -50,7 +50,7 @@ function extraireExigences(texte) {
  */
 function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
   if (!texteDoc) return ''
-  const TAILLE = 4000
+  const TAILLE = 8000
 
   // Normalisation sans accents
   const norm = s => s.toLowerCase()
