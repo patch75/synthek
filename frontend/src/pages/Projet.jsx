@@ -601,7 +601,7 @@ export default function Projet() {
               <div className="alertes-list">
                 {alertesActives.map(alerte => (
                   <div key={alerte.id} className="card alerte-card">
-                    <p>{alerte.message}</p>
+                    <p><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</p>
                     <div className="alerte-footer">
                       <span className="text-muted text-sm">
                         Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
