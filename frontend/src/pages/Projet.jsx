@@ -213,7 +213,7 @@ export default function Projet() {
             // Pour CCTP/DPGF : 4 cycles supplémentaires (~12s) pour laisser la comparaison se terminer
             const cat = doc.categorieDoc
             puceDetecteeRef.current = true
-            cyclesSupplRef.current = (cat === 'cctp' || cat === 'dpgf') ? 4 : 0
+            cyclesSupplRef.current = (cat === 'cctp' || cat === 'dpgf') ? 10 : 0
           }
           if (cyclesSupplRef.current <= 0) {
             clearInterval(pollingRef.current)
