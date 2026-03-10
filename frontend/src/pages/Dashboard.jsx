@@ -129,14 +129,6 @@ export default function Dashboard() {
                 <span className="hero-stat-value">{projets.length}</span>
                 <span className="hero-stat-label">projet{projets.length > 1 ? 's' : ''}</span>
               </div>
-              <div className="hero-stat">
-                <span className="hero-stat-value">{totalDocs}</span>
-                <span className="hero-stat-label">documents</span>
-              </div>
-              <div className="hero-stat">
-                <span className="hero-stat-value" style={{ color: totalAlertes > 0 ? '#fca5a5' : '#86efac' }}>{totalAlertes}</span>
-                <span className="hero-stat-label">alerte{totalAlertes > 1 ? 's' : ''}</span>
-              </div>
             </div>
           )}
         </div>
