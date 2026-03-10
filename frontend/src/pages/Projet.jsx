@@ -129,8 +129,8 @@ export default function Projet() {
   const [jalonChoisi, setJalonChoisi] = useState('DCE')
   const [showLexique, setShowLexique] = useState(false)
   const [showAlertes, setShowAlertes] = useState(false)
-  const [alertesGroupesFermes, setAlertesGroupesFermes] = useState(new Set())
-  const [programmesFermes, setProgrammesFermes] = useState(new Set())
+  const [alertesGroupesOuverts, setAlertesGroupesOuverts] = useState(new Set())
+  const [programmesOuverts, setProgrammesOuverts] = useState(new Set())
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
@@ -538,12 +538,12 @@ export default function Projet() {
     acc[g].push(a)
     return acc
   }, {})
-  const toggleGroupeAlerte = (g) => setAlertesGroupesFermes(prev => {
+  const toggleGroupeAlerte = (g) => setAlertesGroupesOuverts(prev => {
     const next = new Set(prev)
     next.has(g) ? next.delete(g) : next.add(g)
     return next
   })
-  const toggleProgramme = (key) => setProgrammesFermes(prev => {
+  const toggleProgramme = (key) => setProgrammesOuverts(prev => {
     const next = new Set(prev)
     next.has(key) ? next.delete(key) : next.add(key)
     return next
@@ -692,9 +692,9 @@ export default function Projet() {
                           {alertesGroupe.length}
                         </span>
                       </span>
-                      <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: !alertesGroupesFermes.has(groupe) ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+                      <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: alertesGroupesOuverts.has(groupe) ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
                     </div>
-                    {!alertesGroupesFermes.has(groupe) && (
+                    {alertesGroupesOuverts.has(groupe) && (
                       <div className="alertes-list" style={{ padding: '8px 0', margin: 0 }}>
                         {alertesGroupe.map(alerte => (
                           <div key={alerte.id} className="card alerte-card" style={{ margin: '0 8px 8px', borderRadius: 6 }}>
@@ -823,7 +823,7 @@ export default function Projet() {
                       : programmes.filter(d => d.sousProgramme?.id === sp.id)
                     if (sp.id === '__sans__' && docs.length === 0) return null
                     const key = String(sp.id)
-                    const ouvert = !programmesFermes.has(key)
+                    const ouvert = programmesOuverts.has(key)
                     const couleur = sp.id === '__sans__' ? '#94a3b8' : '#7c3aed'
                     return (
                       <div key={key} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
