@@ -981,7 +981,7 @@ export default function Projet() {
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
                                 <button
-                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected(projet.sousProgrammes.map(sp => sp.id)) }}
+                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected([]) }}
                                   style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 >⟳ Comparer</button>
                               )}
