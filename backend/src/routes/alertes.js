@@ -17,6 +17,12 @@ router.get('/:projetId', async (req, res) => {
   res.json(alertes)
 })
 
+// DELETE /alertes/:id — supprimer définitivement une alerte
+router.delete('/:id', async (req, res) => {
+  await prisma.alerte.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ message: 'Alerte supprimée' })
+})
+
 // PATCH /alertes/:id/resoudre — marquer une alerte comme résolue (V3 : enrichie)
 router.patch('/:id/resoudre', async (req, res) => {
   const { resoluePar, justificationDerogation } = req.body || {}

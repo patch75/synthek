@@ -704,9 +704,19 @@ export default function Projet() {
                                 Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
                               </span>
                               {!isBureauControle && (
-                                <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
-                                  Résoudre
-                                </button>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
+                                    Résoudre
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm('Supprimer définitivement cette alerte ?')) return
+                                      await api.delete(`/alertes/${alerte.id}`)
+                                      setAlertes(prev => prev.filter(a => a.id !== alerte.id))
+                                    }}
+                                    style={{ fontSize: 12, padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                  >Supprimer</button>
+                                </div>
                               )}
                             </div>
                           </div>
