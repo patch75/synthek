@@ -92,6 +92,11 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   }
 
   const { projetId, resumeModif, categorieDoc, sousProgrammeId } = req.body
+  // IDs des sous-programmes sélectionnés pour la comparaison (tableau ou valeur unique)
+  const comparerAvecSpsRaw = req.body['comparerAvecSps[]'] || req.body.comparerAvecSps
+  const comparerAvecSps = comparerAvecSpsRaw
+    ? (Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw : [comparerAvecSpsRaw]).map(Number)
+    : null
   if (!projetId) {
     return res.status(400).json({ error: 'projetId requis' })
   }
@@ -182,17 +187,21 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         // Sous-programme explicite → une seule comparaison ciblée
         comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
           .catch(err => console.error('Erreur comparaison documents:', err.message))
+      } else if (comparerAvecSps && comparerAvecSps.length > 0) {
+        // Sous-programmes sélectionnés manuellement par l'utilisateur
+        for (const spId of comparerAvecSps) {
+          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
+            .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
+        }
       } else {
-        // Pas de sous-programme : vérifier si le projet en a
+        // Pas de sélection : vérifier si le projet a des sous-programmes
         const sousProgrammes = await prisma.sousProgramme.findMany({ where: { projetId: pid } })
         if (sousProgrammes.length > 0) {
-          // Lancer une comparaison par sous-programme (extraction automatique de section)
           for (const sp of sousProgrammes) {
             comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id)
               .catch(err => console.error(`Erreur comparaison [${sp.nom}]:`, err.message))
           }
         } else {
-          // Projet sans sous-programmes → comportement classique
           comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null)
             .catch(err => console.error('Erreur comparaison documents:', err.message))
         }

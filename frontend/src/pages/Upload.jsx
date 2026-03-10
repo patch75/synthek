@@ -48,10 +48,14 @@ export default function Upload() {
   const [error, setError] = useState('')
   const [sousProgrammes, setSousProgrammes] = useState([])
   const [sousProgrammeId, setSousProgrammeId] = useState('')
+  const [comparerAvecSps, setComparerAvecSps] = useState([])
 
   useEffect(() => {
     api.get(`/projets/${id}/sous-programmes`)
-      .then(res => setSousProgrammes(res.data))
+      .then(res => {
+        setSousProgrammes(res.data)
+        setComparerAvecSps(res.data.map(sp => sp.id))
+      })
       .catch(() => {})
   }, [id])
 
@@ -71,6 +75,9 @@ export default function Upload() {
     }
     if (sousProgrammeId) {
       formData.append('sousProgrammeId', sousProgrammeId)
+    }
+    if ((categorieDoc === 'cctp' || categorieDoc === 'dpgf') && sousProgrammes.length > 0 && !sousProgrammeId) {
+      comparerAvecSps.forEach(spId => formData.append('comparerAvecSps[]', spId))
     }
 
     try {
@@ -132,6 +139,27 @@ export default function Upload() {
               <div style={{ ...infoCategorie.style, borderRadius: 8, padding: '10px 14px', fontSize: 13, lineHeight: 1.6, marginBottom: 8, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 16, flexShrink: 0 }}>{infoCategorie.icon}</span>
                 <span>{infoCategorie.texte}</span>
+              </div>
+            )}
+
+            {/* Sélection des sous-programmes à comparer — CCTP ou DPGF sans sous-programme assigné */}
+            {(categorieDoc === 'cctp' || categorieDoc === 'dpgf') && sousProgrammes.length > 0 && !sousProgrammeId && (
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label>Comparer avec les programmes <span className="text-muted">(décocher pour ne pas analyser)</span></label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
+                  {sousProgrammes.map(sp => (
+                    <label key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, background: 'var(--bg-muted)', borderRadius: 20, padding: '4px 12px' }}>
+                      <input
+                        type="checkbox"
+                        checked={comparerAvecSps.includes(sp.id)}
+                        onChange={e => setComparerAvecSps(prev =>
+                          e.target.checked ? [...prev, sp.id] : prev.filter(id => id !== sp.id)
+                        )}
+                      />
+                      {sp.nom}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
 
