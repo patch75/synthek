@@ -705,7 +705,7 @@ export default function Projet() {
                               </span>
                               {!isBureauControle && (
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                  <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
+                                  <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success" title="Marque l'alerte comme traitée et la conserve dans l'historique (traçabilité)">
                                     Résoudre
                                   </button>
                                   <button
