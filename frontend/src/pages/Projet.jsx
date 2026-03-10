@@ -982,8 +982,7 @@ export default function Projet() {
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
                                 <button
                                   onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected(projet.sousProgrammes.map(sp => sp.id)) }}
-                                  className="btn-secondary"
-                                  style={{ fontSize: 12, padding: '4px 10px' }}
+                                  style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 >⟳ Comparer</button>
                               )}
                               <button
