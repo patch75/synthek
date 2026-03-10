@@ -50,7 +50,8 @@ function extraireExigences(texte) {
  */
 function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
   if (!texteDoc) return ''
-  const TAILLE = 12000
+  const TAILLE_FALLBACK = 12000
+  const MAX_TAILLE = 25000
 
   // Normalisation sans accents
   const norm = s => s.toLowerCase()
@@ -64,21 +65,35 @@ function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
     let pos = 0
     let meilleurePos = -1
     let meilleurScore = 0
+    const posParLigne = []
+    let idxMeilleureLigne = -1
 
-    for (const ligne of lignes) {
-      const ligneNorm = norm(ligne)
+    for (let i = 0; i < lignes.length; i++) {
+      posParLigne.push(pos)
+      const ligneNorm = norm(lignes[i])
       const score = motsCle.filter(m => ligneNorm.includes(m)).length
-      // Favoriser les lignes courtes (titres) avec bonne correspondance
-      if (score > 0 && ligne.trim().length < 80 && score >= meilleurScore) {
+      if (score > 0 && lignes[i].trim().length < 80 && score >= meilleurScore) {
         meilleurScore = score
         meilleurePos = pos
+        idxMeilleureLigne = i
       }
-      pos += ligne.length + 1
+      pos += lignes[i].length + 1
     }
 
     if (meilleurePos >= 0) {
-      console.log(`[comparerDocuments] Section trouvée pour "${nomSousProgramme}" à pos ${meilleurePos}`)
-      return texteDoc.substring(meilleurePos, meilleurePos + TAILLE)
+      // Chercher la fin du chapitre : prochain titre de même niveau (ligne courte commençant par chiffre + point)
+      const chapitreRegex = /^\d+\.\s*[A-ZÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ]/
+      let finSection = texteDoc.length
+      for (let i = idxMeilleureLigne + 1; i < lignes.length; i++) {
+        const l = lignes[i].trim()
+        if (l.length > 0 && l.length < 80 && (chapitreRegex.test(l) || l.toUpperCase().startsWith('ANNEXE'))) {
+          finSection = posParLigne[i]
+          break
+        }
+      }
+      const section = texteDoc.substring(meilleurePos, finSection)
+      console.log(`[comparerDocuments] Section "${nomSousProgramme}" extraite: ${section.length} chars`)
+      return section.length <= MAX_TAILLE ? section : section.substring(0, MAX_TAILLE)
     }
   }
 
@@ -86,11 +101,11 @@ function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
   if (texteRef && texteRef.length > 100) {
     const motsRef = new Set(tokeniser(texteRef).filter(m => m.length >= 5).slice(0, 50))
     const step = 500
-    let meilleurExtrait = texteDoc.substring(0, TAILLE)
+    let meilleurExtrait = texteDoc.substring(0, TAILLE_FALLBACK)
     let maxScore = 0
 
-    for (let i = 0; i < texteDoc.length - TAILLE; i += step) {
-      const extrait = texteDoc.substring(i, i + TAILLE)
+    for (let i = 0; i < texteDoc.length - TAILLE_FALLBACK; i += step) {
+      const extrait = texteDoc.substring(i, i + TAILLE_FALLBACK)
       const score = tokeniser(extrait).filter(m => motsRef.has(m)).length
       if (score > maxScore) {
         maxScore = score
@@ -100,7 +115,7 @@ function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
     return meilleurExtrait
   }
 
-  return texteDoc.substring(0, TAILLE)
+  return texteDoc.substring(0, TAILLE_FALLBACK)
 }
 
 /**
@@ -224,7 +239,7 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     }
     if (ref?.contenuTexte) {
       lignes.push(`\nExtrait du programme de référence (${a.nomRef}) :`)
-      lignes.push(ref.contenuTexte.substring(0, 2000))
+      lignes.push(ref.contenuTexte.substring(0, 10000))
     }
     return lignes.join('\n')
   }).join('\n\n---\n\n')
