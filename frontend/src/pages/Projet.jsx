@@ -130,6 +130,7 @@ export default function Projet() {
   const [showLexique, setShowLexique] = useState(false)
   const [showAlertes, setShowAlertes] = useState(false)
   const [alertesGroupesOuverts, setAlertesGroupesOuverts] = useState(new Set())
+  const [showResolInfo, setShowResolInfo] = useState(false)
   const [programmesOuverts, setProgrammesOuverts] = useState(new Set())
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
@@ -705,9 +706,15 @@ export default function Projet() {
                               </span>
                               {!isBureauControle && (
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                  <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success" title="Marque l'alerte comme traitée et la conserve dans l'historique (traçabilité)">
+                                  <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
                                     Résoudre
                                   </button>
+                                  <span onClick={() => setShowResolInfo(v => !v)} style={{ cursor: 'pointer', fontSize: 14, userSelect: 'none' }} title="">ℹ️</span>
+                                  {showResolInfo && (
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-muted)', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' }}>
+                                      Résoudre archive · Supprimer efface définitivement
+                                    </span>
+                                  )}
                                   <button
                                     onClick={async () => {
                                       if (!confirm('Supprimer définitivement cette alerte ?')) return
