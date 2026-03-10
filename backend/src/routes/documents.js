@@ -226,10 +226,8 @@ router.post('/:id/comparer', async (req, res) => {
     return res.status(400).json({ error: 'Comparaison disponible uniquement pour CCTP et DPGF' })
   }
 
-  const comparerAvecSpsRaw = req.body['comparerAvecSps[]'] || req.body.comparerAvecSps
-  const comparerAvecSps = comparerAvecSpsRaw
-    ? (Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw : [comparerAvecSpsRaw]).map(Number)
-    : []
+  const comparerAvecSpsRaw = req.body.comparerAvecSps
+  const comparerAvecSps = Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw.map(Number) : []
   const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
 
   if (comparerAvecSps.length === 0) {

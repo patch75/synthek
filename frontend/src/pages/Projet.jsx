@@ -322,11 +322,7 @@ export default function Projet() {
     if (!showComparerModal || comparerSpsSelected.length === 0) return
     setComparerEnCours(true)
     try {
-      const body = new URLSearchParams()
-      comparerSpsSelected.forEach(spId => body.append('comparerAvecSps[]', spId))
-      await api.post(`/documents/${showComparerModal.id}/comparer`, body, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { comparerAvecSps: comparerSpsSelected })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
