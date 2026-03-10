@@ -749,10 +749,10 @@ export default function Projet() {
                     <button
                       onClick={() => setShowSousProgrammes(v => !v)}
                       className="btn-ghost"
-                      style={{ fontSize: 13 }}
+                      style={{ fontSize: 13, backgroundColor: '#f0f0ff', border: '1px solid #c5c5f0', color: '#5a5aaa' }}
                       title="Gérer les sous-programmes"
                     >
-                      Sous-programmes
+                      ✏️ Sous-programmes
                     </button>
                   )}
                   {!isBureauControle && (
