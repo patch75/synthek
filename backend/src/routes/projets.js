@@ -145,6 +145,15 @@ router.post('/:id/sous-programmes', async (req, res) => {
   res.status(201).json(sp)
 })
 
+// PATCH /projets/:id/sous-programmes/:spId — renommer
+router.patch('/:id/sous-programmes/:spId', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const { nom } = req.body
+  if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
+  const sp = await prisma.sousProgramme.update({ where: { id: parseInt(req.params.spId) }, data: { nom: nom.trim() } })
+  res.json(sp)
+})
+
 // DELETE /projets/:id/sous-programmes/:spId
 router.delete('/:id/sous-programmes/:spId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })

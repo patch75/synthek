@@ -163,6 +163,8 @@ export default function Projet() {
   const [showSousProgrammes, setShowSousProgrammes] = useState(false)
   const [nouveauSp, setNouveauSp] = useState('')
   const [spEnCours, setSpEnCours] = useState(false)
+  const [spRenomId, setSpRenomId] = useState(null)
+  const [spRenomNom, setSpRenomNom] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -373,6 +375,17 @@ export default function Projet() {
       alert(err.response?.data?.error || 'Erreur')
     } finally {
       setSpEnCours(false)
+    }
+  }
+
+  async function renommerSousProgramme(spId) {
+    if (!spRenomNom.trim()) return
+    try {
+      const res = await api.patch(`/projets/${id}/sous-programmes/${spId}`, { nom: spRenomNom.trim() })
+      setProjet(prev => ({ ...prev, sousProgrammes: prev.sousProgrammes.map(sp => sp.id === spId ? res.data : sp) }))
+      setSpRenomId(null)
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur')
     }
   }
 
@@ -670,12 +683,25 @@ export default function Projet() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                       {sousProgrammes.map(sp => (
                         <span key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-muted)', borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 600 }}>
-                          {sp.nom}
-                          <button
-                            onClick={() => supprimerSousProgramme(sp.id)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }}
-                            title="Supprimer"
-                          >×</button>
+                          {spRenomId === sp.id ? (
+                            <>
+                              <input
+                                value={spRenomNom}
+                                onChange={e => setSpRenomNom(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') renommerSousProgramme(sp.id); if (e.key === 'Escape') setSpRenomId(null) }}
+                                autoFocus
+                                style={{ fontSize: 13, width: 120, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}
+                              />
+                              <button onClick={() => renommerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', fontSize: 14, lineHeight: 1, padding: 0 }} title="Valider">✓</button>
+                              <button onClick={() => setSpRenomId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, lineHeight: 1, padding: 0 }} title="Annuler">✕</button>
+                            </>
+                          ) : (
+                            <>
+                              {sp.nom}
+                              <button onClick={() => { setSpRenomId(sp.id); setSpRenomNom(sp.nom) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Renommer">✎</button>
+                              <button onClick={() => supprimerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
+                            </>
+                          )}
                         </span>
                       ))}
                     </div>
