@@ -870,9 +870,6 @@ export default function Projet() {
             <div className="section-actions">
               {!isBureauControle && (
                 <>
-                  <button onClick={lancerAnalyse} disabled={analyseEnCours} className="btn-secondary">
-                    {analyseEnCours ? 'Analyse...' : 'Analyser'}
-                  </button>
                   <button onClick={() => navigate(`/projets/${id}/upload`)} className="btn-primary">
                     + Déposer
                   </button>
