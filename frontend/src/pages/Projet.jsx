@@ -179,7 +179,9 @@ export default function Projet() {
   useEffect(() => {
     const newDocId = location.state?.newDocId
     if (!newDocId) return
-    navigate(location.pathname, { replace: true, state: {} })
+    const storageKey = `polling_done_${newDocId}`
+    if (sessionStorage.getItem(storageKey)) return
+    sessionStorage.setItem(storageKey, '1')
     setAnalyseBg(true)
     setAnalyseTimer(0)
     puceDetecteeRef.current = false
