@@ -97,22 +97,49 @@ function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
     }
   }
 
-  // Fallback : fenêtre glissante avec meilleure densité de mots du programme
-  if (texteRef && texteRef.length > 100) {
-    const motsRef = new Set(tokeniser(texteRef).filter(m => m.length >= 5).slice(0, 50))
-    const step = 500
-    let meilleurExtrait = texteDoc.substring(0, TAILLE_FALLBACK)
-    let maxScore = 0
+  // Fallback : collecter les blocs les plus pertinents de tout le CCTP
+  // Découper par titres de sections, scorer chaque bloc, prendre les meilleurs
+  const lignes = texteDoc.split('\n')
+  const motsCle = nomSousProgramme
+    ? norm(nomSousProgramme).split(/\s+/).filter(m => m.length >= 3)
+    : []
+  const motsRef = texteRef
+    ? new Set(tokeniser(texteRef).filter(m => m.length >= 5).slice(0, 80))
+    : new Set()
 
-    for (let i = 0; i < texteDoc.length - TAILLE_FALLBACK; i += step) {
-      const extrait = texteDoc.substring(i, i + TAILLE_FALLBACK)
-      const score = tokeniser(extrait).filter(m => motsRef.has(m)).length
-      if (score > maxScore) {
-        maxScore = score
-        meilleurExtrait = extrait
-      }
-    }
-    return meilleurExtrait
+  const blocs = []
+  let blocLignes = []
+  let blocScore = 0
+
+  const finaliserBloc = () => {
+    if (blocLignes.length > 0) blocs.push({ texte: blocLignes.join('\n'), score: blocScore })
+    blocLignes = []
+    blocScore = 0
+  }
+
+  for (const ligne of lignes) {
+    const trim = ligne.trim()
+    const isTitre = trim.length > 0 && trim.length < 80
+    if (isTitre && blocLignes.length > 2) finaliserBloc()
+    blocLignes.push(ligne)
+    const ligneNorm = norm(ligne)
+    const scoreMotsCle = motsCle.filter(m => ligneNorm.includes(m)).length * 3
+    const scoreMots = tokeniser(ligne).filter(m => motsRef.has(m)).length
+    blocScore += scoreMotsCle + scoreMots
+  }
+  finaliserBloc()
+
+  // Prendre les blocs les plus pertinents jusqu'à MAX_TAILLE
+  const blocsTriés = blocs.filter(b => b.score > 0).sort((a, b) => b.score - a.score)
+  let extraction = ''
+  for (const bloc of blocsTriés) {
+    if (extraction.length + bloc.texte.length > MAX_TAILLE) break
+    extraction += bloc.texte + '\n\n'
+  }
+
+  if (extraction.length > 100) {
+    console.log(`[comparerDocuments] Fallback blocs: ${blocsTriés.length} blocs pertinents, ${extraction.length} chars extraits`)
+    return extraction
   }
 
   return texteDoc.substring(0, TAILLE_FALLBACK)
