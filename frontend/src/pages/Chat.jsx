@@ -33,11 +33,28 @@ export default function Chat() {
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [loading, setLoading] = useState(false)
+  const [docs, setDocs] = useState([])
+  const [docsSelectionnes, setDocsSelectionnes] = useState(new Set())
+  const [showDocSelector, setShowDocSelector] = useState(true)
   const bottomRef = useRef(null)
+
+  useEffect(() => {
+    api.get(`/documents/${id}`)
+      .then(res => setDocs(res.data.filter(d => d.contenuTexte)))
+      .catch(() => {})
+  }, [id])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  function toggleDoc(docId) {
+    setDocsSelectionnes(prev => {
+      const next = new Set(prev)
+      next.has(docId) ? next.delete(docId) : next.add(docId)
+      return next
+    })
+  }
 
   async function poserQuestion(e) {
     e.preventDefault()
@@ -49,7 +66,11 @@ export default function Chat() {
     setLoading(true)
 
     try {
-      const res = await api.post('/ia/question', { projetId: parseInt(id), question: q })
+      const res = await api.post('/ia/question', {
+        projetId: parseInt(id),
+        question: q,
+        documentIds: [...docsSelectionnes]
+      })
       const reponse = res.data.reponse
       setMessages(prev => [...prev, { role: 'ia', content: reponse, sources: detectSources(reponse) }])
     } catch (err) {
@@ -76,18 +97,55 @@ export default function Chat() {
           <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', background: 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 4 }}>
             Assistant IA
           </h2>
-          <span className="text-muted" style={{ fontSize: 12 }}>3 sources : réglementation · documents · puces</span>
+          <span className="text-muted" style={{ fontSize: 12 }}>Réglementation · puces · documents sélectionnés</span>
         </div>
+
+        {/* Sélecteur de documents */}
+        <div style={{ border: '1px solid var(--border)', borderRadius: 8, marginBottom: 12, overflow: 'hidden' }}>
+          <div
+            onClick={() => setShowDocSelector(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ fontWeight: 600, fontSize: 13 }}>
+              Documents inclus dans le contexte
+              <span style={{ marginLeft: 8, color: docsSelectionnes.size > 0 ? '#2563eb' : 'var(--text-muted)', fontSize: 12, fontWeight: 400 }}>
+                {docsSelectionnes.size === 0 ? 'aucun — réglementation + puces seulement' : `${docsSelectionnes.size} sélectionné${docsSelectionnes.size > 1 ? 's' : ''}`}
+              </span>
+            </span>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: showDocSelector ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+          </div>
+          {showDocSelector && (
+            <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+              {docs.length === 0 ? (
+                <p className="text-muted text-sm">Aucun document avec texte extrait.</p>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                    <button className="btn-ghost" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setDocsSelectionnes(new Set(docs.map(d => d.id)))}>Tout sélectionner</button>
+                    <button className="btn-ghost" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setDocsSelectionnes(new Set())}>Tout désélectionner</button>
+                  </div>
+                  {docs.map(doc => (
+                    <label key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={docsSelectionnes.has(doc.id)}
+                        onChange={() => toggleDoc(doc.id)}
+                      />
+                      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.nom}</span>
+                      <span className="text-muted" style={{ fontSize: 11, flexShrink: 0 }}>{doc.type?.toUpperCase()}</span>
+                    </label>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="chat-messages">
           {messages.length === 0 && (
             <div className="chat-empty">
               <p>Posez une question sur vos documents ou la réglementation.</p>
-              <p className="text-muted">L'assistant croise la réglementation (DTU, RT2020…), vos documents et les puces.</p>
-              <div className="chat-source-legend">
-                <SourceTag label="Réglementation" color="#7c3aed" />
-                <SourceTag label="Documents" color="#2563eb" />
-                <SourceTag label="Puces" color="#059669" />
-              </div>
+              <p className="text-muted">Sélectionnez les documents à inclure dans le contexte ci-dessus.</p>
             </div>
           )}
           {messages.map((msg, i) => (

@@ -277,10 +277,13 @@ Si aucune incohérence n'est détectée, retourne { "alertes": [] }`
 }
 
 // Répond à une question en croisant 3 sources : réglementation, documents, puces (Haiku)
-async function questionIA(projetId, userId, question) {
+async function questionIA(projetId, userId, question, documentIds = []) {
+  const whereDoc = documentIds.length > 0
+    ? { projetId, id: { in: documentIds } }
+    : { projetId, id: { in: [] } } // aucun doc si rien sélectionné
   const [documents, puces, contenuReglementationRef, configProjet, contexteReglementaire] = await Promise.all([
     prisma.document.findMany({
-      where: { projetId },
+      where: whereDoc,
       select: { nom: true, contenuTexte: true }
     }),
     prisma.puce.findMany({

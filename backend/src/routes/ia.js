@@ -7,12 +7,13 @@ router.use(authMiddleware)
 
 // POST /ia/question
 router.post('/question', async (req, res) => {
-  const { projetId, question } = req.body
+  const { projetId, question, documentIds } = req.body
   if (!projetId || !question) {
     return res.status(400).json({ error: 'projetId et question requis' })
   }
 
-  const reponse = await questionIA(parseInt(projetId), req.user.id, question)
+  const ids = Array.isArray(documentIds) ? documentIds.map(Number) : []
+  const reponse = await questionIA(parseInt(projetId), req.user.id, question, ids)
   res.json({ reponse })
 })
 
