@@ -950,19 +950,18 @@ export default function Projet() {
                       <th>Nom</th>
                       <th>Catégorie</th>
                       <th>Périmètre</th>
-                      <th>Type</th>
-                      <th>Statut</th>
-                      <th>Indice</th>
                       <th>Puce IA</th>
-                      <th>Déposé par</th>
                       <th>Date</th>
-                      {isAdmin && <th></th>}
+                      {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {autresDoc.map(doc => (
                       <tr key={doc.id}>
-                        <td>{doc.nom}</td>
+                        <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.nom}>
+                          {doc.nom}
+                          {doc.indiceRevision && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>{doc.indiceRevision}</span>}
+                        </td>
                         <td>
                           {doc.categorieDoc
                             ? <span className="badge" style={{ background: categorieColors[doc.categorieDoc] || 'var(--bg-muted)', color: categorieColors[doc.categorieDoc] ? 'white' : 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
@@ -975,38 +974,23 @@ export default function Projet() {
                             : <span className="text-muted text-sm">—</span>
                           }
                         </td>
-                        <td><span className="badge">{doc.type.toUpperCase()}</span></td>
-                        <td>
-                          {doc.statutDocument ? (
-                            <span className="badge" style={{ background: statutColors[doc.statutDocument] || '#94a3b8', color: 'white', fontSize: 11 }}>
-                              {statutLabels[doc.statutDocument] || doc.statutDocument}
-                            </span>
-                          ) : <span className="text-muted text-sm">—</span>}
-                        </td>
-                        <td>
-                          {doc.indiceRevision
-                            ? <span style={{ fontWeight: 600, fontSize: 13 }}>{doc.indiceRevision}</span>
-                            : <span className="text-muted text-sm">—</span>}
-                        </td>
                         <td><PuceCard puce={doc.puce} /></td>
-                        <td>{doc.user?.nom}</td>
-                        <td>{new Date(doc.dateDepot).toLocaleDateString('fr-FR')}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(doc.dateDepot).toLocaleDateString('fr-FR')}</td>
                         {isAdmin && (
-                          <td style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
+                                <button
+                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected(projet.sousProgrammes.map(sp => sp.id)) }}
+                                  className="btn-secondary"
+                                  style={{ fontSize: 12, padding: '4px 10px' }}
+                                >⟳ Comparer</button>
+                              )}
                               <button
-                                onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected(projet.sousProgrammes.map(sp => sp.id)) }}
-                                className="btn-ghost"
-                                style={{ padding: '2px 8px', fontSize: 12, color: '#2563eb' }}
-                                title="Relancer la comparaison"
-                              >⟳ Comparer</button>
-                            )}
-                            <button
-                              onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
-                              className="btn-ghost"
-                              style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }}
-                              title="Supprimer"
-                            >✕</button>
+                                onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
+                                style={{ fontSize: 12, padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                              >Supprimer</button>
+                            </div>
                           </td>
                         )}
                       </tr>
