@@ -356,12 +356,26 @@ Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
     const uniqueDocIds = [...new Set([documentId, ...refIds])]
     const labelType = categorieDoc === 'cctp' ? 'CCTP vs Programme' : `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
 
+    const labelComplet = nomSousProgramme ? `[${labelType} — ${nomSousProgramme}]` : `[${labelType}]`
+
+    // Supprimer les anciennes alertes du même type pour ce document avant d'en créer de nouvelles
+    const alertesLiees = await prisma.alerteDocument.findMany({
+      where: { documentId },
+      select: { alerteId: true }
+    })
+    if (alertesLiees.length > 0) {
+      const alerteIds = alertesLiees.map(a => a.alerteId)
+      await prisma.alerte.deleteMany({
+        where: { id: { in: alerteIds }, message: { startsWith: labelComplet } }
+      })
+    }
+
     const alertesCreees = []
     for (const alerte of parsed.alertes) {
       const nouvelleAlerte = await prisma.alerte.create({
         data: {
           projetId,
-          message: `[${labelType}] ${alerte.message}`,
+          message: `${labelComplet} ${alerte.message}`,
           documents: {
             create: uniqueDocIds.map(id => ({ documentId: id }))
           }
