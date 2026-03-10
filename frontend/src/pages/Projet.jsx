@@ -129,6 +129,8 @@ export default function Projet() {
   const [jalonChoisi, setJalonChoisi] = useState('DCE')
   const [showLexique, setShowLexique] = useState(false)
   const [showAlertes, setShowAlertes] = useState(false)
+  const [alertesGroupesFermes, setAlertesGroupesFermes] = useState(new Set())
+  const [programmesFermes, setProgrammesFermes] = useState(new Set())
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
@@ -524,6 +526,29 @@ export default function Projet() {
   const isAdmin = user?.role === 'admin'
   const isBureauControle = user?.role === 'bureau_controle'
 
+  // Grouper les alertes par sous-programme extrait du label [TYPE — SousProgramme]
+  function extraireGroupeAlerte(message) {
+    const m = message.match(/\[.*?—\s*(.+?)\]/)
+    if (m) return m[1].trim()
+    return 'Général'
+  }
+  const alertesParGroupe = alertesActives.reduce((acc, a) => {
+    const g = extraireGroupeAlerte(a.message)
+    if (!acc[g]) acc[g] = []
+    acc[g].push(a)
+    return acc
+  }, {})
+  const toggleGroupeAlerte = (g) => setAlertesGroupesFermes(prev => {
+    const next = new Set(prev)
+    next.has(g) ? next.delete(g) : next.add(g)
+    return next
+  })
+  const toggleProgramme = (key) => setProgrammesFermes(prev => {
+    const next = new Set(prev)
+    next.has(key) ? next.delete(key) : next.add(key)
+    return next
+  })
+
   return (
     <div className="page">
       <header className="topbar">
@@ -654,20 +679,40 @@ export default function Projet() {
               </div>
             </div>
             {showAlertes && (
-              <div className="alertes-list">
-                {alertesActives.map(alerte => (
-                  <div key={alerte.id} className="card alerte-card">
-                    <p><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</p>
-                    <div className="alerte-footer">
-                      <span className="text-muted text-sm">
-                        Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(alertesParGroupe).map(([groupe, alertesGroupe]) => (
+                  <div key={groupe} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                    <div
+                      onClick={() => toggleGroupeAlerte(groupe)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>
+                        {groupe}
+                        <span style={{ marginLeft: 8, background: '#ef4444', color: 'white', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 }}>
+                          {alertesGroupe.length}
+                        </span>
                       </span>
-                      {!isBureauControle && (
-                        <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
-                          Résoudre
-                        </button>
-                      )}
+                      <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: !alertesGroupesFermes.has(groupe) ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
                     </div>
+                    {!alertesGroupesFermes.has(groupe) && (
+                      <div className="alertes-list" style={{ padding: '8px 0', margin: 0 }}>
+                        {alertesGroupe.map(alerte => (
+                          <div key={alerte.id} className="card alerte-card" style={{ margin: '0 8px 8px', borderRadius: 6 }}>
+                            <p><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</p>
+                            <div className="alerte-footer">
+                              <span className="text-muted text-sm">
+                                Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
+                              </span>
+                              {!isBureauControle && (
+                                <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
+                                  Résoudre
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -770,37 +815,44 @@ export default function Projet() {
                   </p>
                 </div>
               ) : hasSousProgrammes ? (
-                // Affichage groupé par sous-programme
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {/* Programmes avec sous-programme */}
-                  {sousProgrammes.map(sp => {
-                    const docs = programmes.filter(d => d.sousProgramme?.id === sp.id)
+                // Affichage groupé par sous-programme — accordéons
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[...sousProgrammes, { id: '__sans__', nom: 'Sans périmètre' }].map(sp => {
+                    const docs = sp.id === '__sans__'
+                      ? programmes.filter(d => !d.sousProgramme)
+                      : programmes.filter(d => d.sousProgramme?.id === sp.id)
+                    if (sp.id === '__sans__' && docs.length === 0) return null
+                    const key = String(sp.id)
+                    const ouvert = !programmesFermes.has(key)
+                    const couleur = sp.id === '__sans__' ? '#94a3b8' : '#7c3aed'
                     return (
-                      <div key={sp.id}>
-                        <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7c3aed', marginBottom: 6 }}>
-                          {sp.nom}
-                        </p>
-                        {docs.length === 0 ? (
-                          <p className="text-muted text-sm" style={{ paddingLeft: 8 }}>Aucun programme pour ce périmètre.</p>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {docs.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
+                      <div key={key} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                        <div
+                          onClick={() => toggleProgramme(key)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: 13, color: couleur, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            {sp.nom}
+                            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, textTransform: 'none', letterSpacing: 0 }}>
+                              {docs.length} document{docs.length > 1 ? 's' : ''}
+                            </span>
+                          </span>
+                          <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: ouvert ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+                        </div>
+                        {ouvert && (
+                          <div style={{ padding: '10px 10px 4px' }}>
+                            {docs.length === 0 ? (
+                              <p className="text-muted text-sm" style={{ paddingLeft: 4, marginBottom: 8 }}>Aucun programme pour ce périmètre.</p>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {docs.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     )
                   })}
-                  {/* Programmes sans sous-programme */}
-                  {programmes.filter(d => !d.sousProgramme).length > 0 && (
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8', marginBottom: 6 }}>
-                        Sans périmètre
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {programmes.filter(d => !d.sousProgramme).map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
