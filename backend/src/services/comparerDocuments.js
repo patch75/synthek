@@ -69,7 +69,7 @@ function extraireSectionPertinente(texteDoc, nomSousProgramme, texteRef) {
       const ligneNorm = norm(ligne)
       const score = motsCle.filter(m => ligneNorm.includes(m)).length
       // Favoriser les lignes courtes (titres) avec bonne correspondance
-      if (score > 0 && ligne.trim().length < 80 && score > meilleurScore) {
+      if (score > 0 && ligne.trim().length < 80 && score >= meilleurScore) {
         meilleurScore = score
         meilleurePos = pos
       }
