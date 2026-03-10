@@ -1023,7 +1023,7 @@ export default function Projet() {
           <section className="section">
             <div className="section-header">
               <h2>Configuration IA</h2>
-              <button onClick={chargerConfig} className="btn-secondary">
+              <button onClick={() => showConfig ? setShowConfig(false) : chargerConfig()} className="btn-secondary">
                 {showConfig ? 'Masquer' : 'Configurer'}
               </button>
             </div>
