@@ -134,6 +134,7 @@ export default function Projet() {
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
   const [comparerSpsSelected, setComparerSpsSelected] = useState([])
   const [comparerEnCours, setComparerEnCours] = useState(false)
+  const [comparerModele, setComparerModele] = useState('haiku')
   const [showEditProjet, setShowEditProjet] = useState(false)
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
@@ -322,7 +323,7 @@ export default function Projet() {
     if (!showComparerModal || comparerSpsSelected.length === 0) return
     setComparerEnCours(true)
     try {
-      await api.post(`/documents/${showComparerModal.id}/comparer`, { comparerAvecSps: comparerSpsSelected })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { comparerAvecSps: comparerSpsSelected, modeleIA: comparerModele })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
@@ -1156,6 +1157,20 @@ export default function Projet() {
                   {sp.nom}
                 </label>
               ))}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
+              <div style={{ display: 'flex', gap: 16 }}>
+                {[
+                  { value: 'haiku', label: 'Haiku', desc: 'rapide' },
+                  { value: 'sonnet', label: 'Sonnet', desc: 'précis' },
+                ].map(opt => (
+                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                    <input type="radio" name="modeleIA" value={opt.value} checked={comparerModele === opt.value} onChange={() => setComparerModele(opt.value)} />
+                    <span>{opt.label} <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>({opt.desc})</span></span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="form-actions" style={{ marginTop: 8 }}>
               <button onClick={lancerComparaison} disabled={comparerEnCours || comparerSpsSelected.length === 0} className="btn-primary">

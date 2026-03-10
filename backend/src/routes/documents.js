@@ -91,7 +91,7 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     return res.status(400).json({ error: 'Fichier requis' })
   }
 
-  const { projetId, resumeModif, categorieDoc, sousProgrammeId } = req.body
+  const { projetId, resumeModif, categorieDoc, sousProgrammeId, modeleIA } = req.body
   // IDs des sous-programmes sélectionnés pour la comparaison (tableau ou valeur unique)
   const comparerAvecSpsRaw = req.body['comparerAvecSps[]'] || req.body.comparerAvecSps
   const comparerAvecSps = comparerAvecSpsRaw
@@ -182,15 +182,16 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     if (cat === 'cctp' || cat === 'dpgf') {
       const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
       const spId = sousProgrammeId ? parseInt(sousProgrammeId) : null
+      const modele = modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
 
       if (spId) {
         // Sous-programme explicite → une seule comparaison ciblée
-        comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
+        comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele)
           .catch(err => console.error('Erreur comparaison documents:', err.message))
       } else if (comparerAvecSps && comparerAvecSps.length > 0) {
         // Sous-programmes sélectionnés manuellement par l'utilisateur
         for (const spId of comparerAvecSps) {
-          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId)
+          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele)
             .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
         }
       } else {
@@ -198,11 +199,11 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         const sousProgrammes = await prisma.sousProgramme.findMany({ where: { projetId: pid } })
         if (sousProgrammes.length > 0) {
           for (const sp of sousProgrammes) {
-            comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id)
+            comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id, modele)
               .catch(err => console.error(`Erreur comparaison [${sp.nom}]:`, err.message))
           }
         } else {
-          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null)
+          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null, modele)
             .catch(err => console.error('Erreur comparaison documents:', err.message))
         }
       }
@@ -229,6 +230,7 @@ router.post('/:id/comparer', async (req, res) => {
   const comparerAvecSpsRaw = req.body.comparerAvecSps
   const comparerAvecSps = Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw.map(Number) : []
   const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
+  const modele = req.body.modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
 
   if (comparerAvecSps.length === 0) {
     return res.status(400).json({ error: 'Aucun sous-programme sélectionné' })
@@ -237,7 +239,7 @@ router.post('/:id/comparer', async (req, res) => {
   res.json({ message: `Comparaison lancée pour ${comparerAvecSps.length} sous-programme(s)` })
 
   for (const spId of comparerAvecSps) {
-    comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, spId)
+    comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, spId, modele)
       .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
   }
 })

@@ -183,7 +183,7 @@ function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
  * Catégorie dpgf → compare vs programmes + optionnellement CCTPs
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
  */
-async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null) {
+async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku') {
   if (!texteDoc || texteDoc.trim().length < 200) return []
 
   const categoriesRef = ['programme']
@@ -337,8 +337,9 @@ Réponds UNIQUEMENT en JSON :
 
 Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
 
+    const model = modeleIA === 'sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model,
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }]
     })

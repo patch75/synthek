@@ -49,6 +49,7 @@ export default function Upload() {
   const [sousProgrammes, setSousProgrammes] = useState([])
   const [sousProgrammeId, setSousProgrammeId] = useState('')
   const [comparerAvecSps, setComparerAvecSps] = useState([])
+  const [modeleIA, setModeleIA] = useState('haiku')
 
   useEffect(() => {
     api.get(`/projets/${id}/sous-programmes`)
@@ -78,6 +79,9 @@ export default function Upload() {
     }
     if ((categorieDoc === 'cctp' || categorieDoc === 'dpgf') && sousProgrammes.length > 0 && !sousProgrammeId) {
       comparerAvecSps.forEach(spId => formData.append('comparerAvecSps[]', spId))
+    }
+    if (categorieDoc === 'cctp' || categorieDoc === 'dpgf') {
+      formData.append('modeleIA', modeleIA)
     }
 
     try {
@@ -222,6 +226,23 @@ export default function Upload() {
                 rows={3}
               />
             </div>
+
+            {(categorieDoc === 'cctp' || categorieDoc === 'dpgf') && (
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label>Modèle IA <span className="text-muted">(pour la comparaison)</span></label>
+                <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+                  {[
+                    { value: 'haiku', label: 'Haiku', desc: 'rapide' },
+                    { value: 'sonnet', label: 'Sonnet', desc: 'précis' },
+                  ].map(opt => (
+                    <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
+                      <input type="radio" name="modeleIA" value={opt.value} checked={modeleIA === opt.value} onChange={() => setModeleIA(opt.value)} />
+                      <span>{opt.label} <span className="text-muted">({opt.desc})</span></span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {error && <p className="error-msg">{error}</p>}
 
