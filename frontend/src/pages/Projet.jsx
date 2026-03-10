@@ -1034,7 +1034,7 @@ export default function Projet() {
                   <textarea
                     value={configPrompt}
                     onChange={e => setConfigPrompt(e.target.value)}
-                    placeholder="Consignes spécifiques pour l'IA sur ce projet..."
+                    placeholder={`Exemple : Les attiques BRS (D201, E1-201, E1-202) sont équipées de PAC air/eau et plancher chauffant. C'est volontaire et conforme au programme.`}
                     rows={4}
                     style={{ fontFamily: 'inherit' }}
                   />
