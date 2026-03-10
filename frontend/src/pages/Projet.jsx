@@ -131,6 +131,9 @@ export default function Projet() {
   const [showAlertes, setShowAlertes] = useState(false)
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
+  const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
+  const [comparerSpsSelected, setComparerSpsSelected] = useState([])
+  const [comparerEnCours, setComparerEnCours] = useState(false)
   const [showEditProjet, setShowEditProjet] = useState(false)
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
@@ -312,6 +315,46 @@ export default function Projet() {
       alert(err.response?.data?.error || 'Erreur lors de la modification')
     } finally {
       setEditEnCours(false)
+    }
+  }
+
+  async function lancerComparaison() {
+    if (!showComparerModal || comparerSpsSelected.length === 0) return
+    setComparerEnCours(true)
+    try {
+      const body = new URLSearchParams()
+      comparerSpsSelected.forEach(spId => body.append('comparerAvecSps[]', spId))
+      await api.post(`/documents/${showComparerModal.id}/comparer`, body, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      })
+      setShowComparerModal(null)
+      // Démarrer le polling pour récupérer les alertes
+      setAnalyseBg(true)
+      setAnalyseTimer(0)
+      puceDetecteeRef.current = true
+      cyclesSupplRef.current = 10
+      const start = Date.now()
+      clearInterval(pollingRef.current)
+      clearInterval(timerRef.current)
+      timerRef.current = setInterval(() => setAnalyseTimer(Math.floor((Date.now() - start) / 1000)), 1000)
+      pollingRef.current = setInterval(async () => {
+        try {
+          const [pRes, aRes] = await Promise.all([api.get(`/projets/${id}`), api.get(`/alertes/${id}`)])
+          setProjet(pRes.data)
+          setAlertes(aRes.data)
+          if (cyclesSupplRef.current <= 0) {
+            clearInterval(pollingRef.current)
+            clearInterval(timerRef.current)
+            setAnalyseBg(false)
+          } else {
+            cyclesSupplRef.current--
+          }
+        } catch { clearInterval(pollingRef.current); clearInterval(timerRef.current); setAnalyseBg(false) }
+      }, 3000)
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erreur lors du lancement')
+    } finally {
+      setComparerEnCours(false)
     }
   }
 
@@ -903,15 +946,21 @@ export default function Projet() {
                         <td>{doc.user?.nom}</td>
                         <td>{new Date(doc.dateDepot).toLocaleDateString('fr-FR')}</td>
                         {isAdmin && (
-                          <td>
+                          <td style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
+                              <button
+                                onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected(projet.sousProgrammes.map(sp => sp.id)) }}
+                                className="btn-ghost"
+                                style={{ padding: '2px 8px', fontSize: 12, color: '#2563eb' }}
+                                title="Relancer la comparaison"
+                              >⟳ Comparer</button>
+                            )}
                             <button
                               onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
                               className="btn-ghost"
                               style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }}
                               title="Supprimer"
-                            >
-                              ✕
-                            </button>
+                            >✕</button>
                           </td>
                         )}
                       </tr>
@@ -1089,6 +1138,38 @@ export default function Projet() {
       )}
 
       {showLexique && <LexiqueModal onClose={() => setShowLexique(false)} />}
+
+      {showComparerModal && (
+        <div className="modal-overlay" onClick={() => setShowComparerModal(null)}>
+          <div className="modal-card" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Relancer la comparaison</h3>
+              <button className="btn-ghost" onClick={() => setShowComparerModal(null)} style={{ padding: '4px 8px' }}>✕</button>
+            </div>
+            <p style={{ fontSize: 13, marginBottom: 12 }}>Choisir les programmes à comparer avec <strong>{showComparerModal.nom}</strong> :</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {projet.sousProgrammes?.map(sp => (
+                <label key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
+                  <input
+                    type="checkbox"
+                    checked={comparerSpsSelected.includes(sp.id)}
+                    onChange={e => setComparerSpsSelected(prev =>
+                      e.target.checked ? [...prev, sp.id] : prev.filter(id => id !== sp.id)
+                    )}
+                  />
+                  {sp.nom}
+                </label>
+              ))}
+            </div>
+            <div className="form-actions" style={{ marginTop: 8 }}>
+              <button onClick={lancerComparaison} disabled={comparerEnCours || comparerSpsSelected.length === 0} className="btn-primary">
+                {comparerEnCours ? 'Lancement...' : 'Lancer'}
+              </button>
+              <button onClick={() => setShowComparerModal(null)} className="btn-ghost">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeleteDoc && (
         <div className="modal-overlay" onClick={() => setShowDeleteDoc(null)}>

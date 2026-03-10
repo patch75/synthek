@@ -213,6 +213,37 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   res.status(201).json(document)
 })
 
+// POST /documents/:id/comparer — relancer la comparaison sans re-uploader
+router.post('/:id/comparer', async (req, res) => {
+  const docId = parseInt(req.params.id)
+  const doc = await prisma.document.findUnique({
+    where: { id: docId },
+    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, projetId: true, sousProgrammeId: true }
+  })
+  if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+  if (!doc.contenuTexte) return res.status(400).json({ error: 'Texte non extrait pour ce document' })
+  if (doc.categorieDoc !== 'cctp' && doc.categorieDoc !== 'dpgf') {
+    return res.status(400).json({ error: 'Comparaison disponible uniquement pour CCTP et DPGF' })
+  }
+
+  const comparerAvecSpsRaw = req.body['comparerAvecSps[]'] || req.body.comparerAvecSps
+  const comparerAvecSps = comparerAvecSpsRaw
+    ? (Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw : [comparerAvecSpsRaw]).map(Number)
+    : []
+  const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
+
+  if (comparerAvecSps.length === 0) {
+    return res.status(400).json({ error: 'Aucun sous-programme sélectionné' })
+  }
+
+  res.json({ message: `Comparaison lancée pour ${comparerAvecSps.length} sous-programme(s)` })
+
+  for (const spId of comparerAvecSps) {
+    comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, spId)
+      .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
+  }
+})
+
 // DELETE /documents/:id — supprimer un document (admin only)
 router.delete('/:id', async (req, res) => {
   if (req.user.role !== 'admin') {
