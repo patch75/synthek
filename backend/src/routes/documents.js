@@ -212,10 +212,15 @@ router.post('/:id/comparer', async (req, res) => {
   const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
   const modele = req.body.modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
   const lotType = doc.lotType || detecterLot(doc.nom)
+  const programmeIds = Array.isArray(req.body.programmeIds) ? req.body.programmeIds.map(Number) : null
+
+  if (programmeIds && programmeIds.length === 0) {
+    return res.status(400).json({ error: 'Sélectionner au moins un programme' })
+  }
 
   res.json({ message: 'Comparaison lancée' })
 
-  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType)
+  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType, programmeIds)
     .catch(err => console.error('Erreur comparaison:', err.message))
 })
 

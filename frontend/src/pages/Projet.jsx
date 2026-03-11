@@ -134,7 +134,7 @@ export default function Projet() {
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
-  const [comparerSpsSelected, setComparerSpsSelected] = useState([])
+  const [comparerProgrammesSelected, setComparerProgrammesSelected] = useState([])
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('haiku')
   const [showEditProjet, setShowEditProjet] = useState(false)
@@ -322,10 +322,10 @@ export default function Projet() {
   }
 
   async function lancerComparaison() {
-    if (!showComparerModal || comparerSpsSelected.length === 0) return
+    if (!showComparerModal || comparerProgrammesSelected.length === 0) return
     setComparerEnCours(true)
     try {
-      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, programmeIds: comparerProgrammesSelected })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
@@ -1011,7 +1011,7 @@ export default function Projet() {
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
                                 <button
-                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); setComparerSpsSelected([]) }}
+                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom }); const progs = projet.documents.filter(d => d.categorieDoc === 'programme').map(d => d.id); setComparerProgrammesSelected(progs) }}
                                   style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 >⟳ Comparer</button>
                               )}
@@ -1206,7 +1206,21 @@ export default function Projet() {
               <h3>Relancer la comparaison</h3>
               <button className="btn-ghost" onClick={() => setShowComparerModal(null)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
-            <p style={{ fontSize: 13, marginBottom: 16 }}>Relancer la comparaison de <strong>{showComparerModal.nom}</strong> contre tous les programmes du projet.</p>
+            <p style={{ fontSize: 13, marginBottom: 12 }}>Programmes à comparer avec <strong>{showComparerModal.nom}</strong> :</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {projet.documents.filter(d => d.categorieDoc === 'programme').map(prog => (
+                <label key={prog.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={comparerProgrammesSelected.includes(prog.id)}
+                    onChange={e => setComparerProgrammesSelected(prev =>
+                      e.target.checked ? [...prev, prog.id] : prev.filter(id => id !== prog.id)
+                    )}
+                  />
+                  {prog.nom}
+                </label>
+              ))}
+            </div>
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
               <div style={{ display: 'flex', gap: 16 }}>
@@ -1222,7 +1236,7 @@ export default function Projet() {
               </div>
             </div>
             <div className="form-actions" style={{ marginTop: 8 }}>
-              <button onClick={lancerComparaison} disabled={comparerEnCours} className="btn-primary">
+              <button onClick={lancerComparaison} disabled={comparerEnCours || comparerProgrammesSelected.length === 0} className="btn-primary">
                 {comparerEnCours ? 'Lancement...' : 'Lancer'}
               </button>
               <button onClick={() => setShowComparerModal(null)} className="btn-ghost">Annuler</button>
