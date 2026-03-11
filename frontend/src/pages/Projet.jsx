@@ -994,7 +994,7 @@ export default function Projet() {
                         </td>
                         <td>
                           {doc.lotType
-                            ? <span className="badge" style={{ background: lotColors[doc.lotType] || '#94a3b8', color: 'white', fontSize: 11 }}>{lotLabels[doc.lotType] || doc.lotType}</span>
+                            ? <span className="badge" style={{ background: lotColors[doc.lotType] || '#94a3b8', color: 'white', fontSize: 11, whiteSpace: 'nowrap' }}>{lotLabels[doc.lotType] || doc.lotType}</span>
                             : <span className="text-muted text-sm">—</span>
                           }
                         </td>
