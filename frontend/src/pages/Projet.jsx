@@ -154,6 +154,14 @@ export default function Projet() {
 
   const TYPOLOGIES_OPTIONS = ['BRS', 'LLS', 'LLTS', 'PLS', 'Accession libre', 'Accession aidée']
 
+  // Bâtiments
+  const [batimentEditIdx, setBatimentEditIdx] = useState(null)
+  const [batimentEditNom, setBatimentEditNom] = useState('')
+  const [batimentEditTypos, setBatimentEditTypos] = useState([])
+  const [showAddBatiment, setShowAddBatiment] = useState(false)
+  const [newBatimentNom, setNewBatimentNom] = useState('')
+  const [newBatimentTypos, setNewBatimentTypos] = useState([])
+
   // V3 — Config IA
   const [showConfig, setShowConfig] = useState(false)
   const [configPrompt, setConfigPrompt] = useState('')
@@ -282,6 +290,37 @@ export default function Projet() {
     }
   }
 
+  function getBatiments() {
+    try { return projet?.batimentsComposition ? JSON.parse(projet.batimentsComposition) : [] }
+    catch { return [] }
+  }
+
+  async function saveBatiments(newBats) {
+    const res = await api.patch(`/projets/${id}`, {
+      batimentsComposition: newBats.length ? JSON.stringify(newBats) : null
+    })
+    setProjet(prev => ({ ...prev, batimentsComposition: res.data.batimentsComposition }))
+  }
+
+  async function ajouterBatimentLocal() {
+    if (!newBatimentNom.trim()) return
+    const updated = [...getBatiments(), { nom: newBatimentNom.trim(), typologies: newBatimentTypos }]
+    await saveBatiments(updated)
+    setNewBatimentNom(''); setNewBatimentTypos([]); setShowAddBatiment(false)
+  }
+
+  async function sauvegarderBatimentEdit(idx) {
+    if (!batimentEditNom.trim()) return
+    const updated = getBatiments().map((b, i) => i === idx ? { nom: batimentEditNom.trim(), typologies: batimentEditTypos } : b)
+    await saveBatiments(updated)
+    setBatimentEditIdx(null)
+  }
+
+  async function supprimerBatimentLocal(idx) {
+    if (!confirm('Supprimer ce bâtiment ?')) return
+    await saveBatiments(getBatiments().filter((_, i) => i !== idx))
+  }
+
   function ouvrirEditProjet() {
     setEditNom(projet.nom)
     setEditClient(projet.client)
@@ -294,7 +333,6 @@ export default function Projet() {
     setEditClassementErp(projet.classementErp || false)
     setEditTypeErp(projet.typeErp || '')
     setEditNombreLogements(projet.nombreLogements ?? '')
-    setEditBatiments(projet.batimentsComposition ? JSON.parse(projet.batimentsComposition) : [])
     setShowEditProjet(true)
   }
 
@@ -315,9 +353,6 @@ export default function Projet() {
         typeErp: editTypeErp,
         nombreLogements: editNombreLogements
       }
-      const batsValides = editBatiments.filter(b => b.nom.trim())
-      body.batimentsComposition = batsValides.length ? JSON.stringify(batsValides) : null
-
       const res = await api.patch(`/projets/${id}`, body)
       setProjet(prev => ({ ...prev, ...res.data }))
       setShowEditProjet(false)
@@ -752,6 +787,88 @@ export default function Projet() {
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {/* Bâtiments */}
+        {isAdmin && (
+          <section className="section">
+            <div className="section-header">
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
+              </h2>
+              <button onClick={() => { setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>
+                + Ajouter
+              </button>
+            </div>
+
+            {getBatiments().length === 0 && !showAddBatiment && (
+              <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {getBatiments().map((bat, i) => (
+                <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                  {batimentEditIdx === i ? (
+                    <div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                        <input
+                          value={batimentEditNom}
+                          onChange={e => setBatimentEditNom(e.target.value)}
+                          style={{ flex: 1, fontSize: 13 }}
+                          autoFocus
+                        />
+                        <button onClick={() => sauvegarderBatimentEdit(i)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>✓</button>
+                        <button onClick={() => setBatimentEditIdx(null)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                        {TYPOLOGIES_OPTIONS.map(t => (
+                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
+                            <input type="checkbox" checked={batimentEditTypos.includes(t)} onChange={() => setBatimentEditTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
+                            {t}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{bat.nom}</span>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 2 }}>
+                        {bat.typologies?.map(t => (
+                          <span key={t} style={{ fontSize: 11, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 8px' }}>{t}</span>
+                        ))}
+                      </div>
+                      <button onClick={() => { setBatimentEditIdx(i); setBatimentEditNom(bat.nom); setBatimentEditTypos(bat.typologies || []) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: 0 }} title="Modifier">✎</button>
+                      <button onClick={() => supprimerBatimentLocal(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 0 }} title="Supprimer">×</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {showAddBatiment && (
+                <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                    <input
+                      value={newBatimentNom}
+                      onChange={e => setNewBatimentNom(e.target.value)}
+                      placeholder="Ex : Bâtiment A, Villas..."
+                      style={{ flex: 1, fontSize: 13 }}
+                      autoFocus
+                    />
+                    <button onClick={ajouterBatimentLocal} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>Ajouter</button>
+                    <button onClick={() => setShowAddBatiment(false)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    {TYPOLOGIES_OPTIONS.map(t => (
+                      <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
+                        <input type="checkbox" checked={newBatimentTypos.includes(t)} onChange={() => setNewBatimentTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
+                        {t}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
         )}
 
@@ -1384,45 +1501,6 @@ export default function Projet() {
                     <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
                   </div>
                 )}
-                {/* Bâtiments / typologies */}
-                <div>
-                  <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
-                    Composition des bâtiments <span style={{ fontWeight: 400 }}>(optionnel)</span>
-                  </p>
-                  {editBatiments.map((bat, i) => (
-                    <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, marginBottom: 8 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                        <input
-                          value={bat.nom}
-                          onChange={e => setEditBatiments(prev => prev.map((b, j) => j === i ? { ...b, nom: e.target.value } : b))}
-                          placeholder="Ex : Bâtiment A, Villas..."
-                          style={{ flex: 1, fontSize: 13 }}
-                        />
-                        <button type="button" onClick={() => setEditBatiments(prev => prev.filter((_, j) => j !== i))} className="btn-ghost" style={{ padding: '4px 8px', color: 'var(--danger, #ef4444)' }}>✕</button>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {TYPOLOGIES_OPTIONS.map(t => (
-                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
-                            <input
-                              type="checkbox"
-                              checked={bat.typologies.includes(t)}
-                              onChange={() => setEditBatiments(prev => prev.map((b, j) => {
-                                if (j !== i) return b
-                                const typos = b.typologies.includes(t) ? b.typologies.filter(v => v !== t) : [...b.typologies, t]
-                                return { ...b, typologies: typos }
-                              }))}
-                              style={{ width: 'auto' }}
-                            />
-                            {t}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => setEditBatiments(prev => [...prev, { nom: '', typologies: [] }])} className="btn-secondary" style={{ fontSize: 13, padding: '6px 12px' }}>
-                    + Ajouter un bâtiment
-                  </button>
-                </div>
               </div>
               <div className="form-actions" style={{ marginTop: 16 }}>
                 <button type="submit" disabled={editEnCours} className="btn-primary">
