@@ -146,26 +146,6 @@ export default function Upload() {
               </div>
             )}
 
-            {/* Sélection des sous-programmes à comparer — CCTP ou DPGF sans sous-programme assigné */}
-            {(categorieDoc === 'cctp' || categorieDoc === 'dpgf') && sousProgrammes.length > 0 && !sousProgrammeId && (
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label>Comparer avec les programmes <span className="text-muted">(décocher pour ne pas analyser)</span></label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-                  {sousProgrammes.map(sp => (
-                    <label key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, background: 'var(--bg-muted)', borderRadius: 20, padding: '4px 12px' }}>
-                      <input
-                        type="checkbox"
-                        checked={comparerAvecSps.includes(sp.id)}
-                        onChange={e => setComparerAvecSps(prev =>
-                          e.target.checked ? [...prev, sp.id] : prev.filter(id => id !== sp.id)
-                        )}
-                      />
-                      {sp.nom}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Options de comparaison pour DPGF */}
             {categorieDoc === 'dpgf' && (

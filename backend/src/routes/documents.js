@@ -183,35 +183,12 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         .catch(err => console.error('Erreur comparaison versions:', err.message))
     }
 
-    // 3. Comparaison vs référence si CCTP ou DPGF (pas pour le Lot 00 Généralités)
+    // 3. Comparaison vs référence si CCTP ou DPGF (une seule comparaison globale, pas par sous-programme)
     if ((cat === 'cctp' || cat === 'dpgf') && lotDetecte !== 'generalites') {
       const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
-      const spId = sousProgrammeId ? parseInt(sousProgrammeId) : null
       const modele = modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
-
-      if (spId) {
-        // Sous-programme explicite → une seule comparaison ciblée
-        comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele, lotDetecte)
-          .catch(err => console.error('Erreur comparaison documents:', err.message))
-      } else if (comparerAvecSps && comparerAvecSps.length > 0) {
-        // Sous-programmes sélectionnés manuellement par l'utilisateur
-        for (const spId of comparerAvecSps) {
-          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele, lotDetecte)
-            .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
-        }
-      } else {
-        // Pas de sélection : vérifier si le projet a des sous-programmes
-        const sousProgrammes = await prisma.sousProgramme.findMany({ where: { projetId: pid } })
-        if (sousProgrammes.length > 0) {
-          for (const sp of sousProgrammes) {
-            comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id, modele, lotDetecte)
-              .catch(err => console.error(`Erreur comparaison [${sp.nom}]:`, err.message))
-          }
-        } else {
-          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null, modele, lotDetecte)
-            .catch(err => console.error('Erreur comparaison documents:', err.message))
-        }
-      }
+      comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null, modele, lotDetecte)
+        .catch(err => console.error('Erreur comparaison documents:', err.message))
     }
   }
   backgroundTasks()  // sans await — non-bloquant
@@ -232,22 +209,14 @@ router.post('/:id/comparer', async (req, res) => {
     return res.status(400).json({ error: 'Comparaison disponible uniquement pour CCTP et DPGF' })
   }
 
-  const comparerAvecSpsRaw = req.body.comparerAvecSps
-  const comparerAvecSps = Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw.map(Number) : []
   const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
   const modele = req.body.modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
   const lotType = doc.lotType || detecterLot(doc.nom)
 
-  if (comparerAvecSps.length === 0) {
-    return res.status(400).json({ error: 'Aucun sous-programme sélectionné' })
-  }
+  res.json({ message: 'Comparaison lancée' })
 
-  res.json({ message: `Comparaison lancée pour ${comparerAvecSps.length} sous-programme(s)` })
-
-  for (const spId of comparerAvecSps) {
-    comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, spId, modele, lotType)
-      .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
-  }
+  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType)
+    .catch(err => console.error('Erreur comparaison:', err.message))
 })
 
 // DELETE /documents/:id — supprimer un document (admin only)

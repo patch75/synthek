@@ -325,7 +325,7 @@ export default function Projet() {
     if (!showComparerModal || comparerSpsSelected.length === 0) return
     setComparerEnCours(true)
     try {
-      await api.post(`/documents/${showComparerModal.id}/comparer`, { comparerAvecSps: comparerSpsSelected, modeleIA: comparerModele })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
@@ -1188,21 +1188,7 @@ export default function Projet() {
               <h3>Relancer la comparaison</h3>
               <button className="btn-ghost" onClick={() => setShowComparerModal(null)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
-            <p style={{ fontSize: 13, marginBottom: 12 }}>Choisir les programmes à comparer avec <strong>{showComparerModal.nom}</strong> :</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-              {projet.sousProgrammes?.map(sp => (
-                <label key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-                  <input
-                    type="checkbox"
-                    checked={comparerSpsSelected.includes(sp.id)}
-                    onChange={e => setComparerSpsSelected(prev =>
-                      e.target.checked ? [...prev, sp.id] : prev.filter(id => id !== sp.id)
-                    )}
-                  />
-                  {sp.nom}
-                </label>
-              ))}
-            </div>
+            <p style={{ fontSize: 13, marginBottom: 16 }}>Relancer la comparaison de <strong>{showComparerModal.nom}</strong> contre tous les programmes du projet.</p>
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
               <div style={{ display: 'flex', gap: 16 }}>
@@ -1218,7 +1204,7 @@ export default function Projet() {
               </div>
             </div>
             <div className="form-actions" style={{ marginTop: 8 }}>
-              <button onClick={lancerComparaison} disabled={comparerEnCours || comparerSpsSelected.length === 0} className="btn-primary">
+              <button onClick={lancerComparaison} disabled={comparerEnCours} className="btn-primary">
                 {comparerEnCours ? 'Lancement...' : 'Lancer'}
               </button>
               <button onClick={() => setShowComparerModal(null)} className="btn-ghost">Annuler</button>
