@@ -722,7 +722,17 @@ export default function Projet() {
                       <div className="alertes-list" style={{ padding: '8px 0', margin: 0 }}>
                         {alertesGroupe.map(alerte => (
                           <div key={alerte.id} className="card alerte-card" style={{ margin: '0 8px 8px', borderRadius: 6 }}>
-                            <p><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</p>
+                            <p>
+                              {(() => {
+                                const m = alerte.message.match(/^\[([^\]]+)\]\s*(.*)$/s)
+                                if (m) return <>
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 4, padding: '2px 7px', marginRight: 8, whiteSpace: 'nowrap' }}>{m[1]}</span>
+                                  {m[2]}
+                                </>
+                                return <><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</>
+                              })()}
+                            </p>
                             <div className="alerte-footer">
                               <span className="text-muted text-sm">
                                 Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
