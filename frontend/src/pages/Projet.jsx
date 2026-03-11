@@ -134,6 +134,7 @@ export default function Projet() {
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
+  const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [comparerProgrammesSelected, setComparerProgrammesSelected] = useState([])
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('sonnet')
@@ -962,6 +963,20 @@ export default function Projet() {
               generalites: '#94a3b8'
             }
 
+            const toggleTri = (col) => setTriDoc(prev => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }))
+            const fleche = (col) => triDoc.col === col ? (triDoc.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
+            const docsTries = [...autresDoc].sort((a, b) => {
+              let va, vb
+              if (triDoc.col === 'nom') { va = a.nom.toLowerCase(); vb = b.nom.toLowerCase() }
+              else if (triDoc.col === 'categorieDoc') { va = a.categorieDoc || ''; vb = b.categorieDoc || '' }
+              else if (triDoc.col === 'lotType') { va = a.lotType || ''; vb = b.lotType || '' }
+              else { va = new Date(a.dateDepot); vb = new Date(b.dateDepot) }
+              if (va < vb) return triDoc.dir === 'asc' ? -1 : 1
+              if (va > vb) return triDoc.dir === 'asc' ? 1 : -1
+              return 0
+            })
+            const thStyle = { cursor: 'pointer', userSelect: 'none' }
+
             if (autresDoc.length === 0) {
               return <p className="text-muted">Aucun document déposé.</p>
             }
@@ -970,17 +985,17 @@ export default function Projet() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Nom</th>
-                      <th>Catégorie</th>
-                      <th>Lot</th>
+                      <th style={thStyle} onClick={() => toggleTri('nom')}>Nom{fleche('nom')}</th>
+                      <th style={thStyle} onClick={() => toggleTri('categorieDoc')}>Catégorie{fleche('categorieDoc')}</th>
+                      <th style={thStyle} onClick={() => toggleTri('lotType')}>Lot{fleche('lotType')}</th>
                       <th>Périmètre</th>
                       <th>Puce IA</th>
-                      <th>Date</th>
+                      <th style={thStyle} onClick={() => toggleTri('dateDepot')}>Date{fleche('dateDepot')}</th>
                       {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {autresDoc.map(doc => (
+                    {docsTries.map(doc => (
                       <tr key={doc.id}>
                         <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.nom}>
                           {doc.nom}
