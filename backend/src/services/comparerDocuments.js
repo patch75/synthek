@@ -207,8 +207,8 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
       where: { id: projetId },
       select: {
         nom: true, client: true, typeBatiment: true, energieRetenue: true,
-        zoneClimatique: true, nombreLogements: true,
-        sousProgrammes: { select: { nom: true, typologies: true } }
+        zoneClimatique: true, nombreLogements: true, batimentsComposition: true,
+        sousProgrammes: { select: { nom: true } }
       }
     }),
     prisma.configProjet.findUnique({
@@ -305,18 +305,17 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
 
   // Construire le contexte projet pour le prompt
   let compositionBatiments = ''
-  if (projet?.sousProgrammes?.length) {
-    const avecTypologies = projet.sousProgrammes.filter(s => s.typologies)
-    if (avecTypologies.length > 0) {
-      compositionBatiments = `Composition des bâtiments du projet :\n` +
-        avecTypologies.map(s => {
-          const typos = JSON.parse(s.typologies)
-          return `  - ${s.nom} : ${typos.join(', ')}`
-        }).join('\n') +
-        `\nIMPORTANT : le CCTP doit traiter chaque typologie distinctement (exigences spécifiques par financement).`
-    } else {
-      compositionBatiments = `Périmètres du projet : ${projet.sousProgrammes.map(s => s.nom).join(', ')}.`
-    }
+  if (projet?.batimentsComposition) {
+    try {
+      const bats = JSON.parse(projet.batimentsComposition)
+      if (bats?.length) {
+        compositionBatiments = `Composition des bâtiments du projet :\n` +
+          bats.map(b => `  - ${b.nom} : ${b.typologies?.join(', ') || '—'}`).join('\n') +
+          `\nIMPORTANT : le CCTP doit traiter chaque bâtiment/typologie distinctement (exigences spécifiques par financement).`
+      }
+    } catch (e) { /* JSON invalide, on ignore */ }
+  } else if (projet?.sousProgrammes?.length) {
+    compositionBatiments = `Périmètres du projet : ${projet.sousProgrammes.map(s => s.nom).join(', ')}.`
   }
 
   const contextProjet = [

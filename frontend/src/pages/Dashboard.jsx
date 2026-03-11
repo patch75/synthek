@@ -95,7 +95,7 @@ export default function Dashboard() {
       if (classementErp && typeErp) body.typeErp = typeErp
       if (nombreLogements) body.nombreLogements = parseInt(nombreLogements)
       const batimentsValides = batiments.filter(b => b.nom.trim())
-      if (batimentsValides.length) body.batiments = batimentsValides
+      if (batimentsValides.length) body.batimentsComposition = JSON.stringify(batimentsValides)
 
       const res = await api.post('/projets', body)
       setProjets(prev => [res.data, ...prev])

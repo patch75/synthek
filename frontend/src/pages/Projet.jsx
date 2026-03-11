@@ -294,11 +294,7 @@ export default function Projet() {
     setEditClassementErp(projet.classementErp || false)
     setEditTypeErp(projet.typeErp || '')
     setEditNombreLogements(projet.nombreLogements ?? '')
-    setEditBatiments((projet.sousProgrammes || []).map(sp => ({
-      id: sp.id,
-      nom: sp.nom,
-      typologies: sp.typologies ? JSON.parse(sp.typologies) : []
-    })))
+    setEditBatiments(projet.batimentsComposition ? JSON.parse(projet.batimentsComposition) : [])
     setShowEditProjet(true)
   }
 
@@ -319,33 +315,11 @@ export default function Projet() {
         typeErp: editTypeErp,
         nombreLogements: editNombreLogements
       }
-      await api.patch(`/projets/${id}`, body)
+      const batsValides = editBatiments.filter(b => b.nom.trim())
+      body.batimentsComposition = batsValides.length ? JSON.stringify(batsValides) : null
 
-      // Synchroniser les bâtiments (sous-programmes)
-      const existingSps = projet.sousProgrammes || []
-      const editIds = new Set(editBatiments.filter(b => b.id).map(b => b.id))
-
-      // Supprimer ceux qui ont été retirés
-      for (const sp of existingSps) {
-        if (!editIds.has(sp.id)) {
-          await api.delete(`/projets/${id}/sous-programmes/${sp.id}`)
-        }
-      }
-      // Mettre à jour ceux qui ont changé
-      for (const bat of editBatiments.filter(b => b.id)) {
-        const orig = existingSps.find(sp => sp.id === bat.id)
-        const origTypos = JSON.stringify(orig?.typologies ? JSON.parse(orig.typologies) : [])
-        if (orig && (orig.nom !== bat.nom || origTypos !== JSON.stringify(bat.typologies))) {
-          await api.patch(`/projets/${id}/sous-programmes/${bat.id}`, { nom: bat.nom, typologies: bat.typologies })
-        }
-      }
-      // Créer les nouveaux
-      for (const bat of editBatiments.filter(b => !b.id && b.nom.trim())) {
-        await api.post(`/projets/${id}/sous-programmes`, { nom: bat.nom.trim(), typologies: bat.typologies })
-      }
-
-      const pRes = await api.get(`/projets/${id}`)
-      setProjet(pRes.data)
+      const res = await api.patch(`/projets/${id}`, body)
+      setProjet(prev => ({ ...prev, ...res.data }))
       setShowEditProjet(false)
     } catch (err) {
       alert(err.response?.data?.error || 'Erreur lors de la modification')

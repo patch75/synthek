@@ -29,7 +29,7 @@ router.post('/', async (req, res) => {
   const {
     nom, client, typeBatiment, nombreNiveaux, shon, energieRetenue,
     zoneClimatique, classementErp, typeErp, nombreLogements, adresse,
-    batiments
+    batimentsComposition
   } = req.body
 
   if (!nom || !client) {
@@ -76,23 +76,9 @@ router.post('/', async (req, res) => {
   if (typeErp) data.typeErp = typeErp
   if (nombreLogements != null) data.nombreLogements = parseInt(nombreLogements)
   if (adresse) data.adresse = adresse
+  if (batimentsComposition) data.batimentsComposition = batimentsComposition
 
   const projet = await prisma.projet.create({ data })
-
-  // Créer les sous-programmes (bâtiments) si fournis à la création
-  if (batiments?.length) {
-    for (const bat of batiments) {
-      if (bat.nom?.trim()) {
-        await prisma.sousProgramme.create({
-          data: {
-            projetId: projet.id,
-            nom: bat.nom.trim(),
-            typologies: bat.typologies?.length ? JSON.stringify(bat.typologies) : null
-          }
-        })
-      }
-    }
-  }
 
   // Créer l'arborescence de stockage (Bloc 6)
   const projetDir = path.join(STORAGE_ROOT, 'projets', String(projet.id))
@@ -191,7 +177,8 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   const projetId = parseInt(req.params.id)
   const {
     nom, client, adresse, typeBatiment, nombreNiveaux, shon,
-    energieRetenue, zoneClimatique, classementErp, typeErp, nombreLogements
+    energieRetenue, zoneClimatique, classementErp, typeErp, nombreLogements,
+    batimentsComposition
   } = req.body
 
   // Validations
@@ -220,6 +207,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   if (classementErp !== undefined) data.classementErp = !!classementErp
   if (typeErp !== undefined) data.typeErp = typeErp || null
   if (nombreLogements != null) data.nombreLogements = nombreLogements === '' ? null : parseInt(nombreLogements)
+  if (batimentsComposition !== undefined) data.batimentsComposition = batimentsComposition || null
 
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
 

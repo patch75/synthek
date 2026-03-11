@@ -41,6 +41,7 @@ model Projet {
   typeErp         String?   // 'M','J','U','W','PS'... si classementErp=true
   nombreLogements Int?      // si résidentiel
   adresse         String?   // pour API GPU/PLU
+  batimentsComposition String? @db.Text  // JSON [{"nom":"BAT A","typologies":["BRS","LLS"]}]
 
   membres         ProjetUser[]
   documents       Document[]
