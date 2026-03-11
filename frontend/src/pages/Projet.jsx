@@ -117,8 +117,6 @@ export default function Projet() {
   const [emailInvite, setEmailInvite] = useState('')
   const [roleInvite, setRoleInvite] = useState('moa')
   const [inviteError, setInviteError] = useState('')
-  const [analyseEnCours, setAnalyseEnCours] = useState(false)
-  const [analyseMsg, setAnalyseMsg] = useState('')
   const [showPhase, setShowPhase] = useState(false)
   const [phaseEnCours, setPhaseEnCours] = useState(false)
   const [phaseMsg, setPhaseMsg] = useState(null)
@@ -472,24 +470,6 @@ export default function Projet() {
       setShowInvite(false)
     } catch (err) {
       setInviteError(err.response?.data?.error || 'Erreur lors de l\'invitation')
-    }
-  }
-
-  async function lancerAnalyse() {
-    setAnalyseEnCours(true)
-    setAnalyseMsg('')
-    try {
-      const res = await api.post('/ia/analyser', { projetId: parseInt(id) })
-      const n = res.data.count
-      setAnalyseMsg(n === 0 ? 'Aucune incohérence détectée.' : `${n} nouvelle${n > 1 ? 's' : ''} alerte${n > 1 ? 's' : ''} créée${n > 1 ? 's' : ''}.`)
-      if (n > 0) {
-        const aRes = await api.get(`/alertes/${id}`)
-        setAlertes(aRes.data)
-      }
-    } catch {
-      setAnalyseMsg('Erreur lors de l\'analyse.')
-    } finally {
-      setAnalyseEnCours(false)
     }
   }
 
@@ -938,20 +918,6 @@ export default function Projet() {
             </div>
           </div>
 
-          {analyseEnCours && (
-            <div className="card info-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
-              <div>
-                <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
-                <p className="text-muted text-sm" style={{ margin: 0 }}>Extraction des faits et détection d'incohérences. Cela peut prendre 15–30 secondes.</p>
-              </div>
-            </div>
-          )}
-          {!analyseEnCours && analyseMsg && (
-            <p className={`analyse-msg ${analyseMsg.includes('alerte') ? 'analyse-alert' : 'analyse-ok'}`}>
-              {analyseMsg}
-            </p>
-          )}
 
           {/* Actions jalons */}
           <div className="jalon-actions">
@@ -983,8 +949,6 @@ export default function Projet() {
               etudes_th: 'Études TH', bureau_controle: 'Bureau de contrôle',
               notes_calcul: 'Notes de calcul', comptes_rendus: 'Comptes-rendus', autre: 'Autre'
             }
-            const statutColors = { provisoire: '#94a3b8', pour_visa: '#3b82f6', valide: '#22c55e' }
-            const statutLabels = { provisoire: 'Provisoire', pour_visa: 'Pour visa', valide: 'Validé' }
             const categorieColors = { cctp: '#2563eb', dpgf: '#059669' }
             const lotLabels = {
               cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades',
