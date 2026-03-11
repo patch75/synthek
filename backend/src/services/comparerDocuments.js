@@ -358,7 +358,7 @@ Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
     const model = modeleIA === 'sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
     const response = await client.messages.create({
       model,
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }]
     })
 
