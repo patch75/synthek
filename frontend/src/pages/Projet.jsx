@@ -951,6 +951,16 @@ export default function Projet() {
             const statutColors = { provisoire: '#94a3b8', pour_visa: '#3b82f6', valide: '#22c55e' }
             const statutLabels = { provisoire: 'Provisoire', pour_visa: 'Pour visa', valide: 'Validé' }
             const categorieColors = { cctp: '#2563eb', dpgf: '#059669' }
+            const lotLabels = {
+              cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades',
+              etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie',
+              generalites: 'Généralités'
+            }
+            const lotColors = {
+              cvc: '#f97316', menuiseries: '#8b5cf6', facades: '#0ea5e9',
+              etancheite: '#14b8a6', grosOeuvre: '#78716c', plomberie: '#3b82f6',
+              generalites: '#94a3b8'
+            }
 
             if (autresDoc.length === 0) {
               return <p className="text-muted">Aucun document déposé.</p>
@@ -962,6 +972,7 @@ export default function Projet() {
                     <tr>
                       <th>Nom</th>
                       <th>Catégorie</th>
+                      <th>Lot</th>
                       <th>Périmètre</th>
                       <th>Puce IA</th>
                       <th>Date</th>
@@ -978,6 +989,12 @@ export default function Projet() {
                         <td>
                           {doc.categorieDoc
                             ? <span className="badge" style={{ background: categorieColors[doc.categorieDoc] || 'var(--bg-muted)', color: categorieColors[doc.categorieDoc] ? 'white' : 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
+                            : <span className="text-muted text-sm">—</span>
+                          }
+                        </td>
+                        <td>
+                          {doc.lotType
+                            ? <span className="badge" style={{ background: lotColors[doc.lotType] || '#94a3b8', color: 'white', fontSize: 11 }}>{lotLabels[doc.lotType] || doc.lotType}</span>
                             : <span className="text-muted text-sm">—</span>
                           }
                         </td>
