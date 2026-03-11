@@ -228,10 +228,23 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     whereRef.sousProgrammeId = sousProgrammeId
   }
 
-  const docsRef = await prisma.document.findMany({
+  let docsRef = await prisma.document.findMany({
     where: whereRef,
-    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true }
+    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, lotType: true }
   })
+
+  // Si on compare un DPGF vs CCTPs et qu'un lotType est détecté → filtrer par même lot
+  if (avecCctp && lotType && categoriesRef.includes('cctp')) {
+    const cctpsMemeLog = docsRef.filter(d => d.categorieDoc === 'cctp' && d.lotType === lotType)
+    const programmes = docsRef.filter(d => d.categorieDoc === 'programme')
+    // Garder les programmes + uniquement les CCTPs du même lot
+    docsRef = [...programmes, ...cctpsMemeLog]
+    if (cctpsMemeLog.length > 0) {
+      console.log(`[comparerDocuments] Filtre lot "${lotType}" : ${cctpsMemeLog.length} CCTP(s) retenu(s)`)
+    } else {
+      console.log(`[comparerDocuments] Aucun CCTP avec lotType "${lotType}" — comparaison sans CCTP`)
+    }
+  }
 
   if (docsRef.length === 0) {
     console.log(`[comparerDocuments] Aucun doc de référence (${categoriesRef.join('/')}) dans le projet ${projetId}`)
