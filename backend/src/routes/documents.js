@@ -240,8 +240,9 @@ router.delete('/:id', async (req, res) => {
     }
   }
 
-  if (doc.cheminFichier && fs.existsSync(doc.cheminFichier)) {
-    fs.unlinkSync(doc.cheminFichier)
+  const cheminAbsolu = path.resolve(__dirname, '../../', doc.cheminFichier)
+  if (doc.cheminFichier && fs.existsSync(cheminAbsolu)) {
+    fs.unlinkSync(cheminAbsolu)
   }
 
   await prisma.document.delete({ where: { id: docId } })
