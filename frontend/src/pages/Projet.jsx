@@ -862,6 +862,160 @@ export default function Projet() {
           </section>
         )}
 
+        {/* Documents */}
+        <section className="section">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
+            <h2 className="section-title" style={{ marginBottom: 0 }}>
+              Documents
+              <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>({projet.documents.filter(d => d.categorieDoc !== 'programme').length})</span>
+            </h2>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {showDocuments && (<>
+                {!isBureauControle && (
+                  <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/upload`) }} className="btn-primary" style={{ fontSize: 13 }}>+ Déposer</button>
+                )}
+                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/chat`) }} className="btn-secondary" style={{ fontSize: 13 }}>Assistant IA</button>
+                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/visas`) }} className="btn-secondary" style={{ fontSize: 13 }}>Visas</button>
+                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/syntheses`) }} className="btn-secondary" style={{ fontSize: 13 }}>Synthèses</button>
+                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/historique`) }} className="btn-ghost" style={{ fontSize: 13 }}>Historique</button>
+              </>)}
+              <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showDocuments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+            </div>
+          </div>
+
+
+          {showDocuments && (<>
+          {/* Actions jalons */}
+          <div className="jalon-actions">
+            <button onClick={genererCertificat} disabled={certEnCours} className="btn-ghost btn-sm">
+              {certEnCours ? '...' : '⬇ Certificat PDF'}
+            </button>
+            <button onClick={() => setShowJalon(!showJalon)} className="btn-ghost btn-sm">
+              📤 Rapport jalon
+            </button>
+          </div>
+
+          {showJalon && (
+            <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <select value={jalonChoisi} onChange={e => setJalonChoisi(e.target.value)} style={{ width: 'auto' }}>
+                <option value="DCE">DCE</option>
+                <option value="EXE">EXE</option>
+              </select>
+              <button onClick={envoyerRapport} disabled={rapportEnCours} className="btn-primary">
+                {rapportEnCours ? 'Envoi...' : 'Envoyer au bureau de contrôle'}
+              </button>
+              <button onClick={() => setShowJalon(false)} className="btn-ghost">Annuler</button>
+            </div>
+          )}
+
+          {(() => {
+            const autresDoc = projet.documents.filter(d => d.categorieDoc !== 'programme')
+            const categorieLabels = {
+              cctp: 'CCTP', dpgf: 'DPGF', plans: 'Plans', pieces_ecrites: 'Pièces écrites',
+              etudes_th: 'Études TH', bureau_controle: 'Bureau de contrôle',
+              notes_calcul: 'Notes de calcul', comptes_rendus: 'Comptes-rendus', autre: 'Autre'
+            }
+            const categorieColors = { cctp: '#2563eb', dpgf: '#059669' }
+            const lotLabels = {
+              cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades',
+              etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie',
+              generalites: 'Généralités'
+            }
+            const lotColors = {
+              cvc: '#f97316', menuiseries: '#8b5cf6', facades: '#0ea5e9',
+              etancheite: '#14b8a6', grosOeuvre: '#78716c', plomberie: '#3b82f6',
+              generalites: '#94a3b8'
+            }
+
+            const toggleTri = (col) => setTriDoc(prev => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }))
+            const fleche = (col) => triDoc.col === col ? (triDoc.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
+            const docsTries = [...autresDoc].sort((a, b) => {
+              let va, vb
+              if (triDoc.col === 'nom') { va = a.nom.toLowerCase(); vb = b.nom.toLowerCase() }
+              else if (triDoc.col === 'categorieDoc') { va = a.categorieDoc || ''; vb = b.categorieDoc || '' }
+              else if (triDoc.col === 'lotType') { va = a.lotType || ''; vb = b.lotType || '' }
+              else { va = new Date(a.dateDepot); vb = new Date(b.dateDepot) }
+              if (va < vb) return triDoc.dir === 'asc' ? -1 : 1
+              if (va > vb) return triDoc.dir === 'asc' ? 1 : -1
+              return 0
+            })
+            const thStyle = { cursor: 'pointer', userSelect: 'none' }
+
+            if (autresDoc.length === 0) {
+              return <p className="text-muted">Aucun document déposé.</p>
+            }
+            return (
+              <div className="table-wrapper">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={thStyle} onClick={() => toggleTri('nom')}>Nom{fleche('nom')}</th>
+                      <th style={thStyle} onClick={() => toggleTri('categorieDoc')}>Catégorie{fleche('categorieDoc')}</th>
+                      <th style={thStyle} onClick={() => toggleTri('lotType')}>Lot{fleche('lotType')}</th>
+                      <th>Périmètre</th>
+                      <th>Puce IA</th>
+                      <th style={thStyle} onClick={() => toggleTri('dateDepot')}>Date{fleche('dateDepot')}</th>
+                      {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {docsTries.map(doc => (
+                      <tr key={doc.id}>
+                        <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.nom}>
+                          {doc.nom}
+                          {doc.indiceRevision && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>{doc.indiceRevision}</span>}
+                        </td>
+                        <td>
+                          {doc.categorieDoc
+                            ? <span className="badge" style={{ background: categorieColors[doc.categorieDoc] || 'var(--bg-muted)', color: categorieColors[doc.categorieDoc] ? 'white' : 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
+                            : <span className="text-muted text-sm">—</span>
+                          }
+                        </td>
+                        <td>
+                          {doc.lotType
+                            ? <span className="badge" style={{ background: lotColors[doc.lotType] || '#94a3b8', color: 'white', fontSize: 11, whiteSpace: 'nowrap' }}>{lotLabels[doc.lotType] || doc.lotType}</span>
+                            : <span className="text-muted text-sm">—</span>
+                          }
+                        </td>
+                        <td>
+                          {doc.sousProgramme
+                            ? <span className="badge" style={{ background: '#ede9fe', color: '#7c3aed', fontSize: 11, fontWeight: 700 }}>{doc.sousProgramme.nom}</span>
+                            : <span className="text-muted text-sm">—</span>
+                          }
+                        </td>
+                        <td><PuceCard puce={doc.puce} /></td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(doc.dateDepot).toLocaleDateString('fr-FR')}</td>
+                        {isAdmin && (
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
+                                <button
+                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); setComparerAvec('programme') }}
+                                  style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                >⟳ Comparer</button>
+                              )}
+                              <label style={{ fontSize: 12, padding: '4px 10px', background: '#6366f1', color: 'white', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }} title="Mettre à jour">
+                                {modifierEnCours === doc.id ? '…' : '↑'}
+                                <input type="file" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) modifierDocument(doc, e.target.files[0]); e.target.value = '' }} />
+                              </label>
+                              <button
+                                onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
+                                style={{ fontSize: 14, padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                title="Supprimer"
+                              >✕</button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
+          </>)}
+        </section>
+
         {/* Bâtiments */}
         {isAdmin && (
           <section className="section">
@@ -1124,160 +1278,6 @@ export default function Projet() {
             </section>
           )
         })()}
-
-        {/* Documents */}
-        <section className="section">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
-            <h2 className="section-title" style={{ marginBottom: 0 }}>
-              Documents
-              <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>({projet.documents.filter(d => d.categorieDoc !== 'programme').length})</span>
-            </h2>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {showDocuments && (<>
-                {!isBureauControle && (
-                  <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/upload`) }} className="btn-primary" style={{ fontSize: 13 }}>+ Déposer</button>
-                )}
-                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/chat`) }} className="btn-secondary" style={{ fontSize: 13 }}>Assistant IA</button>
-                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/visas`) }} className="btn-secondary" style={{ fontSize: 13 }}>Visas</button>
-                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/syntheses`) }} className="btn-secondary" style={{ fontSize: 13 }}>Synthèses</button>
-                <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/historique`) }} className="btn-ghost" style={{ fontSize: 13 }}>Historique</button>
-              </>)}
-              <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showDocuments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
-            </div>
-          </div>
-
-
-          {showDocuments && (<>
-          {/* Actions jalons */}
-          <div className="jalon-actions">
-            <button onClick={genererCertificat} disabled={certEnCours} className="btn-ghost btn-sm">
-              {certEnCours ? '...' : '⬇ Certificat PDF'}
-            </button>
-            <button onClick={() => setShowJalon(!showJalon)} className="btn-ghost btn-sm">
-              📤 Rapport jalon
-            </button>
-          </div>
-
-          {showJalon && (
-            <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
-              <select value={jalonChoisi} onChange={e => setJalonChoisi(e.target.value)} style={{ width: 'auto' }}>
-                <option value="DCE">DCE</option>
-                <option value="EXE">EXE</option>
-              </select>
-              <button onClick={envoyerRapport} disabled={rapportEnCours} className="btn-primary">
-                {rapportEnCours ? 'Envoi...' : 'Envoyer au bureau de contrôle'}
-              </button>
-              <button onClick={() => setShowJalon(false)} className="btn-ghost">Annuler</button>
-            </div>
-          )}
-
-          {(() => {
-            const autresDoc = projet.documents.filter(d => d.categorieDoc !== 'programme')
-            const categorieLabels = {
-              cctp: 'CCTP', dpgf: 'DPGF', plans: 'Plans', pieces_ecrites: 'Pièces écrites',
-              etudes_th: 'Études TH', bureau_controle: 'Bureau de contrôle',
-              notes_calcul: 'Notes de calcul', comptes_rendus: 'Comptes-rendus', autre: 'Autre'
-            }
-            const categorieColors = { cctp: '#2563eb', dpgf: '#059669' }
-            const lotLabels = {
-              cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades',
-              etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie',
-              generalites: 'Généralités'
-            }
-            const lotColors = {
-              cvc: '#f97316', menuiseries: '#8b5cf6', facades: '#0ea5e9',
-              etancheite: '#14b8a6', grosOeuvre: '#78716c', plomberie: '#3b82f6',
-              generalites: '#94a3b8'
-            }
-
-            const toggleTri = (col) => setTriDoc(prev => ({ col, dir: prev.col === col && prev.dir === 'asc' ? 'desc' : 'asc' }))
-            const fleche = (col) => triDoc.col === col ? (triDoc.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
-            const docsTries = [...autresDoc].sort((a, b) => {
-              let va, vb
-              if (triDoc.col === 'nom') { va = a.nom.toLowerCase(); vb = b.nom.toLowerCase() }
-              else if (triDoc.col === 'categorieDoc') { va = a.categorieDoc || ''; vb = b.categorieDoc || '' }
-              else if (triDoc.col === 'lotType') { va = a.lotType || ''; vb = b.lotType || '' }
-              else { va = new Date(a.dateDepot); vb = new Date(b.dateDepot) }
-              if (va < vb) return triDoc.dir === 'asc' ? -1 : 1
-              if (va > vb) return triDoc.dir === 'asc' ? 1 : -1
-              return 0
-            })
-            const thStyle = { cursor: 'pointer', userSelect: 'none' }
-
-            if (autresDoc.length === 0) {
-              return <p className="text-muted">Aucun document déposé.</p>
-            }
-            return (
-              <div className="table-wrapper">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th style={thStyle} onClick={() => toggleTri('nom')}>Nom{fleche('nom')}</th>
-                      <th style={thStyle} onClick={() => toggleTri('categorieDoc')}>Catégorie{fleche('categorieDoc')}</th>
-                      <th style={thStyle} onClick={() => toggleTri('lotType')}>Lot{fleche('lotType')}</th>
-                      <th>Périmètre</th>
-                      <th>Puce IA</th>
-                      <th style={thStyle} onClick={() => toggleTri('dateDepot')}>Date{fleche('dateDepot')}</th>
-                      {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {docsTries.map(doc => (
-                      <tr key={doc.id}>
-                        <td style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.nom}>
-                          {doc.nom}
-                          {doc.indiceRevision && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>{doc.indiceRevision}</span>}
-                        </td>
-                        <td>
-                          {doc.categorieDoc
-                            ? <span className="badge" style={{ background: categorieColors[doc.categorieDoc] || 'var(--bg-muted)', color: categorieColors[doc.categorieDoc] ? 'white' : 'var(--text)', fontSize: 11 }}>{categorieLabels[doc.categorieDoc] || doc.categorieDoc}</span>
-                            : <span className="text-muted text-sm">—</span>
-                          }
-                        </td>
-                        <td>
-                          {doc.lotType
-                            ? <span className="badge" style={{ background: lotColors[doc.lotType] || '#94a3b8', color: 'white', fontSize: 11, whiteSpace: 'nowrap' }}>{lotLabels[doc.lotType] || doc.lotType}</span>
-                            : <span className="text-muted text-sm">—</span>
-                          }
-                        </td>
-                        <td>
-                          {doc.sousProgramme
-                            ? <span className="badge" style={{ background: '#ede9fe', color: '#7c3aed', fontSize: 11, fontWeight: 700 }}>{doc.sousProgramme.nom}</span>
-                            : <span className="text-muted text-sm">—</span>
-                          }
-                        </td>
-                        <td><PuceCard puce={doc.puce} /></td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(doc.dateDepot).toLocaleDateString('fr-FR')}</td>
-                        {isAdmin && (
-                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
-                                <button
-                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); setComparerAvec('programme') }}
-                                  style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
-                                >⟳ Comparer</button>
-                              )}
-                              <label style={{ fontSize: 12, padding: '4px 10px', background: '#6366f1', color: 'white', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }} title="Mettre à jour">
-                                {modifierEnCours === doc.id ? '…' : '↑'}
-                                <input type="file" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) modifierDocument(doc, e.target.files[0]); e.target.value = '' }} />
-                              </label>
-                              <button
-                                onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
-                                style={{ fontSize: 14, padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
-                                title="Supprimer"
-                              >✕</button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })()}
-          </>)}
-        </section>
 
         {/* V3 — Configuration IA (admin uniquement) */}
         {isAdmin && (
