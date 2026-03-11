@@ -184,7 +184,7 @@ function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
  * Catégorie dpgf → compare vs programmes + optionnellement CCTPs
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
  */
-async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null, programmeIds = null) {
+async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null) {
   if (!texteDoc || texteDoc.trim().length < 200) return []
 
   // Détecter le lot si non fourni, et charger l'agent spécialisé
@@ -224,10 +224,7 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     contenuTexte: { not: null }
   }
 
-  // Si une liste de programmes est fournie, restreindre à ces IDs uniquement
-  if (programmeIds && programmeIds.length > 0) {
-    whereRef.id = { in: programmeIds }
-  } else if (sousProgrammeId) {
+  if (sousProgrammeId) {
     whereRef.sousProgrammeId = sousProgrammeId
   }
 

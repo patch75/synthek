@@ -136,8 +136,7 @@ export default function Projet() {
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
-  const [comparerProgrammesSelected, setComparerProgrammesSelected] = useState([])
-  const [comparerAvecCctp, setComparerAvecCctp] = useState(false)
+  const [comparerAvec, setComparerAvec] = useState('programme')
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('sonnet')
   const [showEditProjet, setShowEditProjet] = useState(false)
@@ -344,10 +343,10 @@ export default function Projet() {
   }
 
   async function lancerComparaison() {
-    if (!showComparerModal || comparerProgrammesSelected.length === 0) return
+    if (!showComparerModal) return
     setComparerEnCours(true)
     try {
-      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, programmeIds: comparerProgrammesSelected, comparaisonAvec: comparerAvecCctp ? 'les_deux' : 'programme' })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, comparaisonAvec: comparerAvec })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
@@ -1047,7 +1046,7 @@ export default function Projet() {
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
                                 <button
-                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); const progs = projet.documents.filter(d => d.categorieDoc === 'programme').map(d => d.id); setComparerProgrammesSelected(progs); setComparerAvecCctp(false) }}
+                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); setComparerAvec('programme') }}
                                   style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 >⟳ Comparer</button>
                               )}
@@ -1246,34 +1245,26 @@ export default function Projet() {
               <h3>Relancer la comparaison</h3>
               <button className="btn-ghost" onClick={() => setShowComparerModal(null)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Comparer <strong style={{ color: 'var(--text)' }}>{showComparerModal.nom}</strong> contre :</p>
-
-            <div style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Notices / Programmes</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {projet.documents.filter(d => d.categorieDoc === 'programme').map(prog => (
-                  <label key={prog.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                    <input
-                      type="checkbox"
-                      checked={comparerProgrammesSelected.includes(prog.id)}
-                      onChange={e => setComparerProgrammesSelected(prev =>
-                        e.target.checked ? [...prev, prog.id] : prev.filter(id => id !== prog.id)
-                      )}
-                    />
-                    {prog.nom}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {showComparerModal.categorie === 'dpgf' && (
-              <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--bg-muted)', borderRadius: 8 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                  <input type="checkbox" checked={comparerAvecCctp} onChange={e => setComparerAvecCctp(e.target.checked)} />
-                  <span>Inclure aussi les <strong>CCTPs</strong> du projet <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>(vérifier cohérence chiffrage / descriptif technique)</span></span>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+              Comparer <strong style={{ color: 'var(--text)' }}>{showComparerModal.nom}</strong> avec :
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {[
+                { value: 'programme', label: 'Les notices du projet', desc: 'Vérifier que le document respecte les exigences MOA' },
+                ...(showComparerModal.categorie === 'dpgf' ? [
+                  { value: 'cctp', label: 'Les CCTPs du projet', desc: 'Vérifier que le chiffrage correspond au descriptif technique' },
+                  { value: 'les_deux', label: 'Les notices ET les CCTPs', desc: 'Vérification complète' },
+                ] : [])
+              ].map(opt => (
+                <label key={opt.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '10px 12px', borderRadius: 8, border: `2px solid ${comparerAvec === opt.value ? 'var(--primary)' : 'var(--border)'}`, background: comparerAvec === opt.value ? 'var(--primary-light)' : 'transparent' }}>
+                  <input type="radio" name="comparerAvec" value={opt.value} checked={comparerAvec === opt.value} onChange={() => setComparerAvec(opt.value)} style={{ marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{opt.desc}</div>
+                  </div>
                 </label>
-              </div>
-            )}
+              ))}
+            </div>
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
               <div style={{ display: 'flex', gap: 16 }}>
@@ -1289,7 +1280,7 @@ export default function Projet() {
               </div>
             </div>
             <div className="form-actions" style={{ marginTop: 8 }}>
-              <button onClick={lancerComparaison} disabled={comparerEnCours || comparerProgrammesSelected.length === 0} className="btn-primary">
+              <button onClick={lancerComparaison} disabled={comparerEnCours} className="btn-primary">
                 {comparerEnCours ? 'Lancement...' : 'Lancer'}
               </button>
               <button onClick={() => setShowComparerModal(null)} className="btn-ghost">Annuler</button>
