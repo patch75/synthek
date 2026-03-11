@@ -866,7 +866,7 @@ export default function Projet() {
         <section className="section">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
             <h2 className="section-title" style={{ marginBottom: 0 }}>
-              Documents
+            <span style={{ fontSize: 16 }}>📄</span> Documents
               <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>({projet.documents.filter(d => d.categorieDoc !== 'programme').length})</span>
             </h2>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
