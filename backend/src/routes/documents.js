@@ -244,12 +244,19 @@ router.delete('/:id', async (req, res) => {
     }
   }
 
-  const cheminAbsolu = path.resolve(__dirname, '../../', doc.cheminFichier)
-  if (doc.cheminFichier && fs.existsSync(cheminAbsolu)) {
-    fs.unlinkSync(cheminAbsolu)
+  // Supprimer toutes les versions du même document (même nom + même projet)
+  const toutesVersions = await prisma.document.findMany({
+    where: { projetId: doc.projetId, nom: doc.nom }
+  })
+
+  for (const v of toutesVersions) {
+    const chemin = path.resolve(__dirname, '../../', v.cheminFichier)
+    if (v.cheminFichier && fs.existsSync(chemin)) {
+      fs.unlinkSync(chemin)
+    }
   }
 
-  await prisma.document.delete({ where: { id: docId } })
+  await prisma.document.deleteMany({ where: { projetId: doc.projetId, nom: doc.nom } })
   res.json({ message: 'Document supprimé' })
 })
 
