@@ -728,7 +728,11 @@ export default function Projet() {
                                 if (m) return <>
                                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>
                                   <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 4, padding: '2px 7px', marginRight: 8, whiteSpace: 'nowrap' }}>{m[1]}</span>
-                                  {m[2]}
+                                  {m[2].split(/(INCOHÉRENCE MAJEURE|INCOHÉRENCE)/g).map((part, i) =>
+                                    (part === 'INCOHÉRENCE' || part === 'INCOHÉRENCE MAJEURE')
+                                      ? <strong key={i}>{part}</strong>
+                                      : part
+                                  )}
                                 </>
                                 return <><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</>
                               })()}
