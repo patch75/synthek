@@ -125,8 +125,8 @@ export default function Upload() {
               </select>
             </div>
 
-            {/* Sous-programme — visible uniquement si le projet en a */}
-            {sousProgrammes.length > 0 && (
+            {/* Sous-programme — visible uniquement pour les programmes (notices) */}
+            {sousProgrammes.length > 0 && categorieDoc === 'programme' && (
               <div className="form-group">
                 <label>Sous-programme <span className="text-muted">(périmètre de ce document)</span></label>
                 <select value={sousProgrammeId} onChange={e => setSousProgrammeId(e.target.value)}>
