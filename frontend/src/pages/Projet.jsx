@@ -149,7 +149,10 @@ export default function Projet() {
   const [editClassementErp, setEditClassementErp] = useState(false)
   const [editTypeErp, setEditTypeErp] = useState('')
   const [editNombreLogements, setEditNombreLogements] = useState('')
+  const [editBatiments, setEditBatiments] = useState([]) // [{ id?, nom, typologies[] }]
   const [editEnCours, setEditEnCours] = useState(false)
+
+  const TYPOLOGIES_OPTIONS = ['BRS', 'LLS', 'LLTS', 'PLS', 'Accession libre', 'Accession aidée']
 
   // V3 — Config IA
   const [showConfig, setShowConfig] = useState(false)
@@ -302,6 +305,11 @@ export default function Projet() {
     setEditClassementErp(projet.classementErp || false)
     setEditTypeErp(projet.typeErp || '')
     setEditNombreLogements(projet.nombreLogements ?? '')
+    setEditBatiments((projet.sousProgrammes || []).map(sp => ({
+      id: sp.id,
+      nom: sp.nom,
+      typologies: sp.typologies ? JSON.parse(sp.typologies) : []
+    })))
     setShowEditProjet(true)
   }
 
@@ -322,8 +330,33 @@ export default function Projet() {
         typeErp: editTypeErp,
         nombreLogements: editNombreLogements
       }
-      const res = await api.patch(`/projets/${id}`, body)
-      setProjet(prev => ({ ...prev, ...res.data }))
+      await api.patch(`/projets/${id}`, body)
+
+      // Synchroniser les bâtiments (sous-programmes)
+      const existingSps = projet.sousProgrammes || []
+      const editIds = new Set(editBatiments.filter(b => b.id).map(b => b.id))
+
+      // Supprimer ceux qui ont été retirés
+      for (const sp of existingSps) {
+        if (!editIds.has(sp.id)) {
+          await api.delete(`/projets/${id}/sous-programmes/${sp.id}`)
+        }
+      }
+      // Mettre à jour ceux qui ont changé
+      for (const bat of editBatiments.filter(b => b.id)) {
+        const orig = existingSps.find(sp => sp.id === bat.id)
+        const origTypos = JSON.stringify(orig?.typologies ? JSON.parse(orig.typologies) : [])
+        if (orig && (orig.nom !== bat.nom || origTypos !== JSON.stringify(bat.typologies))) {
+          await api.patch(`/projets/${id}/sous-programmes/${bat.id}`, { nom: bat.nom, typologies: bat.typologies })
+        }
+      }
+      // Créer les nouveaux
+      for (const bat of editBatiments.filter(b => !b.id && b.nom.trim())) {
+        await api.post(`/projets/${id}/sous-programmes`, { nom: bat.nom.trim(), typologies: bat.typologies })
+      }
+
+      const pRes = await api.get(`/projets/${id}`)
+      setProjet(pRes.data)
       setShowEditProjet(false)
     } catch (err) {
       alert(err.response?.data?.error || 'Erreur lors de la modification')
@@ -1439,6 +1472,46 @@ export default function Projet() {
                     <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
                   </div>
                 )}
+              </div>
+                {/* Bâtiments / typologies */}
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    Composition des bâtiments <span style={{ fontWeight: 400 }}>(optionnel)</span>
+                  </p>
+                  {editBatiments.map((bat, i) => (
+                    <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <input
+                          value={bat.nom}
+                          onChange={e => setEditBatiments(prev => prev.map((b, j) => j === i ? { ...b, nom: e.target.value } : b))}
+                          placeholder="Ex : Bâtiment A, Villas..."
+                          style={{ flex: 1, fontSize: 13 }}
+                        />
+                        <button type="button" onClick={() => setEditBatiments(prev => prev.filter((_, j) => j !== i))} className="btn-ghost" style={{ padding: '4px 8px', color: 'var(--danger, #ef4444)' }}>✕</button>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {TYPOLOGIES_OPTIONS.map(t => (
+                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
+                            <input
+                              type="checkbox"
+                              checked={bat.typologies.includes(t)}
+                              onChange={() => setEditBatiments(prev => prev.map((b, j) => {
+                                if (j !== i) return b
+                                const typos = b.typologies.includes(t) ? b.typologies.filter(v => v !== t) : [...b.typologies, t]
+                                return { ...b, typologies: typos }
+                              }))}
+                              style={{ width: 'auto' }}
+                            />
+                            {t}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setEditBatiments(prev => [...prev, { nom: '', typologies: [] }])} className="btn-secondary" style={{ fontSize: 13, padding: '6px 12px' }}>
+                    + Ajouter un bâtiment
+                  </button>
+                </div>
               </div>
               <div className="form-actions" style={{ marginTop: 16 }}>
                 <button type="submit" disabled={editEnCours} className="btn-primary">
