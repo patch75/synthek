@@ -249,6 +249,15 @@ router.delete('/:id', async (req, res) => {
   res.json({ message: 'Document supprimé' })
 })
 
+// GET /documents/:id/faits — faits extraits d'un document
+router.get('/:id/faits', async (req, res) => {
+  const faits = await prisma.faitDocument.findMany({
+    where: { documentId: parseInt(req.params.id) },
+    orderBy: [{ categorie: 'asc' }, { sujet: 'asc' }]
+  })
+  res.json(faits)
+})
+
 // GET /documents/:projetId — liste les documents d'un projet
 router.get('/:projetId', async (req, res) => {
   const documents = await prisma.document.findMany({

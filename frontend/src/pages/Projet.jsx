@@ -61,30 +61,90 @@ function LexiqueModal({ onClose }) {
   )
 }
 
-function ProgrammeCard({ doc, isAdmin, onDelete }) {
+function FaitsModal({ doc, onClose }) {
+  const [faits, setFaits] = useState(null)
+
+  useEffect(() => {
+    api.get(`/documents/${doc.id}/faits`).then(r => setFaits(r.data))
+  }, [doc.id])
+
+  const LABELS = {
+    quantite: 'Quantités', materiau: 'Matériaux', dimension: 'Dimensions',
+    norme: 'Normes', performance: 'Performances', equipement: 'Équipements', contrainte: 'Contraintes'
+  }
+
+  const groupes = faits ? faits.reduce((acc, f) => {
+    if (!acc[f.categorie]) acc[f.categorie] = []
+    acc[f.categorie].push(f)
+    return acc
+  }, {}) : {}
+
   return (
-    <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {doc.nom}
-        </p>
-        <p className="text-muted text-sm" style={{ margin: '2px 0 0' }}>
-          Déposé par {doc.user?.nom} · {new Date(doc.dateDepot).toLocaleDateString('fr-FR')}
-          {doc.indiceRevision && <> · <strong>{doc.indiceRevision}</strong></>}
-        </p>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <span className="badge" style={{ background: '#7c3aed', color: 'white', fontSize: 11 }}>
-          {doc.type.toUpperCase()}
-        </span>
-        <PuceCard puce={doc.puce} />
-        {isAdmin && (
-          <button onClick={onDelete} className="btn-ghost" style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }} title="Supprimer">
-            ✕
-          </button>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" style={{ maxWidth: 600 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ fontSize: 15 }}>Faits extraits — {doc.nom}</h3>
+          <button className="btn-ghost" onClick={onClose} style={{ padding: '4px 8px' }}>✕</button>
+        </div>
+        {faits === null ? (
+          <p className="text-muted">Chargement...</p>
+        ) : faits.length === 0 ? (
+          <p className="text-muted">Aucun fait extrait pour ce document.</p>
+        ) : (
+          <div style={{ overflowY: 'auto', maxHeight: '65vh', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {Object.entries(groupes).map(([cat, items]) => (
+              <div key={cat}>
+                <p style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  {LABELS[cat] || cat} ({items.length})
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {items.map(f => (
+                    <div key={f.id} style={{ display: 'flex', gap: 8, fontSize: 13, padding: '6px 10px', background: 'var(--bg-muted)', borderRadius: 6 }}>
+                      <span style={{ flex: 1, fontWeight: 600 }}>{f.sujet}</span>
+                      <span style={{ color: '#7c3aed', fontWeight: 700 }}>{f.valeur}{f.unite ? ` ${f.unite}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
+  )
+}
+
+function ProgrammeCard({ doc, isAdmin, onDelete }) {
+  const [showFaits, setShowFaits] = useState(false)
+  return (
+    <>
+      <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {doc.nom}
+          </p>
+          <p className="text-muted text-sm" style={{ margin: '2px 0 0' }}>
+            Déposé par {doc.user?.nom} · {new Date(doc.dateDepot).toLocaleDateString('fr-FR')}
+            {doc.indiceRevision && <> · <strong>{doc.indiceRevision}</strong></>}
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <span className="badge" style={{ background: '#7c3aed', color: 'white', fontSize: 11 }}>
+            {doc.type.toUpperCase()}
+          </span>
+          <PuceCard puce={doc.puce} />
+          <button onClick={() => setShowFaits(true)} className="btn-ghost" style={{ fontSize: 12, padding: '3px 10px', border: '1px solid var(--border)' }} title="Voir les données extraites">
+            🔍 Données
+          </button>
+          {isAdmin && (
+            <button onClick={onDelete} className="btn-ghost" style={{ color: '#ef4444', padding: '2px 8px', fontSize: 13 }} title="Supprimer">
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+      {showFaits && <FaitsModal doc={doc} onClose={() => setShowFaits(false)} />}
+    </>
   )
 }
 
