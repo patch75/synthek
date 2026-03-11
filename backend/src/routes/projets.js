@@ -28,7 +28,8 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const {
     nom, client, typeBatiment, nombreNiveaux, shon, energieRetenue,
-    zoneClimatique, classementErp, typeErp, nombreLogements, adresse
+    zoneClimatique, classementErp, typeErp, nombreLogements, adresse,
+    batiments
   } = req.body
 
   if (!nom || !client) {
@@ -77,6 +78,21 @@ router.post('/', async (req, res) => {
   if (adresse) data.adresse = adresse
 
   const projet = await prisma.projet.create({ data })
+
+  // Créer les sous-programmes (bâtiments) si fournis à la création
+  if (batiments?.length) {
+    for (const bat of batiments) {
+      if (bat.nom?.trim()) {
+        await prisma.sousProgramme.create({
+          data: {
+            projetId: projet.id,
+            nom: bat.nom.trim(),
+            typologies: bat.typologies?.length ? JSON.stringify(bat.typologies) : null
+          }
+        })
+      }
+    }
+  }
 
   // Créer l'arborescence de stockage (Bloc 6)
   const projetDir = path.join(STORAGE_ROOT, 'projets', String(projet.id))
@@ -139,18 +155,26 @@ router.get('/:id/sous-programmes', async (req, res) => {
 router.post('/:id/sous-programmes', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   const projetId = parseInt(req.params.id)
-  const { nom } = req.body
+  const { nom, typologies } = req.body
   if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
-  const sp = await prisma.sousProgramme.create({ data: { projetId, nom: nom.trim() } })
+  const sp = await prisma.sousProgramme.create({
+    data: {
+      projetId,
+      nom: nom.trim(),
+      typologies: typologies?.length ? JSON.stringify(typologies) : null
+    }
+  })
   res.status(201).json(sp)
 })
 
-// PATCH /projets/:id/sous-programmes/:spId — renommer
+// PATCH /projets/:id/sous-programmes/:spId — renommer / mettre à jour typologies
 router.patch('/:id/sous-programmes/:spId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
-  const { nom } = req.body
+  const { nom, typologies } = req.body
   if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
-  const sp = await prisma.sousProgramme.update({ where: { id: parseInt(req.params.spId) }, data: { nom: nom.trim() } })
+  const data = { nom: nom.trim() }
+  if (typologies !== undefined) data.typologies = typologies?.length ? JSON.stringify(typologies) : null
+  const sp = await prisma.sousProgramme.update({ where: { id: parseInt(req.params.spId) }, data })
   res.json(sp)
 })
 

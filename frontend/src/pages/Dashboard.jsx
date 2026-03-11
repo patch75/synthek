@@ -30,7 +30,17 @@ export default function Dashboard() {
   const [classementErp, setClassementErp] = useState(false)
   const [typeErp, setTypeErp] = useState('')
   const [nombreLogements, setNombreLogements] = useState('')
+  const [batiments, setBatiments] = useState([])
   const [createError, setCreateError] = useState('')
+
+  const TYPOLOGIES = [
+    { value: 'BRS', label: 'BRS' },
+    { value: 'LLS', label: 'LLS' },
+    { value: 'LLTS', label: 'LLTS' },
+    { value: 'PLS', label: 'PLS' },
+    { value: 'Accession libre', label: 'Accession libre' },
+    { value: 'Accession aidée', label: 'Accession aidée' },
+  ]
 
   useEffect(() => {
     api.get('/projets').then(res => {
@@ -44,7 +54,30 @@ export default function Dashboard() {
     setTypeBatiment(''); setNombreNiveaux(''); setShon('')
     setEnergieRetenue(''); setZoneClimatique('')
     setClassementErp(false); setTypeErp(''); setNombreLogements('')
+    setBatiments([])
     setCreateError('')
+  }
+
+  function ajouterBatiment() {
+    setBatiments(prev => [...prev, { nom: '', typologies: [] }])
+  }
+
+  function supprimerBatiment(i) {
+    setBatiments(prev => prev.filter((_, j) => j !== i))
+  }
+
+  function updateBatimentNom(i, valeur) {
+    setBatiments(prev => prev.map((b, j) => j === i ? { ...b, nom: valeur } : b))
+  }
+
+  function toggleTypologie(i, valeur) {
+    setBatiments(prev => prev.map((b, j) => {
+      if (j !== i) return b
+      const typos = b.typologies.includes(valeur)
+        ? b.typologies.filter(t => t !== valeur)
+        : [...b.typologies, valeur]
+      return { ...b, typologies: typos }
+    }))
   }
 
   async function creerProjet(e) {
@@ -61,6 +94,8 @@ export default function Dashboard() {
       body.classementErp = classementErp
       if (classementErp && typeErp) body.typeErp = typeErp
       if (nombreLogements) body.nombreLogements = parseInt(nombreLogements)
+      const batimentsValides = batiments.filter(b => b.nom.trim())
+      if (batimentsValides.length) body.batiments = batimentsValides
 
       const res = await api.post('/projets', body)
       setProjets(prev => [res.data, ...prev])
@@ -236,6 +271,43 @@ export default function Dashboard() {
                     <input type="number" min="1" value={nombreLogements} onChange={e => setNombreLogements(e.target.value)} placeholder="Ex : 40" />
                   </div>
                 )}
+
+                {/* Section 4 : Composition des bâtiments */}
+                <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, marginTop: 16 }}>
+                  Composition des bâtiments <span style={{ fontWeight: 400 }}>(optionnel)</span>
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+                  Si le projet a plusieurs bâtiments avec des typologies de logements différentes, définissez-les ici. Claude s'en servira pour une analyse plus précise.
+                </p>
+                {batiments.map((bat, i) => (
+                  <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                      <input
+                        value={bat.nom}
+                        onChange={e => updateBatimentNom(i, e.target.value)}
+                        placeholder="Ex : Bâtiment A, Villas, BAT C-D..."
+                        style={{ flex: 1 }}
+                      />
+                      <button type="button" onClick={() => supprimerBatiment(i)} className="btn-ghost" style={{ padding: '4px 8px', color: 'var(--danger, #ef4444)' }}>✕</button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      {TYPOLOGIES.map(t => (
+                        <label key={t.value} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 13 }}>
+                          <input
+                            type="checkbox"
+                            checked={bat.typologies.includes(t.value)}
+                            onChange={() => toggleTypologie(i, t.value)}
+                            style={{ width: 'auto' }}
+                          />
+                          {t.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <button type="button" onClick={ajouterBatiment} className="btn-secondary" style={{ fontSize: 13, padding: '6px 12px', marginBottom: 4 }}>
+                  + Ajouter un bâtiment
+                </button>
 
                 <div className="form-actions" style={{ marginTop: 20 }}>
                   <button type="submit" className="btn-primary">Créer le projet</button>

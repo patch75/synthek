@@ -56,9 +56,10 @@ model Projet {
 }
 
 model SousProgramme {
-  id        Int        @id @default(autoincrement())
-  projetId  Int
-  nom       String
+  id          Int        @id @default(autoincrement())
+  projetId    Int
+  nom         String
+  typologies  String?    // JSON array ex: ["BRS","LLS"]
 
   projet    Projet     @relation(fields: [projetId], references: [id], onDelete: Cascade)
   documents Document[]

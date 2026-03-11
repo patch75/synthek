@@ -208,7 +208,7 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
       select: {
         nom: true, client: true, typeBatiment: true, energieRetenue: true,
         zoneClimatique: true, nombreLogements: true,
-        sousProgrammes: { select: { nom: true } }
+        sousProgrammes: { select: { nom: true, typologies: true } }
       }
     }),
     prisma.configProjet.findUnique({
@@ -304,17 +304,29 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
   const labelSection = nomSousProgramme ? ` — section "${nomSousProgramme}"` : ''
 
   // Construire le contexte projet pour le prompt
-  const typologiesList = projet?.sousProgrammes?.length
-    ? `Typologies du projet : ${projet.sousProgrammes.map(s => s.nom).join(', ')}.`
-    : ''
+  let compositionBatiments = ''
+  if (projet?.sousProgrammes?.length) {
+    const avecTypologies = projet.sousProgrammes.filter(s => s.typologies)
+    if (avecTypologies.length > 0) {
+      compositionBatiments = `Composition des bâtiments du projet :\n` +
+        avecTypologies.map(s => {
+          const typos = JSON.parse(s.typologies)
+          return `  - ${s.nom} : ${typos.join(', ')}`
+        }).join('\n') +
+        `\nIMPORTANT : le CCTP doit traiter chaque typologie distinctement (exigences spécifiques par financement).`
+    } else {
+      compositionBatiments = `Périmètres du projet : ${projet.sousProgrammes.map(s => s.nom).join(', ')}.`
+    }
+  }
+
   const contextProjet = [
     projet?.nom ? `Projet : ${projet.nom} (${projet.client || ''})` : '',
     projet?.typeBatiment ? `Type de bâtiment : ${projet.typeBatiment}` : '',
     projet?.nombreLogements ? `${projet.nombreLogements} logements` : '',
     projet?.energieRetenue ? `Énergie retenue : ${projet.energieRetenue}` : '',
     projet?.zoneClimatique ? `Zone climatique : ${projet.zoneClimatique}` : '',
-    typologiesList
-  ].filter(Boolean).join(' | ')
+    compositionBatiments
+  ].filter(Boolean).join('\n')
 
   const contextSousProgramme = nomSousProgramme
     ? `\nPérimètre analysé : "${nomSousProgramme}" — tu analyses UNIQUEMENT la section du CCTP correspondant à ce périmètre.`

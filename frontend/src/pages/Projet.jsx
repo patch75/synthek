@@ -168,9 +168,20 @@ export default function Projet() {
   // Sous-programmes
   const [showSousProgrammes, setShowSousProgrammes] = useState(false)
   const [nouveauSp, setNouveauSp] = useState('')
+  const [nouveauSpTypologies, setNouveauSpTypologies] = useState([])
   const [spEnCours, setSpEnCours] = useState(false)
   const [spRenomId, setSpRenomId] = useState(null)
   const [spRenomNom, setSpRenomNom] = useState('')
+  const [spRenomTypologies, setSpRenomTypologies] = useState([])
+
+  const TYPOLOGIES_SP = [
+    { value: 'BRS', label: 'BRS' },
+    { value: 'LLS', label: 'LLS' },
+    { value: 'LLTS', label: 'LLTS' },
+    { value: 'PLS', label: 'PLS' },
+    { value: 'Accession libre', label: 'Accession libre' },
+    { value: 'Accession aidée', label: 'Accession aidée' },
+  ]
 
   useEffect(() => {
     Promise.all([
@@ -429,9 +440,13 @@ export default function Projet() {
     if (!nouveauSp.trim()) return
     setSpEnCours(true)
     try {
-      const res = await api.post(`/projets/${id}/sous-programmes`, { nom: nouveauSp.trim() })
+      const res = await api.post(`/projets/${id}/sous-programmes`, {
+        nom: nouveauSp.trim(),
+        typologies: nouveauSpTypologies
+      })
       setProjet(prev => ({ ...prev, sousProgrammes: [...(prev.sousProgrammes || []), res.data] }))
       setNouveauSp('')
+      setNouveauSpTypologies([])
     } catch (err) {
       alert(err.response?.data?.error || 'Erreur')
     } finally {
@@ -442,7 +457,10 @@ export default function Projet() {
   async function renommerSousProgramme(spId) {
     if (!spRenomNom.trim()) return
     try {
-      const res = await api.patch(`/projets/${id}/sous-programmes/${spId}`, { nom: spRenomNom.trim() })
+      const res = await api.patch(`/projets/${id}/sous-programmes/${spId}`, {
+        nom: spRenomNom.trim(),
+        typologies: spRenomTypologies
+      })
       setProjet(prev => ({ ...prev, sousProgrammes: prev.sousProgrammes.map(sp => sp.id === spId ? res.data : sp) }))
       setSpRenomId(null)
     } catch (err) {
@@ -793,42 +811,86 @@ export default function Projet() {
                       Aucun sous-programme — le projet est unique. Ajoutez des sous-programmes si l'opération comporte plusieurs typologies (accession, social, villas...).
                     </p>
                   ) : (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                      {sousProgrammes.map(sp => (
-                        <span key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-muted)', borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 600 }}>
-                          {spRenomId === sp.id ? (
-                            <>
-                              <input
-                                value={spRenomNom}
-                                onChange={e => setSpRenomNom(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') renommerSousProgramme(sp.id); if (e.key === 'Escape') setSpRenomId(null) }}
-                                autoFocus
-                                style={{ fontSize: 13, width: 120, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}
-                              />
-                              <button onClick={() => renommerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', fontSize: 14, lineHeight: 1, padding: 0 }} title="Valider">✓</button>
-                              <button onClick={() => setSpRenomId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, lineHeight: 1, padding: 0 }} title="Annuler">✕</button>
-                            </>
-                          ) : (
-                            <>
-                              {sp.nom}
-                              <button onClick={() => { setSpRenomId(sp.id); setSpRenomNom(sp.nom) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Renommer">✎</button>
-                              <button onClick={() => supprimerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
-                            </>
-                          )}
-                        </span>
-                      ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                      {sousProgrammes.map(sp => {
+                        const typos = sp.typologies ? JSON.parse(sp.typologies) : []
+                        return (
+                          <div key={sp.id} style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: '8px 12px' }}>
+                            {spRenomId === sp.id ? (
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                  <input
+                                    value={spRenomNom}
+                                    onChange={e => setSpRenomNom(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Escape') setSpRenomId(null) }}
+                                    autoFocus
+                                    style={{ fontSize: 13, flex: 1, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}
+                                  />
+                                  <button onClick={() => renommerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', fontSize: 14, lineHeight: 1, padding: 0 }} title="Valider">✓</button>
+                                  <button onClick={() => setSpRenomId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, lineHeight: 1, padding: 0 }} title="Annuler">✕</button>
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                  {TYPOLOGIES_SP.map(t => (
+                                    <label key={t.value} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={spRenomTypologies.includes(t.value)}
+                                        onChange={() => setSpRenomTypologies(prev =>
+                                          prev.includes(t.value) ? prev.filter(v => v !== t.value) : [...prev, t.value]
+                                        )}
+                                        style={{ width: 'auto' }}
+                                      />
+                                      {t.label}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ flex: 1 }}>
+                                  <span style={{ fontWeight: 600, fontSize: 13 }}>{sp.nom}</span>
+                                  {typos.length > 0 && (
+                                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                                      {typos.join(' · ')}
+                                    </span>
+                                  )}
+                                </div>
+                                <button onClick={() => { setSpRenomId(sp.id); setSpRenomNom(sp.nom); setSpRenomTypologies(typos) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Modifier">✎</button>
+                                <button onClick={() => supprimerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
-                  <form onSubmit={ajouterSousProgramme} style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      value={nouveauSp}
-                      onChange={e => setNouveauSp(e.target.value)}
-                      placeholder="Ex : Accession, Social, Villas..."
-                      style={{ flex: 1, fontSize: 13 }}
-                    />
-                    <button type="submit" disabled={spEnCours || !nouveauSp.trim()} className="btn-primary" style={{ fontSize: 13 }}>
-                      Ajouter
-                    </button>
+                  <form onSubmit={ajouterSousProgramme}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <input
+                        value={nouveauSp}
+                        onChange={e => setNouveauSp(e.target.value)}
+                        placeholder="Ex : Bâtiment A, Villas, Social..."
+                        style={{ flex: 1, fontSize: 13 }}
+                      />
+                      <button type="submit" disabled={spEnCours || !nouveauSp.trim()} className="btn-primary" style={{ fontSize: 13 }}>
+                        Ajouter
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {TYPOLOGIES_SP.map(t => (
+                        <label key={t.value} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>
+                          <input
+                            type="checkbox"
+                            checked={nouveauSpTypologies.includes(t.value)}
+                            onChange={() => setNouveauSpTypologies(prev =>
+                              prev.includes(t.value) ? prev.filter(v => v !== t.value) : [...prev, t.value]
+                            )}
+                            style={{ width: 'auto' }}
+                          />
+                          {t.label}
+                        </label>
+                      ))}
+                    </div>
                   </form>
                 </div>
               )}
