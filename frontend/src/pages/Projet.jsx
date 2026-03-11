@@ -1472,7 +1472,6 @@ export default function Projet() {
                     <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
                   </div>
                 )}
-              </div>
                 {/* Bâtiments / typologies */}
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
