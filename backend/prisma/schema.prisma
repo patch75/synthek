@@ -214,6 +214,12 @@ model ReglementationRef {
   uploadedBy    User     @relation(fields: [uploadedById], references: [id])
 }
 
+model TypologiePersonnalisee {
+  id        Int      @id @default(autoincrement())
+  nom       String   @unique
+  createdAt DateTime @default(now())
+}
+
 // V3 — Bloc 2 : configuration projet IA
 model ConfigProjet {
   id                    Int     @id @default(autoincrement())

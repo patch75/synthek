@@ -212,7 +212,10 @@ export default function Projet() {
   const [editBatiments, setEditBatiments] = useState([]) // [{ id?, nom, typologies[] }]
   const [editEnCours, setEditEnCours] = useState(false)
 
-  const TYPOLOGIES_OPTIONS = ['BRS', 'LLS', 'LLTS', 'PLS', 'Accession libre', 'Accession aidée']
+  const TYPOLOGIES_BASE = ['BRS', 'LLS', 'LLTS', 'PLS', 'Accession libre', 'Accession aidée']
+  const [typologiesCustom, setTypologiesCustom] = useState([])
+  const [nouvelleTypologie, setNouvelleTypologie] = useState(null)
+  const TYPOLOGIES_OPTIONS = [...TYPOLOGIES_BASE, ...typologiesCustom.map(t => t.nom)]
 
   // Bâtiments
   const [batimentEditIdx, setBatimentEditIdx] = useState(null)
@@ -246,10 +249,12 @@ export default function Projet() {
   useEffect(() => {
     Promise.all([
       api.get(`/projets/${id}`),
-      api.get(`/alertes/${id}`)
-    ]).then(([pRes, aRes]) => {
+      api.get(`/alertes/${id}`),
+      api.get('/typologies')
+    ]).then(([pRes, aRes, tRes]) => {
       setProjet(pRes.data)
       setAlertes(aRes.data)
+      setTypologiesCustom(tRes.data)
       setLoading(false)
     })
   }, [id])
@@ -861,10 +866,50 @@ export default function Projet() {
               <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
               </h2>
-              <button onClick={() => { setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>
-                + Ajouter
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>
+                  + Ajouter
+                </button>
+                <button onClick={() => setNouvelleTypologie(v => v === null ? '' : null)} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }} title="Ajouter une typologie personnalisée">
+                  ⚙️ Typologies
+                </button>
+              </div>
             </div>
+
+            {nouvelleTypologie !== null && (
+              <div style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Typologies disponibles</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {typologiesCustom.map(t => (
+                    <span key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+                      {t.nom}
+                      <button onClick={async () => { await api.delete(`/typologies/${t.id}`); setTypologiesCustom(prev => prev.filter(x => x.id !== t.id)) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, lineHeight: 1, padding: 0 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={nouvelleTypologie}
+                    onChange={e => setNouvelleTypologie(e.target.value)}
+                    placeholder="Ex : Niveau Attiques, Duplex, T4..."
+                    style={{ flex: 1, fontSize: 13 }}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && nouvelleTypologie.trim()) {
+                        const res = await api.post('/typologies', { nom: nouvelleTypologie.trim() })
+                        setTypologiesCustom(prev => [...prev, res.data])
+                        setNouvelleTypologie('')
+                      }
+                    }}
+                  />
+                  <button onClick={async () => {
+                    if (!nouvelleTypologie.trim()) return
+                    const res = await api.post('/typologies', { nom: nouvelleTypologie.trim() })
+                    setTypologiesCustom(prev => [...prev, res.data])
+                    setNouvelleTypologie('')
+                  }} className="btn-primary" style={{ fontSize: 13 }}>Ajouter</button>
+                </div>
+              </div>
+            )}
 
             {getBatiments().length === 0 && !showAddBatiment && (
               <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>

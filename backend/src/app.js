@@ -11,6 +11,7 @@ const visasRoutes = require('./routes/visas')
 const usersRoutes = require('./routes/users')
 const syntheseRoutes = require('./routes/syntheses')
 const reglementationRoutes = require('./routes/reglementation')
+const typologiesRoutes = require('./routes/typologies')
 
 const app = express()
 
@@ -26,6 +27,7 @@ app.use('/visas', visasRoutes)
 app.use('/users', usersRoutes)
 app.use('/syntheses', syntheseRoutes)
 app.use('/reglementation', reglementationRoutes)
+app.use('/typologies', typologiesRoutes)
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
