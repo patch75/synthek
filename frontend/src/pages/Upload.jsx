@@ -49,7 +49,7 @@ export default function Upload() {
   const [sousProgrammes, setSousProgrammes] = useState([])
   const [sousProgrammeId, setSousProgrammeId] = useState('')
   const [comparerAvecSps, setComparerAvecSps] = useState([])
-  const [modeleIA, setModeleIA] = useState('haiku')
+  const [modeleIA, setModeleIA] = useState('sonnet')
 
   useEffect(() => {
     api.get(`/projets/${id}/sous-programmes`)
