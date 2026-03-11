@@ -385,7 +385,10 @@ Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
     const uniqueDocIds = [...new Set([documentId, ...refIds])]
     const labelType = categorieDoc === 'cctp' ? 'CCTP vs Programme' : `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
 
-    const labelComplet = nomSousProgramme ? `[${labelType} — ${nomSousProgramme}]` : `[${labelType}]`
+    const LOT_LABELS = { cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades', etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie' }
+    const nomLot = lotType ? LOT_LABELS[lotType] || lotType : null
+    const groupe = nomSousProgramme || nomLot
+    const labelComplet = groupe ? `[${labelType} — ${groupe}]` : `[${labelType}]`
 
     // Supprimer les anciennes alertes du même type pour ce document avant d'en créer de nouvelles
     const alertesLiees = await prisma.alerteDocument.findMany({
