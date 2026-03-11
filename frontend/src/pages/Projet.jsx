@@ -1017,8 +1017,9 @@ export default function Projet() {
                               )}
                               <button
                                 onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
-                                style={{ fontSize: 12, padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
-                              >Supprimer</button>
+                                style={{ fontSize: 14, padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                title="Supprimer"
+                              >✕</button>
                             </div>
                           </td>
                         )}
