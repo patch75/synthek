@@ -117,13 +117,17 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     orderBy: { version: 'desc' }
   })
 
-  // Détection de doublon : même nom ET même hash → fichier identique
+  // Détection de doublon : même nom ET même hash ET fichier toujours présent sur disque
   if (docExistant && hashNouveauFichier && docExistant.hashFichier === hashNouveauFichier) {
-    fs.unlinkSync(req.file.path)
-    return res.status(200).json({
-      doublon: true,
-      message: 'Pas de modification détectée, fichier identique à la version précédente'
-    })
+    const cheminExistant = path.resolve(__dirname, '../../', docExistant.cheminFichier)
+    if (fs.existsSync(cheminExistant)) {
+      fs.unlinkSync(req.file.path)
+      return res.status(200).json({
+        doublon: true,
+        message: 'Pas de modification détectée, fichier identique à la version précédente'
+      })
+    }
+    // Fichier supprimé du disque → on permet le re-dépôt (ancienne entrée DB orpheline)
   }
 
   // Extraction du texte

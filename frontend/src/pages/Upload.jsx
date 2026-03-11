@@ -88,6 +88,10 @@ export default function Upload() {
       const res = await api.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
+      if (res.data.doublon) {
+        setError('Ce fichier est identique à une version déjà existante (aucune modification détectée).')
+        return
+      }
       navigate(`/projets/${id}`, { state: { newDocId: res.data.id } })
     } catch (err) {
       setError(err.response?.data?.error || 'Erreur lors du dépôt')
