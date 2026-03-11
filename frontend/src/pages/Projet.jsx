@@ -135,6 +135,7 @@ export default function Projet() {
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
+  const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
   const [comparerProgrammesSelected, setComparerProgrammesSelected] = useState([])
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('sonnet')
@@ -319,6 +320,25 @@ export default function Projet() {
       alert(err.response?.data?.error || 'Erreur lors de la modification')
     } finally {
       setEditEnCours(false)
+    }
+  }
+
+  async function modifierDocument(doc, fichier) {
+    setModifierEnCours(doc.id)
+    try {
+      const formData = new FormData()
+      formData.append('fichier', fichier)
+      formData.append('projetId', projet.id)
+      if (doc.categorieDoc) formData.append('categorieDoc', doc.categorieDoc)
+      if (doc.sousProgrammeId) formData.append('sousProgrammeId', doc.sousProgrammeId)
+      await api.post('/documents/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const [pRes, aRes] = await Promise.all([api.get(`/projets/${id}`), api.get(`/alertes/${id}`)])
+      setProjet(pRes.data)
+      setAlertes(aRes.data)
+    } catch (err) {
+      console.error('Erreur mise à jour document:', err)
+    } finally {
+      setModifierEnCours(null)
     }
   }
 
@@ -1030,6 +1050,10 @@ export default function Projet() {
                                   style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 >⟳ Comparer</button>
                               )}
+                              <label style={{ fontSize: 12, padding: '4px 10px', background: '#6366f1', color: 'white', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }} title="Mettre à jour">
+                                {modifierEnCours === doc.id ? '…' : '↑'}
+                                <input type="file" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) modifierDocument(doc, e.target.files[0]); e.target.value = '' }} />
+                              </label>
                               <button
                                 onClick={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }}
                                 style={{ fontSize: 14, padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
