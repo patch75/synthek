@@ -101,6 +101,9 @@ model Document {
   // V4 — Sous-programme (périmètre) associé
   sousProgrammeId     Int?
 
+  // V4 — Lot détecté automatiquement (cvc, menuiseries, facades, etancheite, grosOeuvre, plomberie)
+  lotType             String?
+
   projet              Projet         @relation(fields: [projetId], references: [id], onDelete: Cascade)
   sousProgramme       SousProgramme? @relation(fields: [sousProgrammeId], references: [id])
   user                User      @relation(fields: [userId], references: [id])

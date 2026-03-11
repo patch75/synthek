@@ -9,6 +9,7 @@ const { extractText } = require('../services/extractText')
 const { genererPuce, comparerVersions } = require('../services/ia')
 const { extraireFaits } = require('../services/extractFaits')
 const { comparerAvecReference } = require('../services/comparerDocuments')
+const { detecterLot } = require('../services/lotDetector')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -136,6 +137,10 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   // V3 — Bloc 3 : extraire statut et indice du nom de fichier
   const { statutDocument, indiceRevision } = parseNomFichier(nomFichier)
 
+  // Détecter le lot automatiquement si CCTP ou DPGF
+  const cat = categorieDoc || ''
+  const lotDetecte = (cat === 'cctp' || cat === 'dpgf') ? detecterLot(nomFichier) : null
+
   // Construire les données du document
   const documentData = {
     projetId: parseInt(projetId),
@@ -149,7 +154,8 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
     statutDocument,
     indiceRevision,
     categorieDoc: categorieDoc || null,
-    sousProgrammeId: sousProgrammeId ? parseInt(sousProgrammeId) : null
+    sousProgrammeId: sousProgrammeId ? parseInt(sousProgrammeId) : null,
+    lotType: lotDetecte
   }
 
   // Si version précédente existe avec hash différent → nouvelle version
@@ -177,21 +183,20 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         .catch(err => console.error('Erreur comparaison versions:', err.message))
     }
 
-    // 3. Comparaison vs référence si CCTP ou DPGF
-    const cat = categorieDoc || ''
-    if (cat === 'cctp' || cat === 'dpgf') {
+    // 3. Comparaison vs référence si CCTP ou DPGF (pas pour le Lot 00 Généralités)
+    if ((cat === 'cctp' || cat === 'dpgf') && lotDetecte !== 'generalites') {
       const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
       const spId = sousProgrammeId ? parseInt(sousProgrammeId) : null
       const modele = modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
 
       if (spId) {
         // Sous-programme explicite → une seule comparaison ciblée
-        comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele)
+        comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele, lotDetecte)
           .catch(err => console.error('Erreur comparaison documents:', err.message))
       } else if (comparerAvecSps && comparerAvecSps.length > 0) {
         // Sous-programmes sélectionnés manuellement par l'utilisateur
         for (const spId of comparerAvecSps) {
-          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele)
+          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, spId, modele, lotDetecte)
             .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
         }
       } else {
@@ -199,11 +204,11 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         const sousProgrammes = await prisma.sousProgramme.findMany({ where: { projetId: pid } })
         if (sousProgrammes.length > 0) {
           for (const sp of sousProgrammes) {
-            comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id, modele)
+            comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, sp.id, modele, lotDetecte)
               .catch(err => console.error(`Erreur comparaison [${sp.nom}]:`, err.message))
           }
         } else {
-          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null, modele)
+          comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null, modele, lotDetecte)
             .catch(err => console.error('Erreur comparaison documents:', err.message))
         }
       }
@@ -219,7 +224,7 @@ router.post('/:id/comparer', async (req, res) => {
   const docId = parseInt(req.params.id)
   const doc = await prisma.document.findUnique({
     where: { id: docId },
-    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, projetId: true, sousProgrammeId: true }
+    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, projetId: true, sousProgrammeId: true, lotType: true }
   })
   if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
   if (!doc.contenuTexte) return res.status(400).json({ error: 'Texte non extrait pour ce document' })
@@ -231,6 +236,7 @@ router.post('/:id/comparer', async (req, res) => {
   const comparerAvecSps = Array.isArray(comparerAvecSpsRaw) ? comparerAvecSpsRaw.map(Number) : []
   const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
   const modele = req.body.modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
+  const lotType = doc.lotType || detecterLot(doc.nom)
 
   if (comparerAvecSps.length === 0) {
     return res.status(400).json({ error: 'Aucun sous-programme sélectionné' })
@@ -239,7 +245,7 @@ router.post('/:id/comparer', async (req, res) => {
   res.json({ message: `Comparaison lancée pour ${comparerAvecSps.length} sous-programme(s)` })
 
   for (const spId of comparerAvecSps) {
-    comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, spId, modele)
+    comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, spId, modele, lotType)
       .catch(err => console.error(`Erreur comparaison [sp${spId}]:`, err.message))
   }
 })

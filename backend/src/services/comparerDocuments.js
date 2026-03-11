@@ -1,7 +1,8 @@
 // backend/src/services/comparerDocuments.js
-// Comparaison documentaire hybride : analyse JS + interprétation Haiku
+// Comparaison documentaire hybride : analyse JS + interprétation IA spécialisée par lot
 const Anthropic = require('@anthropic-ai/sdk')
 const prisma = require('../lib/prisma')
+const { detecterLot, chargerAgent } = require('./lotDetector')
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -183,8 +184,13 @@ function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
  * Catégorie dpgf → compare vs programmes + optionnellement CCTPs
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
  */
-async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku') {
+async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null) {
   if (!texteDoc || texteDoc.trim().length < 200) return []
+
+  // Détecter le lot si non fourni, et charger l'agent spécialisé
+  const lotDetecte = lotType || detecterLot(nomDoc)
+  const agent = chargerAgent(lotDetecte)
+  console.log(`[comparerDocuments] Agent chargé: ${lotDetecte || 'generique'} pour "${nomDoc}"`)
 
   const categoriesRef = ['programme']
   if (avecCctp) categoriesRef.push('cctp')
@@ -232,6 +238,15 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     console.log(`[comparerDocuments] Aucun doc de référence (${categoriesRef.join('/')}) dans le projet ${projetId}`)
     return []
   }
+
+  // Récupérer le CCTP Généralités (Lot 00) s'il existe dans le projet
+  const cctpGeneralDoc = await prisma.document.findFirst({
+    where: { projetId, categorieDoc: 'cctp', lotType: 'generalites', contenuTexte: { not: null } },
+    select: { nom: true, contenuTexte: true }
+  })
+  const cctpGeneralTexte = cctpGeneralDoc?.contenuTexte
+    ? cctpGeneralDoc.contenuTexte.substring(0, 6000)
+    : null
 
   // Analyse JS pour chaque document de référence
   const resultats = docsRef
@@ -301,19 +316,20 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     ? `\nVocabulaire métier accepté comme équivalent : ${JSON.stringify(configProjet.vocabulaireMetier)}`
     : ''
 
-  // Appel Haiku pour filtrer les vrais problèmes parmi les écarts détectés
+  // Appel IA pour filtrer les vrais problèmes parmi les écarts détectés
   try {
-    const prompt = `Tu es un ingénieur BET thermique et fluides senior, expert en analyse de documents de construction (programmes MOA, CCTP, DPGF).
+    const reglesAgent = agent.reglesMetier?.length
+      ? `\nPOINTS DE CONTRÔLE SPÉCIFIQUES À CE LOT\n${agent.reglesMetier.map(r => `- ${r}`).join('\n')}`
+      : ''
+
+    const contextGeneralites = cctpGeneralTexte
+      ? `\nPRESCRIPTIONS GÉNÉRALES APPLICABLES À TOUS LES LOTS (Lot 00)\nCes prescriptions s'appliquent en complément des exigences du programme :\n${cctpGeneralTexte}`
+      : ''
+
+    const prompt = `${agent.systemPrompt}
 
 CONTEXTE DU PROJET
-${contextProjet}${contextSousProgramme}${promptConfig}${vocabMetier}
-
-RÈGLES MÉTIER À APPLIQUER
-- Les attiques (derniers niveaux en retrait) ont souvent une solution technique différente des niveaux courants : PAC air/eau plutôt que chaudière gaz, plancher chauffant basse température, etc. C'est normal et ne constitue pas une incohérence si le programme le prévoit.
-- RE2020 : vérifier la cohérence des solutions énergétiques (PAC, chaudière, plancher chauffant, radiateurs, VMC simple/double flux hygroréglable).
-- La VMC simple flux hygroréglable est compatible RE2020 pour le résidentiel collectif.
-- Un programme peut omettre certains détails techniques (canalisations, raccords) qui relèvent de l'entreprise — ce ne sont pas des incohérences.
-- Se concentrer sur les écarts qui ont un impact réel : système de chauffage différent, énergie différente, prestations manquantes ou contradictoires, performances non conformes.
+${contextProjet}${contextSousProgramme}${promptConfig}${vocabMetier}${reglesAgent}${contextGeneralites}
 
 ÉCARTS DÉTECTÉS PAR L'ANALYSE AUTOMATIQUE
 ${resumeEcarts}
