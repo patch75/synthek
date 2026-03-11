@@ -1257,7 +1257,15 @@ export default function Projet() {
                         {ouvert && (
                           <div style={{ padding: '10px 10px 4px' }}>
                             {docs.length === 0 ? (
-                              <p className="text-muted text-sm" style={{ paddingLeft: 4, marginBottom: 8 }}>Aucun programme pour ce périmètre.</p>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 8px' }}>
+                                <p className="text-muted text-sm" style={{ margin: 0 }}>Aucun programme pour ce périmètre.</p>
+                                {!isBureauControle && (
+                                  <button onClick={() => navigate(`/projets/${id}/upload`)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>+ Déposer</button>
+                                )}
+                                {isAdmin && sp.id !== '__sans__' && (
+                                  <button onClick={() => supprimerSousProgramme(sp.id)} style={{ fontSize: 12, padding: '4px 10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Supprimer</button>
+                                )}
+                              </div>
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {docs.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
