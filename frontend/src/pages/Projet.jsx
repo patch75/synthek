@@ -333,6 +333,7 @@ export default function Projet() {
     setEditClassementErp(projet.classementErp || false)
     setEditTypeErp(projet.typeErp || '')
     setEditNombreLogements(projet.nombreLogements ?? '')
+    setEditBatiments(getBatiments())
     setShowEditProjet(true)
   }
 
@@ -353,6 +354,9 @@ export default function Projet() {
         typeErp: editTypeErp,
         nombreLogements: editNombreLogements
       }
+      const batsValides = editBatiments.filter(b => b.nom.trim())
+      body.batimentsComposition = batsValides.length ? JSON.stringify(batsValides) : null
+
       const res = await api.patch(`/projets/${id}`, body)
       setProjet(prev => ({ ...prev, ...res.data }))
       setShowEditProjet(false)
@@ -1501,6 +1505,45 @@ export default function Projet() {
                     <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
                   </div>
                 )}
+                {/* Bâtiments / typologies */}
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    Composition des bâtiments <span style={{ fontWeight: 400 }}>(optionnel)</span>
+                  </p>
+                  {editBatiments.map((bat, i) => (
+                    <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <input
+                          value={bat.nom}
+                          onChange={e => setEditBatiments(prev => prev.map((b, j) => j === i ? { ...b, nom: e.target.value } : b))}
+                          placeholder="Ex : Bâtiment A, Villas..."
+                          style={{ flex: 1, fontSize: 13 }}
+                        />
+                        <button type="button" onClick={() => setEditBatiments(prev => prev.filter((_, j) => j !== i))} className="btn-ghost" style={{ padding: '4px 8px', color: '#ef4444' }}>✕</button>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {TYPOLOGIES_OPTIONS.map(t => (
+                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
+                            <input
+                              type="checkbox"
+                              checked={bat.typologies.includes(t)}
+                              onChange={() => setEditBatiments(prev => prev.map((b, j) => {
+                                if (j !== i) return b
+                                const typos = b.typologies.includes(t) ? b.typologies.filter(v => v !== t) : [...b.typologies, t]
+                                return { ...b, typologies: typos }
+                              }))}
+                              style={{ width: 'auto' }}
+                            />
+                            {t}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setEditBatiments(prev => [...prev, { nom: '', typologies: [] }])} className="btn-secondary" style={{ fontSize: 13, padding: '6px 12px' }}>
+                    + Ajouter un bâtiment
+                  </button>
+                </div>
               </div>
               <div className="form-actions" style={{ marginTop: 16 }}>
                 <button type="submit" disabled={editEnCours} className="btn-primary">
