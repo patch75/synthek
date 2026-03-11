@@ -136,7 +136,7 @@ export default function Projet() {
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
   const [comparerProgrammesSelected, setComparerProgrammesSelected] = useState([])
   const [comparerEnCours, setComparerEnCours] = useState(false)
-  const [comparerModele, setComparerModele] = useState('haiku')
+  const [comparerModele, setComparerModele] = useState('sonnet')
   const [showEditProjet, setShowEditProjet] = useState(false)
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
