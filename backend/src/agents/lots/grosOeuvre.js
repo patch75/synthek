@@ -5,7 +5,8 @@ const motsClefsDétection = [
   'dalle', 'voile', 'refend', 'poteau', 'poutre', 'plancher',
   'rupteur', 'rupteurs', 'pont thermique', 'about de dalle',
   'maçonnerie', 'agglo', 'parpaing', 'linteau', 'chaînage',
-  'lot 1', 'lot go', 'génie civil'
+  'lot 1', 'lot go', 'cctp go', 'go étanchéité', 'go étanchéités',
+  'fourni par go', 'réservation go', 'prestations go', 'génie civil'
 ]
 
 const systemPrompt = `Tu es un ingénieur BET structure et thermique, spécialisé dans le lot Gros Œuvre.
