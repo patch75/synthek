@@ -234,7 +234,7 @@ export default function Projet() {
   const [showConfig, setShowConfig] = useState(false)
   const [configPrompt, setConfigPrompt] = useState('')
   const [configSeuils, setConfigSeuils] = useState('')
-  const [configVocab, setConfigVocab] = useState('')
+  const [configVocabEntries, setConfigVocabEntries] = useState([]) // [{ terme, definition }]
   const [configNommage, setConfigNommage] = useState('')
   const [configSaving, setConfigSaving] = useState(false)
   const [configMsg, setConfigMsg] = useState('')
@@ -331,7 +331,7 @@ export default function Projet() {
       if (res.data) {
         setConfigPrompt(res.data.promptSystemeGlobal || '')
         setConfigSeuils(res.data.seuilsTolerance ? JSON.stringify(res.data.seuilsTolerance, null, 2) : '')
-        setConfigVocab(res.data.vocabulaireMetier ? JSON.stringify(res.data.vocabulaireMetier, null, 2) : '')
+        setConfigVocabEntries(res.data.vocabulaireMetier ? Object.entries(res.data.vocabulaireMetier).map(([terme, definition]) => ({ terme, definition: Array.isArray(definition) ? definition.join(', ') : String(definition) })) : [])
         setConfigNommage(res.data.conventionNommage || '')
       }
       setShowConfig(true)
@@ -349,7 +349,9 @@ export default function Projet() {
         promptSystemeGlobal: configPrompt || null,
         conventionNommage: configNommage || null,
         seuilsTolerance: configSeuils ? JSON.parse(configSeuils) : null,
-        vocabulaireMetier: configVocab ? JSON.parse(configVocab) : null
+        vocabulaireMetier: configVocabEntries.filter(e => e.terme.trim()).length > 0
+          ? Object.fromEntries(configVocabEntries.filter(e => e.terme.trim()).map(e => [e.terme.trim(), e.definition.trim()]))
+          : null
       }
       await api.post(`/projets/${id}/config`, body)
       setConfigMsg('Configuration sauvegardée')
@@ -1336,14 +1338,33 @@ export default function Projet() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Vocabulaire métier (JSON)</label>
-                  <textarea
-                    value={configVocab}
-                    onChange={e => setConfigVocab(e.target.value)}
-                    placeholder='{"local CTA": ["local VMC", "local ventilation"]}'
-                    rows={3}
-                    style={{ fontFamily: 'monospace', fontSize: 12 }}
-                  />
+                  <label>Vocabulaire métier</label>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                    Termes ou abréviations spécifiques à ce projet — injectés dans chaque comparaison IA.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {configVocabEntries.map((entry, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          value={entry.terme}
+                          onChange={e => { const n = [...configVocabEntries]; n[i] = { ...n[i], terme: e.target.value }; setConfigVocabEntries(n) }}
+                          placeholder="Terme / abréviation"
+                          style={{ width: 160, flexShrink: 0 }}
+                        />
+                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>→</span>
+                        <input
+                          value={entry.definition}
+                          onChange={e => { const n = [...configVocabEntries]; n[i] = { ...n[i], definition: e.target.value }; setConfigVocabEntries(n) }}
+                          placeholder="Définition / équivalent"
+                          style={{ flex: 1 }}
+                        />
+                        <button type="button" onClick={() => setConfigVocabEntries(configVocabEntries.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setConfigVocabEntries([...configVocabEntries, { terme: '', definition: '' }])} className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13 }}>
+                      + Ajouter un terme
+                    </button>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label>Convention de nommage</label>
