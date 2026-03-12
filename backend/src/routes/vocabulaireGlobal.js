@@ -24,14 +24,7 @@ router.post('/', async (req, res) => {
   res.json(entry)
 })
 
-// DELETE /vocabulaire-global/:id — supprimer un terme (admin)
-router.delete('/:id', async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
-  await prisma.vocabulaireGlobal.delete({ where: { id: parseInt(req.params.id) } })
-  res.json({ ok: true })
-})
-
-// POST /vocabulaire-global/import — import en masse (admin)
+// POST /vocabulaire-global/import — import en masse (admin) — DOIT être avant /:id
 router.post('/import', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   const { entrees } = req.body // [{ terme, definition }]
@@ -47,6 +40,13 @@ router.post('/import', async (req, res) => {
     count++
   }
   res.json({ importes: count })
+})
+
+// DELETE /vocabulaire-global/:id — supprimer un terme (admin)
+router.delete('/:id', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  await prisma.vocabulaireGlobal.delete({ where: { id: parseInt(req.params.id) } })
+  res.json({ ok: true })
 })
 
 module.exports = router
