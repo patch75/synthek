@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     where: { membres: { some: { userId: req.user.id } } },
     include: {
       membres: { include: { user: { select: { id: true, nom: true, email: true, role: true } } } },
-      _count: { select: { documents: true, alertes: true } }
+      _count: { select: { documents: true, alertes: { where: { statut: 'active' } } } }
     }
   })
   res.json(projets)
