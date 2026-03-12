@@ -73,7 +73,7 @@ function FaitsModal({ doc, onClose }) {
     norme: 'Normes', performance: 'Performances', equipement: 'Équipements', contrainte: 'Contraintes'
   }
 
-  const groupes = faits ? faits.reduce((acc, f) => {
+  const groupes = faits ? faits.filter(f => f.valeur && f.valeur.trim().toLowerCase() !== 'n/a').reduce((acc, f) => {
     if (!acc[f.categorie]) acc[f.categorie] = []
     acc[f.categorie].push(f)
     return acc
@@ -88,7 +88,7 @@ function FaitsModal({ doc, onClose }) {
         </div>
         {faits === null ? (
           <p className="text-muted">Chargement...</p>
-        ) : faits.length === 0 ? (
+        ) : Object.keys(groupes).length === 0 ? (
           <p className="text-muted">Aucun fait extrait pour ce document.</p>
         ) : (
           <div style={{ overflowY: 'auto', maxHeight: '65vh', display: 'flex', flexDirection: 'column', gap: 16 }}>

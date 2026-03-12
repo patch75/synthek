@@ -30,6 +30,7 @@ Texte :
 ${texte}
 
 Retourne au maximum 50 faits (les plus importants en priorité).
+N'inclus un fait que si la valeur est précise et connue. Si la valeur est inconnue, absente ou "N/A", n'inclus pas ce fait.
 Réponds UNIQUEMENT avec un tableau JSON valide. Pas de texte avant ou après. Pas de balises markdown. Format exact :
 [
   {
@@ -63,7 +64,9 @@ Si aucun fait technique n'est trouvé, retourne exactement : []`
     const valides = faits.filter(f =>
       f && typeof f.categorie === 'string' &&
       typeof f.sujet === 'string' &&
-      typeof f.valeur === 'string'
+      typeof f.valeur === 'string' &&
+      f.valeur.trim().toLowerCase() !== 'n/a' &&
+      f.valeur.trim() !== ''
     )
 
     if (valides.length > 0) {
