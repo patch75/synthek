@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import logo from '../assets/images/synthek.png'
 import { useTheme } from '../context/ThemeContext'
@@ -39,6 +39,7 @@ const INFOS_CATEGORIE = {
 export default function Upload() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { theme, toggleTheme } = useTheme()
   const [fichier, setFichier] = useState(null)
   const [resumeModif, setResumeModif] = useState('')
@@ -47,7 +48,7 @@ export default function Upload() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sousProgrammes, setSousProgrammes] = useState([])
-  const [sousProgrammeId, setSousProgrammeId] = useState('')
+  const [sousProgrammeId, setSousProgrammeId] = useState(searchParams.get('sousProgrammeId') || '')
   const [comparerAvecSps, setComparerAvecSps] = useState([])
   const [modeleIA, setModeleIA] = useState('sonnet')
 

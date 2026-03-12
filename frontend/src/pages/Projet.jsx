@@ -192,6 +192,8 @@ export default function Projet() {
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
+  const [showTexteModal, setShowTexteModal] = useState(null) // { id, nom, contenuTexte, loading }
+
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
   const [comparerAvec, setComparerAvec] = useState('programme')
@@ -451,6 +453,16 @@ export default function Projet() {
       console.error('Erreur mise à jour document:', err)
     } finally {
       setModifierEnCours(null)
+    }
+  }
+
+  async function ouvrirTexteDoc(doc) {
+    setShowTexteModal({ id: doc.id, nom: doc.nom, contenuTexte: null, loading: true })
+    try {
+      const res = await api.get(`/documents/${doc.id}/texte`)
+      setShowTexteModal({ id: doc.id, nom: doc.nom, contenuTexte: res.data.contenuTexte, loading: false })
+    } catch {
+      setShowTexteModal({ id: doc.id, nom: doc.nom, contenuTexte: null, loading: false, error: true })
     }
   }
 
@@ -988,6 +1000,11 @@ export default function Projet() {
                         {isAdmin && (
                           <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              <button
+                                onClick={() => ouvrirTexteDoc(doc)}
+                                style={{ fontSize: 12, padding: '4px 8px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                title="Voir le texte extrait"
+                              >👁</button>
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
                                 <button
                                   onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); setComparerAvec('programme') }}
@@ -1260,7 +1277,7 @@ export default function Projet() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 8px' }}>
                                 <p className="text-muted text-sm" style={{ margin: 0 }}>Aucun programme pour ce périmètre.</p>
                                 {!isBureauControle && (
-                                  <button onClick={() => navigate(`/projets/${id}/upload`)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>+ Déposer</button>
+                                  <button onClick={() => navigate(`/projets/${id}/upload?sousProgrammeId=${sp.id}`)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>+ Déposer</button>
                                 )}
                                 {isAdmin && sp.id !== '__sans__' && (
                                   <button onClick={() => supprimerSousProgramme(sp.id)} style={{ fontSize: 12, padding: '4px 10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Supprimer</button>
@@ -1453,6 +1470,32 @@ export default function Projet() {
       )}
 
       {showLexique && <LexiqueModal onClose={() => setShowLexique(false)} />}
+
+      {showTexteModal && (
+        <div className="modal-overlay" onClick={() => setShowTexteModal(null)}>
+          <div className="modal-card" style={{ maxWidth: 780, width: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: 15 }}>Texte extrait — {showTexteModal.nom}</h3>
+              <button className="btn-ghost" onClick={() => setShowTexteModal(null)} style={{ padding: '4px 8px' }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+              {showTexteModal.loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chargement…</p>}
+              {showTexteModal.error && <p style={{ color: '#ef4444', fontSize: 13 }}>Erreur lors du chargement.</p>}
+              {!showTexteModal.loading && !showTexteModal.error && (
+                showTexteModal.contenuTexte
+                  ? <pre style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', color: 'var(--text)', margin: 0 }}>{showTexteModal.contenuTexte}</pre>
+                  : <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Aucun texte extrait pour ce document.</p>
+              )}
+            </div>
+            <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {showTexteModal.contenuTexte ? `${showTexteModal.contenuTexte.length.toLocaleString('fr-FR')} caractères` : ''}
+              </span>
+              <button onClick={() => setShowTexteModal(null)} className="btn-ghost">Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showComparerModal && (
         <div className="modal-overlay" onClick={() => setShowComparerModal(null)}>

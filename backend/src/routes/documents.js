@@ -224,6 +224,17 @@ router.post('/:id/comparer', async (req, res) => {
     .catch(err => console.error('Erreur comparaison:', err.message))
 })
 
+// GET /documents/:id/texte — retourne le contenu texte extrait
+router.get('/:id/texte', async (req, res) => {
+  const docId = parseInt(req.params.id)
+  const doc = await prisma.document.findUnique({
+    where: { id: docId },
+    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, lotType: true, dateDepot: true }
+  })
+  if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+  res.json({ id: doc.id, nom: doc.nom, categorieDoc: doc.categorieDoc, lotType: doc.lotType, dateDepot: doc.dateDepot, contenuTexte: doc.contenuTexte })
+})
+
 // DELETE /documents/:id — supprimer un document (admin only)
 router.delete('/:id', async (req, res) => {
   if (req.user.role !== 'admin') {
