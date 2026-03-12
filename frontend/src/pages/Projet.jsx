@@ -235,6 +235,8 @@ export default function Projet() {
   const [configPrompt, setConfigPrompt] = useState('')
   const [configSeuils, setConfigSeuils] = useState('')
   const [configVocabEntries, setConfigVocabEntries] = useState([]) // [{ terme, definition }]
+  const [showVocabImport, setShowVocabImport] = useState(false)
+  const [vocabImportText, setVocabImportText] = useState('')
   const [configNommage, setConfigNommage] = useState('')
   const [configSaving, setConfigSaving] = useState(false)
   const [configMsg, setConfigMsg] = useState('')
@@ -1351,9 +1353,44 @@ export default function Projet() {
                         <button type="button" onClick={() => setConfigVocabEntries(configVocabEntries.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
                       </div>
                     ))}
-                    <button type="button" onClick={() => setConfigVocabEntries([...configVocabEntries, { terme: '', definition: '' }])} className="btn-ghost" style={{ alignSelf: 'flex-start', fontSize: 13 }}>
-                      + Ajouter un terme
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" onClick={() => setConfigVocabEntries([...configVocabEntries, { terme: '', definition: '' }])} className="btn-ghost" style={{ fontSize: 13 }}>
+                        + Ajouter un terme
+                      </button>
+                      <button type="button" onClick={() => setShowVocabImport(!showVocabImport)} className="btn-ghost" style={{ fontSize: 13 }}>
+                        ↓ Importer en masse
+                      </button>
+                    </div>
+                    {showVocabImport && (
+                      <div style={{ marginTop: 8, padding: 12, background: 'var(--bg-muted)', borderRadius: 8 }}>
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                          Une ligne par terme, format : <code>TERME → définition</code>
+                        </p>
+                        <textarea
+                          value={vocabImportText}
+                          onChange={e => setVocabImportText(e.target.value)}
+                          placeholder={'BATIMENTS AB → Bâtiment A + Bâtiment B\nGO → Gros Œuvre\nBRS → Bail Réel Solidaire'}
+                          rows={6}
+                          style={{ fontFamily: 'monospace', fontSize: 12, width: '100%', marginBottom: 8 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          style={{ fontSize: 13 }}
+                          onClick={() => {
+                            const nouvelles = vocabImportText.split('\n')
+                              .map(l => l.split('→'))
+                              .filter(p => p.length >= 2 && p[0].trim())
+                              .map(p => ({ terme: p[0].trim(), definition: p.slice(1).join('→').trim() }))
+                            setConfigVocabEntries([...configVocabEntries, ...nouvelles])
+                            setVocabImportText('')
+                            setShowVocabImport(false)
+                          }}
+                        >
+                          Importer ({vocabImportText.split('\n').filter(l => l.includes('→')).length} termes)
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="form-group">
