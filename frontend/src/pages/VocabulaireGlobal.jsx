@@ -56,7 +56,7 @@ export default function VocabulaireGlobal() {
         </div>
       </header>
 
-      <main className="main-content" style={{ maxWidth: 800 }}>
+      <main className="main-content" style={{ maxWidth: 800, margin: '0 auto' }}>
         <section className="section">
           <div className="section-header">
             <div>
