@@ -1328,16 +1328,6 @@ export default function Projet() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Seuils de tolérance (JSON)</label>
-                  <textarea
-                    value={configSeuils}
-                    onChange={e => setConfigSeuils(e.target.value)}
-                    placeholder='{"ecart_puissance": {"vigilance": 5, "bloquant": 10}}'
-                    rows={3}
-                    style={{ fontFamily: 'monospace', fontSize: 12 }}
-                  />
-                </div>
-                <div className="form-group">
                   <label>Vocabulaire métier</label>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
                     Termes ou abréviations spécifiques à ce projet — injectés dans chaque comparaison IA.
