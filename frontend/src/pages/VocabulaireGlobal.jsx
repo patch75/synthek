@@ -12,13 +12,13 @@ export default function VocabulaireGlobal() {
   const [newDef, setNewDef] = useState('')
   const [msg, setMsg] = useState('')
 
-  useEffect(() => { charger() }, [])
-
   async function charger() {
     const res = await api.get('/vocabulaire-global')
     setTermes(res.data)
     setLoading(false)
   }
+
+  useEffect(() => { charger() }, []) // eslint-disable-line react-hooks/set-state-in-effect
 
   async function ajouter(e) {
     e.preventDefault()
