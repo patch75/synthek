@@ -220,8 +220,8 @@ export default function Projet() {
   const TYPOLOGIES_OPTIONS = [...TYPOLOGIES_BASE, ...typologiesCustom.map(t => t.nom)]
 
   // Bâtiments
-  const [showBatiments, setShowBatiments] = useState(true)
-  const [showProgrammes, setShowProgrammes] = useState(true)
+  const [showBatiments, setShowBatiments] = useState(false)
+  const [showProgrammes, setShowProgrammes] = useState(false)
   const [showDocuments, setShowDocuments] = useState(true)
   const [batimentEditIdx, setBatimentEditIdx] = useState(null)
   const [batimentEditNom, setBatimentEditNom] = useState('')
