@@ -113,8 +113,6 @@ export default function Dashboard() {
     setProjets(prev => prev.filter(p => p.id !== projetId))
   }
 
-  const totalDocs = projets.reduce((sum, p) => sum + (p._count?.documents ?? 0), 0)
-  const totalAlertes = projets.reduce((sum, p) => sum + (p._count?.alertes ?? 0), 0)
 
   return (
     <div className="page">
