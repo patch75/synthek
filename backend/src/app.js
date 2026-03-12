@@ -12,6 +12,7 @@ const usersRoutes = require('./routes/users')
 const syntheseRoutes = require('./routes/syntheses')
 const reglementationRoutes = require('./routes/reglementation')
 const typologiesRoutes = require('./routes/typologies')
+const vocabulaireGlobalRoutes = require('./routes/vocabulaireGlobal')
 
 const app = express()
 
@@ -28,6 +29,7 @@ app.use('/users', usersRoutes)
 app.use('/syntheses', syntheseRoutes)
 app.use('/reglementation', reglementationRoutes)
 app.use('/typologies', typologiesRoutes)
+app.use('/vocabulaire-global', vocabulaireGlobalRoutes)
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 

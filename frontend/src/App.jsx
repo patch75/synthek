@@ -11,6 +11,7 @@ import Visas from './pages/Visas'
 import Users from './pages/Users'
 import Syntheses from './pages/Syntheses'
 import Reglementation from './pages/Reglementation'
+import VocabulaireGlobal from './pages/VocabulaireGlobal'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/projets/:id/visas" element={<PrivateRoute><Visas /></PrivateRoute>} />
       <Route path="/projets/:id/syntheses" element={<PrivateRoute><Syntheses /></PrivateRoute>} />
       <Route path="/reglementation" element={<AdminRoute><Reglementation /></AdminRoute>} />
+      <Route path="/vocabulaire-global" element={<AdminRoute><VocabulaireGlobal /></AdminRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

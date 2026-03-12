@@ -202,7 +202,7 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     nomSousProgramme = sp?.nom || null
   }
 
-  const [projet, configProjet] = await Promise.all([
+  const [projet, configProjet, vocabGlobal] = await Promise.all([
     prisma.projet.findUnique({
       where: { id: projetId },
       select: {
@@ -214,7 +214,8 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     prisma.configProjet.findUnique({
       where: { projetId },
       select: { promptSystemeGlobal: true, vocabulaireMetier: true }
-    })
+    }),
+    prisma.vocabulaireGlobal.findMany({ orderBy: { terme: 'asc' } })
   ])
 
   const whereRef = {
@@ -335,8 +336,14 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     ? `\nConsignes spécifiques du projet : ${configProjet.promptSystemeGlobal}`
     : ''
 
-  const vocabMetier = configProjet?.vocabulaireMetier
-    ? `\nVocabulaire métier accepté comme équivalent : ${JSON.stringify(configProjet.vocabulaireMetier)}`
+  const vocabProjet = configProjet?.vocabulaireMetier
+    ? Object.entries(configProjet.vocabulaireMetier).map(([t, d]) => `  ${t} → ${d}`).join('\n')
+    : ''
+  const vocabGlobalStr = vocabGlobal?.length
+    ? vocabGlobal.map(v => `  ${v.terme} → ${v.definition}`).join('\n')
+    : ''
+  const vocabMetier = (vocabGlobalStr || vocabProjet)
+    ? `\nVOCABULAIRE MÉTIER (abréviations et équivalences à connaître) :\n${vocabGlobalStr}${vocabProjet ? '\nSpécifique au projet :\n' + vocabProjet : ''}`
     : ''
 
   // Appel IA pour filtrer les vrais problèmes parmi les écarts détectés

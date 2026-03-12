@@ -131,6 +131,9 @@ export default function Dashboard() {
               <button onClick={() => navigate('/reglementation')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
                 Réglementation
               </button>
+              <button onClick={() => navigate('/vocabulaire-global')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
+                Vocabulaire
+              </button>
             </>
           )}
           <button onClick={toggleTheme} className="btn-ghost" title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'} style={{ fontSize: 18, padding: '6px 10px' }}>

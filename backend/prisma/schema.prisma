@@ -220,6 +220,14 @@ model TypologiePersonnalisee {
   createdAt DateTime @default(now())
 }
 
+// Vocabulaire global partagé entre tous les projets (admin)
+model VocabulaireGlobal {
+  id         Int      @id @default(autoincrement())
+  terme      String   @unique
+  definition String   @db.Text
+  createdAt  DateTime @default(now())
+}
+
 // V3 — Bloc 2 : configuration projet IA
 model ConfigProjet {
   id                    Int     @id @default(autoincrement())
