@@ -408,7 +408,6 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
 /* =========================================
    CHAT
    ========================================= */
-.chat-page { }
 .chat-container {
   display: flex;
   flex-direction: column;
