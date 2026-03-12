@@ -1005,7 +1005,7 @@ export default function Projet() {
                                 style={{ fontSize: 12, padding: '4px 8px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 title="Voir le texte extrait"
                               >👁</button>
-                              {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && projet.sousProgrammes?.length > 0 && (
+                              {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && (
                                 <button
                                   onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); setComparerAvec('programme') }}
                                   style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
