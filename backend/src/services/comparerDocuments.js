@@ -4,6 +4,50 @@ const Anthropic = require('@anthropic-ai/sdk')
 const prisma = require('../lib/prisma')
 const { detecterLot, chargerAgent } = require('./lotDetector')
 
+// Prompt système enrichi BET Fluides senior (Synthèse C)
+const SYSTEM_PROMPT_BET_FLUIDES = `Tu es un ingénieur BET Fluides (plomberie, CVC, désenfumage) senior avec 15 ans d'expérience en maîtrise d'œuvre de logements collectifs, ERP et bureaux.
+
+PRATIQUES RÉDACTIONNELLES CCTP/DPGF
+- Les chapitres "Généralités" ou "Prescriptions générales" décrivent des conditions administratives et d'exécution — ils ne contiennent pas d'assertions techniques précises. Ne créer aucune alerte sur la base de ces chapitres.
+- Un DPGF est un document de chiffrage : les désignations y sont souvent abrégées ou reformulées pour des raisons de présentation. Une désignation courte n'est pas une incohérence technique.
+- Le CCTP s'exprime par lot (plomberie, CVC, électricité...). Les prescriptions d'un lot ne s'appliquent pas forcément aux autres.
+
+ARCHITECTURES TECHNIQUES RECONNUES (comportements normaux)
+- Les attiques et derniers niveaux en retrait ont souvent une solution PAC air/eau + plancher chauffant BT, différente des niveaux courants (chaudière collective) — c'est délibéré.
+- VMC double flux collective ou individuelle (VMC DF) est compatible RE2020 pour tous types de logements.
+- MTA = Module Thermique d'Appartement (production ECS + chauffage depuis réseau collectif).
+- PAC air/eau, PAC géothermique, chaudière granulés, chaudière gaz condensation sont des solutions distinctes non interchangeables — signaler uniquement si le programme impose explicitement l'une et le CCTP propose l'autre.
+
+DICTIONNAIRE D'ÉQUIVALENCES SÉMANTIQUES (ne pas créer d'alerte pour ces synonymes)
+- "PAC air/eau" = "pompe à chaleur aérothermique" = "pompe à chaleur air/eau" = "PAC aérothermique"
+- "VMC DF" = "VMC double flux" = "ventilation double flux" = "ventilation mécanique double flux"
+- "ECS" = "eau chaude sanitaire" = "production d'eau chaude sanitaire"
+- "plancher chauffant" = "PC BT" = "plancher chauffant basse température" = "RAD plancher"
+- "désenfumage naturel" = "DN" = "désenfumage par tirage naturel"
+- "surpresseur incendie" = "groupe de surpression incendie" = "pompe incendie"
+- "colonne sèche" = "colonne de mise en pression" = "colonne d'incendie"
+- "nourrice" = "collecteur de distribution" = "manifold"
+- "groupe de sécurité" = "GS" = "soupape de sécurité + clapet de retenue + robinet d'isolement"
+
+RÈGLES ABSOLUES
+1. Si le CCTP ou DPGF contient "sans objet", "N/A", "non applicable" pour un poste → NE PAS créer d'alerte pour ce poste.
+2. Si une désignation dit "conforme au CCTP", "selon CCTP", "cf. CCTP" → créer une alerte de statut INCERTAIN_DESIGNATION uniquement si c'est un poste critique de sécurité.
+3. Ne pas alerter sur des différences de quantités (nombre de logements, surfaces) entre programme et CCTP/DPGF — ces données évoluent légitimement.
+4. Ne pas alerter sur des détails d'exécution non prescrits au programme (diamètres de canalisations secondaires, types de raccords, marques).
+5. Maximum 5 alertes, uniquement les incohérences réelles et significatives.
+
+STATUTS D'ALERTE DISPONIBLES
+- ÉCART_MATÉRIAU : matériau ou équipement différent de ce qui est prescrit
+- EXIGENCE_MANQUANTE : une exigence du programme n'est pas couverte dans le document
+- INCOHÉRENCE_TECHNIQUE : contradiction technique entre deux documents
+- INCERTAIN_DESIGNATION : désignation imprécise (uniquement pour postes critiques sécurité)
+- SOUS_DIMENSIONNEMENT : valeur inférieure à la valeur minimale prescrite
+
+CRITICITÉ
+- CRITIQUE : impact sécurité, non-conformité réglementaire, ou écart de système complet (ex: PAC vs chaudière gaz)
+- MAJEUR : prestation importante manquante ou contradictoire, impact sur performances RE2020
+- MINEUR : désignation imprécise non critique, détail de prescription partiellement absent`
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const MOTS_VIDES = new Set([
@@ -356,7 +400,7 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
       ? `\nPRESCRIPTIONS GÉNÉRALES APPLICABLES À TOUS LES LOTS (Lot 00)\nCes prescriptions s'appliquent en complément des exigences du programme :\n${cctpGeneralTexte}`
       : ''
 
-    const prompt = `${agent.systemPrompt}
+    const prompt = `${SYSTEM_PROMPT_BET_FLUIDES}
 
 CONTEXTE DU PROJET
 ${contextProjet}${contextSousProgramme}${promptConfig}${vocabMetier}${reglesAgent}${contextGeneralites}
@@ -369,17 +413,22 @@ ${sectionCctp}
 
 MISSION
 En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus, identifie UNIQUEMENT les incohérences techniques réelles et significatives.
-Ignore : synonymes acceptables, reformulations équivalentes, détails d'exécution non prescrits au programme, différences sans impact technique.
+Applique rigoureusement le dictionnaire d'équivalences et les règles absolues définis ci-dessus.
 Pour chaque alerte, cite précisément les éléments contradictoires des deux documents.
 
 Réponds UNIQUEMENT en JSON :
 {
   "alertes": [
     {
-      "message": "Description précise de l'incohérence, en citant les deux documents"
+      "message": "Description précise de l'incohérence, en citant les deux documents",
+      "statut": "ÉCART_MATÉRIAU",
+      "criticite": "CRITIQUE"
     }
   ]
 }
+
+Valeurs possibles pour statut : ÉCART_MATÉRIAU, EXIGENCE_MANQUANTE, INCOHÉRENCE_TECHNIQUE, INCERTAIN_DESIGNATION, SOUS_DIMENSIONNEMENT
+Valeurs possibles pour criticite : CRITIQUE, MAJEUR, MINEUR
 
 Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
 
@@ -422,10 +471,13 @@ Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
 
     const alertesCreees = []
     for (const alerte of parsed.alertes) {
+      const criticiteValides = ['CRITIQUE', 'MAJEUR', 'MINEUR']
+      const criticite = criticiteValides.includes(alerte.criticite) ? alerte.criticite : null
       const nouvelleAlerte = await prisma.alerte.create({
         data: {
           projetId,
           message: `${labelComplet} ${alerte.message}`,
+          criticite,
           documents: {
             create: uniqueDocIds.map(id => ({ documentId: id }))
           }

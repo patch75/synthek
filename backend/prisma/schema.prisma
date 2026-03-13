@@ -126,6 +126,9 @@ model Alerte {
   dateCreation   DateTime  @default(now())
   dateResolution DateTime?
 
+  // Synthèse C — criticité
+  criticite               String?   // "CRITIQUE" | "MAJEUR" | "MINEUR"
+
   // V3 — Bloc 5 : résolution enrichie
   resoluePar              String?   // 'manuelle' | 'automatique'
   justificationDerogation String?   @db.Text

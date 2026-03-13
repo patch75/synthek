@@ -834,9 +834,19 @@ export default function Projet() {
                           <div key={alerte.id} className="card alerte-card" style={{ margin: '0 8px 8px', borderRadius: 6 }}>
                             <p>
                               {(() => {
+                                const CRITICITE_STYLE = {
+                                  CRITIQUE: { background: '#dc2626', color: 'white' },
+                                  MAJEUR:   { background: '#ea580c', color: 'white' },
+                                  MINEUR:   { background: '#ca8a04', color: 'white' },
+                                }
+                                const criticiteStyle = alerte.criticite ? CRITICITE_STYLE[alerte.criticite] : null
+                                const badgeCriticite = criticiteStyle
+                                  ? <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '2px 6px', marginRight: 6, whiteSpace: 'nowrap', ...criticiteStyle }}>{alerte.criticite}</span>
+                                  : null
                                 const m = alerte.message.match(/^\[([^\]]+)\]\s*(.*)$/s)
                                 if (m) return <>
                                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>
+                                  {badgeCriticite}
                                   <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 4, padding: '2px 7px', marginRight: 8, whiteSpace: 'nowrap' }}>{m[1]}</span>
                                   {m[2].split(/(INCOHÉRENCE MAJEURE|INCOHÉRENCE)/g).map((part, i) =>
                                     (part === 'INCOHÉRENCE' || part === 'INCOHÉRENCE MAJEURE')
@@ -844,7 +854,7 @@ export default function Projet() {
                                       : part
                                   )}
                                 </>
-                                return <><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{alerte.message}</>
+                                return <><span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginRight: 6 }}>#{alerte.id}</span>{badgeCriticite}{alerte.message}</>
                               })()}
                             </p>
                             <div className="alerte-footer">
