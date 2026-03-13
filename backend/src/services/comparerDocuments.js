@@ -508,7 +508,8 @@ Réponds UNIQUEMENT en JSON :
 Valeurs possibles pour statut : ÉCART_MATÉRIAU, EXIGENCE_MANQUANTE, INCOHÉRENCE_TECHNIQUE, INCERTAIN_DESIGNATION, SOUS_DIMENSIONNEMENT
 Valeurs possibles pour criticite : CRITIQUE, MAJEUR, MINEUR
 
-Maximum 8 alertes pour cette section. Si aucun problème réel : { "alertes": [] }`
+Maximum 8 alertes pour cette section. Si aucun problème réel : { "alertes": [] }
+IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("cohérent", "conforme", "pas d'alerte", "aucune anomalie"), ne crée PAS d'alerte pour ce point. Une alerte = un vrai problème, pas une vérification rassurante.`
 
     try {
       const response = await client.messages.create({
