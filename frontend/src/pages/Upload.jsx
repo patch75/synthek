@@ -31,7 +31,7 @@ const INFOS_CATEGORIE = {
   },
   dpgf: {
     icon: '🔍',
-    texte: 'Ce DPGF sera comparé aux documents de référence sélectionnés ci-dessous.',
+    texte: 'Le texte du DPGF sera extrait et indexé. Lancez la comparaison depuis la page projet.',
     style: { background: 'var(--info-light, #dbeafe)', borderLeft: '3px solid #2563eb', color: 'var(--text)' }
   }
 }
