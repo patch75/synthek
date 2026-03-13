@@ -766,22 +766,45 @@ export default function Projet() {
         </div>
 
         {/* Banner analyse en arrière-plan */}
-        {analyseBg && (
-          <div className="card info-card" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block', flexShrink: 0 }}>⏳</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
-              <p className="text-muted text-sm" style={{ margin: 0 }}>
-                {alertesActives.length > 0
-                  ? `${alertesActives.length} alerte${alertesActives.length > 1 ? 's' : ''} détectée${alertesActives.length > 1 ? 's' : ''} — comparaison en cours, d'autres peuvent apparaître.`
-                  : 'Comparaison multi-sections en cours — les alertes apparaissent au fur et à mesure, ne quitte pas la page.'}
-              </p>
+        {analyseBg && (() => {
+          const sectionsAnalysees = alertesActives.reduce((acc, a) => {
+            const match = a.message.match(/^\[([^\]]+)\]/)
+            if (!match) return acc
+            const parts = match[1].split(' — ')
+            const section = parts[parts.length - 1]
+            if (!acc[section]) acc[section] = 0
+            acc[section]++
+            return acc
+          }, {})
+          const entries = Object.entries(sectionsAnalysees)
+          return (
+            <div className="card info-card" style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block', flexShrink: 0 }}>⏳</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
+                  <p className="text-muted text-sm" style={{ margin: 0 }}>
+                    {entries.length === 0
+                      ? 'Comparaison en cours — les alertes apparaissent section par section.'
+                      : `${alertesActives.length} alerte${alertesActives.length > 1 ? 's' : ''} détectée${alertesActives.length > 1 ? 's' : ''}`}
+                  </p>
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                  {analyseTimer}s
+                </span>
+              </div>
+              {entries.length > 0 && (
+                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {entries.map(([section, count]) => (
+                    <span key={section} style={{ fontSize: 12, background: 'var(--bg-muted, #f1f5f9)', borderRadius: 4, padding: '2px 8px', color: 'var(--text)' }}>
+                      ✓ {section} — {count} alerte{count > 1 ? 's' : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-              {analyseTimer}s
-            </span>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Banner BLOQUÉ EXE */}
         {projet.bloqueExe && (
