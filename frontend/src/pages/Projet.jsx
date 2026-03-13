@@ -252,6 +252,7 @@ export default function Projet() {
   // Sous-programmes
   const [showSousProgrammes, setShowSousProgrammes] = useState(false)
   const dragSpIdx = useRef(null)
+  const dragBatIdx = useRef(null)
   const [nouveauSp, setNouveauSp] = useState('')
   const [spEnCours, setSpEnCours] = useState(false)
   const [spRenomId, setSpRenomId] = useState(null)
@@ -1184,7 +1185,21 @@ export default function Projet() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {getBatiments().map((bat, i) => (
-                <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                <div
+                  key={i}
+                  draggable={batimentEditIdx !== i}
+                  onDragStart={() => { dragBatIdx.current = i }}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => {
+                    const from = dragBatIdx.current
+                    if (from === null || from === i) return
+                    const next = [...getBatiments()]
+                    const [moved] = next.splice(from, 1)
+                    next.splice(i, 0, moved)
+                    saveBatiments(next)
+                  }}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', cursor: batimentEditIdx === i ? 'default' : 'grab' }}
+                >
                   {batimentEditIdx === i ? (
                     <div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
