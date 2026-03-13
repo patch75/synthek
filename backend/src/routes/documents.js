@@ -187,13 +187,6 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
         .catch(err => console.error('Erreur comparaison versions:', err.message))
     }
 
-    // 3. Comparaison vs référence si CCTP ou DPGF (une seule comparaison globale, pas par sous-programme)
-    if ((cat === 'cctp' || cat === 'dpgf') && lotDetecte !== 'generalites') {
-      const avecCctp = req.body.comparaisonAvec === 'cctp' || req.body.comparaisonAvec === 'les_deux'
-      const modele = modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
-      comparerAvecReference(document.id, pid, contenuTexte, document.nom, cat, avecCctp, null, modele, lotDetecte)
-        .catch(err => console.error('Erreur comparaison documents:', err.message))
-    }
   }
   backgroundTasks()  // sans await — non-bloquant
 
