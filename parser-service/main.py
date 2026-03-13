@@ -47,8 +47,11 @@ def parse_xlsx(file_bytes):
                     return False
 
             has_price = any(is_numeric(c) for c in cells[2:5] if c)
+            qte_value = cells[1] if len(cells) > 1 else ''
+            has_quantity = is_numeric(qte_value)
             is_section = (
                 len(first_cell) > 8
+                and not has_quantity
                 and len(other_cells) < 3
                 and not has_price
             )
