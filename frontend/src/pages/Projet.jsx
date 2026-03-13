@@ -1223,6 +1223,7 @@ export default function Projet() {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
                       <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{bat.nom}</span>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 2 }}>
                         {bat.typologies?.map(t => (
