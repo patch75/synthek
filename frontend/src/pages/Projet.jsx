@@ -892,7 +892,7 @@ export default function Projet() {
                   </span>
                 )}
               </div>
-                {Object.entries(alertesParGroupe).map(([groupe, alertesGroupe]) => (
+                {Object.entries(alertesParGroupe).sort(([a], [b]) => a.localeCompare(b, 'fr')).map(([groupe, alertesGroupe]) => (
                   <div key={groupe} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                     <div
                       onClick={() => toggleGroupeAlerte(groupe)}
