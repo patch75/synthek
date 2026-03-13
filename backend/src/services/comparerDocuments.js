@@ -262,16 +262,13 @@ function splitParFeuilles(texteDoc) {
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
  * Pour les DPGF multi-feuilles : une passe Claude par feuille Excel.
  */
-async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null) {
+async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null, idsRef = null) {
   if (!texteDoc || texteDoc.trim().length < 200) return []
 
   // Détecter le lot si non fourni, et charger l'agent spécialisé
   const lotDetecte = lotType || detecterLot(nomDoc)
   const agent = chargerAgent(lotDetecte)
   console.log(`[comparerDocuments] Agent chargé: ${lotDetecte || 'generique'} pour "${nomDoc}"`)
-
-  const categoriesRef = ['programme']
-  if (avecCctp) categoriesRef.push('cctp')
 
   // Récupérer le nom du sous-programme + contexte projet
   let nomSousProgramme = null
@@ -296,37 +293,51 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     prisma.vocabulaireGlobal.findMany({ orderBy: { terme: 'asc' } })
   ])
 
-  const whereRef = {
-    projetId,
-    id: { not: documentId },
-    categorieDoc: { in: categoriesRef },
-    contenuTexte: { not: null }
-  }
+  let docsRef
 
-  if (sousProgrammeId) {
-    whereRef.sousProgrammeId = sousProgrammeId
-  }
+  if (idsRef && idsRef.length > 0) {
+    // Sélection manuelle : on charge exactement les documents demandés
+    docsRef = await prisma.document.findMany({
+      where: { id: { in: idsRef }, contenuTexte: { not: null } },
+      select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, lotType: true }
+    })
+    console.log(`[comparerDocuments] Sélection manuelle : ${docsRef.length} doc(s) de référence`)
+  } else {
+    // Sélection automatique par catégorie (comportement historique)
+    const categoriesRef = ['programme']
+    if (avecCctp) categoriesRef.push('cctp')
 
-  let docsRef = await prisma.document.findMany({
-    where: whereRef,
-    select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, lotType: true }
-  })
+    const whereRef = {
+      projetId,
+      id: { not: documentId },
+      categorieDoc: { in: categoriesRef },
+      contenuTexte: { not: null }
+    }
 
-  // Si on compare un DPGF vs CCTPs et qu'un lotType est détecté → filtrer par même lot
-  if (avecCctp && lotType && categoriesRef.includes('cctp')) {
-    const cctpsMemeLog = docsRef.filter(d => d.categorieDoc === 'cctp' && d.lotType === lotType)
-    const programmes = docsRef.filter(d => d.categorieDoc === 'programme')
-    // Garder les programmes + uniquement les CCTPs du même lot
-    docsRef = [...programmes, ...cctpsMemeLog]
-    if (cctpsMemeLog.length > 0) {
-      console.log(`[comparerDocuments] Filtre lot "${lotType}" : ${cctpsMemeLog.length} CCTP(s) retenu(s)`)
-    } else {
-      console.log(`[comparerDocuments] Aucun CCTP avec lotType "${lotType}" — comparaison sans CCTP`)
+    if (sousProgrammeId) {
+      whereRef.sousProgrammeId = sousProgrammeId
+    }
+
+    docsRef = await prisma.document.findMany({
+      where: whereRef,
+      select: { id: true, nom: true, contenuTexte: true, categorieDoc: true, lotType: true }
+    })
+
+    // Si on compare un DPGF vs CCTPs et qu'un lotType est détecté → filtrer par même lot
+    if (avecCctp && lotType && categoriesRef.includes('cctp')) {
+      const cctpsMemeLog = docsRef.filter(d => d.categorieDoc === 'cctp' && d.lotType === lotType)
+      const programmes = docsRef.filter(d => d.categorieDoc === 'programme')
+      docsRef = [...programmes, ...cctpsMemeLog]
+      if (cctpsMemeLog.length > 0) {
+        console.log(`[comparerDocuments] Filtre lot "${lotType}" : ${cctpsMemeLog.length} CCTP(s) retenu(s)`)
+      } else {
+        console.log(`[comparerDocuments] Aucun CCTP avec lotType "${lotType}" — comparaison sans CCTP`)
+      }
     }
   }
 
   if (docsRef.length === 0) {
-    console.log(`[comparerDocuments] Aucun doc de référence (${categoriesRef.join('/')}) dans le projet ${projetId}`)
+    console.log(`[comparerDocuments] Aucun doc de référence dans le projet ${projetId}`)
     return []
   }
 
@@ -407,7 +418,17 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     : ''
 
   // Préparer label et nettoyer les anciennes alertes une seule fois (avant la boucle)
-  const labelType = categorieDoc === 'cctp' ? 'CCTP vs Programme' : `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
+  let labelType
+  if (categorieDoc === 'cctp') {
+    labelType = 'CCTP vs Programme'
+  } else if (idsRef && idsRef.length > 0) {
+    const hasProg = docsRef.some(d => d.categorieDoc === 'programme')
+    const hasCctp = docsRef.some(d => d.categorieDoc === 'cctp')
+    const refLabel = hasProg && hasCctp ? 'Programme+CCTP' : hasProg ? 'Programme' : 'CCTP'
+    labelType = `DPGF vs ${refLabel}`
+  } else {
+    labelType = `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
+  }
   const LOT_LABELS = { cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades', etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie' }
   const nomLot = lotType ? LOT_LABELS[lotType] || lotType : null
   const groupe = nomSousProgramme || nomLot

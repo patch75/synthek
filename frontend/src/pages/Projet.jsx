@@ -199,7 +199,7 @@ export default function Projet() {
 
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
-  const [comparerAvec, setComparerAvec] = useState('programme')
+  const [comparerIdsRef, setComparerIdsRef] = useState([])
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('sonnet')
   const [showEditProjet, setShowEditProjet] = useState(false)
@@ -482,7 +482,7 @@ export default function Projet() {
     if (!showComparerModal) return
     setComparerEnCours(true)
     try {
-      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, comparaisonAvec: comparerAvec })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, idsRef: comparerIdsRef })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
@@ -1101,7 +1101,14 @@ export default function Projet() {
                               >👁</button>
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && (
                                 <button
-                                  onClick={() => { setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc }); setComparerAvec('programme') }}
+                                  onClick={() => {
+  setShowComparerModal({ id: doc.id, nom: doc.nom, categorie: doc.categorieDoc })
+  const cats = doc.categorieDoc === 'dpgf' ? ['programme', 'cctp'] : ['programme']
+  const ids = projet.documents
+    .filter(d => d.id !== doc.id && cats.includes(d.categorieDoc))
+    .map(d => d.id)
+  setComparerIdsRef(ids)
+}}
                                   style={{ fontSize: 12, padding: '4px 10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 >⟳ Comparer</button>
                               )}
@@ -1689,26 +1696,60 @@ export default function Projet() {
               <h3>Relancer la comparaison</h3>
               <button className="btn-ghost" onClick={() => setShowComparerModal(null)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
               Comparer <strong style={{ color: 'var(--text)' }}>{showComparerModal.nom}</strong> avec :
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {[
-                { value: 'programme', label: 'Les notices du projet', desc: 'Vérifier que le document respecte les exigences MOA' },
-                ...(showComparerModal.categorie === 'dpgf' ? [
-                  { value: 'cctp', label: 'Les CCTPs du projet', desc: 'Vérifier que le chiffrage correspond au descriptif technique' },
-                  { value: 'les_deux', label: 'Les notices ET les CCTPs', desc: 'Vérification complète' },
-                ] : [])
-              ].map(opt => (
-                <label key={opt.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '10px 12px', borderRadius: 8, border: `2px solid ${comparerAvec === opt.value ? 'var(--primary)' : 'var(--border)'}`, background: comparerAvec === opt.value ? 'var(--primary-light)' : 'transparent' }}>
-                  <input type="radio" name="comparerAvec" value={opt.value} checked={comparerAvec === opt.value} onChange={() => setComparerAvec(opt.value)} style={{ marginTop: 2 }} />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{opt.desc}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
+            {(() => {
+              const cats = showComparerModal.categorie === 'dpgf'
+                ? [{ key: 'programme', label: 'Notices' }, { key: 'cctp', label: 'CCTPs' }]
+                : [{ key: 'programme', label: 'Notices' }]
+              const docsDispos = projet.documents.filter(d =>
+                d.id !== showComparerModal.id &&
+                cats.map(c => c.key).includes(d.categorieDoc)
+              )
+              if (docsDispos.length === 0) return (
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>Aucun document de référence disponible dans ce projet.</p>
+              )
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+                  {cats.map(cat => {
+                    const docs = docsDispos.filter(d => d.categorieDoc === cat.key)
+                    if (docs.length === 0) return null
+                    const allSelected = docs.every(d => comparerIdsRef.includes(d.id))
+                    return (
+                      <div key={cat.key}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{cat.label}</span>
+                          <button
+                            className="btn-ghost"
+                            style={{ fontSize: 11, padding: '2px 8px' }}
+                            onClick={() => {
+                              const ids = docs.map(d => d.id)
+                              if (allSelected) setComparerIdsRef(prev => prev.filter(id => !ids.includes(id)))
+                              else setComparerIdsRef(prev => [...new Set([...prev, ...ids])])
+                            }}
+                          >{allSelected ? 'Tout décocher' : 'Tout cocher'}</button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {docs.map(doc => {
+                            const checked = comparerIdsRef.includes(doc.id)
+                            return (
+                              <label key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${checked ? 'var(--primary)' : 'var(--border)'}`, background: checked ? 'var(--primary-light)' : 'transparent' }}>
+                                <input type="checkbox" checked={checked} onChange={() => {
+                                  setComparerIdsRef(prev => checked ? prev.filter(id => id !== doc.id) : [...prev, doc.id])
+                                }} style={{ flexShrink: 0 }} />
+                                <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.nom}</span>
+                                {!doc.puce && <span style={{ fontSize: 11, color: '#f59e0b', marginLeft: 'auto', flexShrink: 0 }}>non traité</span>}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
               <div style={{ display: 'flex', gap: 16 }}>
@@ -1724,8 +1765,8 @@ export default function Projet() {
               </div>
             </div>
             <div className="form-actions" style={{ marginTop: 8 }}>
-              <button onClick={lancerComparaison} disabled={comparerEnCours} className="btn-primary">
-                {comparerEnCours ? 'Lancement...' : 'Lancer'}
+              <button onClick={lancerComparaison} disabled={comparerEnCours || comparerIdsRef.length === 0} className="btn-primary">
+                {comparerEnCours ? 'Lancement...' : `Lancer${comparerIdsRef.length > 0 ? ` (${comparerIdsRef.length} fichier${comparerIdsRef.length > 1 ? 's' : ''})` : ''}`}
               </button>
               <button onClick={() => setShowComparerModal(null)} className="btn-ghost">Annuler</button>
             </div>

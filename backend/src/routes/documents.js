@@ -213,14 +213,20 @@ router.post('/:id/comparer', async (req, res) => {
     return res.status(400).json({ error: 'Comparaison disponible uniquement pour CCTP et DPGF' })
   }
 
-  const comparaisonAvec = req.body.comparaisonAvec || 'programme'
-  const avecCctp = comparaisonAvec === 'cctp' || comparaisonAvec === 'les_deux'
   const modele = req.body.modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
   const lotType = doc.lotType || detecterLot(doc.nom)
 
+  // Sélection manuelle de fichiers (nouveau) ou sélection par catégorie (ancien comportement)
+  const idsRefRaw = req.body.idsRef
+  const idsRef = idsRefRaw && Array.isArray(idsRefRaw) && idsRefRaw.length > 0
+    ? idsRefRaw.map(Number)
+    : null
+  const comparaisonAvec = req.body.comparaisonAvec || 'programme'
+  const avecCctp = comparaisonAvec === 'cctp' || comparaisonAvec === 'les_deux'
+
   res.json({ message: 'Comparaison lancée' })
 
-  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType)
+  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType, idsRef)
     .catch(err => console.error('Erreur comparaison:', err.message))
 })
 
