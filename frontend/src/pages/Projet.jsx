@@ -168,7 +168,8 @@ export default function Projet() {
   const pollingRef = useRef(null)
   const timerRef = useRef(null)
   const puceDetecteeRef = useRef(false)
-  const cyclesSupplRef = useRef(0)
+  const stableCyclesRef = useRef(0)
+  const lastAlertCountRef = useRef(-1)
   const { theme, toggleTheme } = useTheme()
   const [projet, setProjet] = useState(null)
   const [alertes, setAlertes] = useState([])
@@ -276,9 +277,10 @@ export default function Projet() {
     setAnalyseBg(true)
     setAnalyseTimer(0)
     puceDetecteeRef.current = false
-    cyclesSupplRef.current = 0
+    stableCyclesRef.current = 0
+    lastAlertCountRef.current = -1
     const start = Date.now()
-    const TIMEOUT = 90000 // 90s max
+    const TIMEOUT = 600000 // 10 min max
 
     timerRef.current = setInterval(() => {
       setAnalyseTimer(Math.floor((Date.now() - start) / 1000))
@@ -299,19 +301,21 @@ export default function Projet() {
         const doc = pRes.data.documents?.find(d => d.id === newDocId)
         setProjet(pRes.data)
         setAlertes(aRes.data)
-        if (doc?.puce) {
-          if (!puceDetecteeRef.current) {
-            // Pour CCTP/DPGF : 4 cycles supplémentaires (~12s) pour laisser la comparaison se terminer
-            const cat = doc.categorieDoc
-            puceDetecteeRef.current = true
-            cyclesSupplRef.current = (cat === 'cctp' || cat === 'dpgf') ? 10 : 0
-          }
-          if (cyclesSupplRef.current <= 0) {
+
+        if (doc?.puce) puceDetecteeRef.current = true
+
+        // Stabilisation : arrêt quand les alertes n'ont plus bougé depuis 10 cycles (30s)
+        // ET que la puce a été générée (extraction terminée)
+        const countActif = aRes.data.filter(a => a.statut === 'active').length
+        if (countActif !== lastAlertCountRef.current) {
+          stableCyclesRef.current = 0
+          lastAlertCountRef.current = countActif
+        } else if (puceDetecteeRef.current) {
+          stableCyclesRef.current++
+          if (stableCyclesRef.current >= 10) {
             clearInterval(pollingRef.current)
             clearInterval(timerRef.current)
             setAnalyseBg(false)
-          } else {
-            cyclesSupplRef.current--
           }
         }
       } catch {
@@ -479,23 +483,29 @@ export default function Projet() {
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
       setAnalyseTimer(0)
-      puceDetecteeRef.current = true
-      cyclesSupplRef.current = 10
+      stableCyclesRef.current = 0
+      lastAlertCountRef.current = -1
       const start = Date.now()
       clearInterval(pollingRef.current)
       clearInterval(timerRef.current)
       timerRef.current = setInterval(() => setAnalyseTimer(Math.floor((Date.now() - start) / 1000)), 1000)
       pollingRef.current = setInterval(async () => {
+        if (Date.now() - start > 600000) {
+          clearInterval(pollingRef.current); clearInterval(timerRef.current); setAnalyseBg(false); return
+        }
         try {
           const [pRes, aRes] = await Promise.all([api.get(`/projets/${id}`), api.get(`/alertes/${id}`)])
           setProjet(pRes.data)
           setAlertes(aRes.data)
-          if (cyclesSupplRef.current <= 0) {
-            clearInterval(pollingRef.current)
-            clearInterval(timerRef.current)
-            setAnalyseBg(false)
+          const countActif = aRes.data.filter(a => a.statut === 'active').length
+          if (countActif !== lastAlertCountRef.current) {
+            stableCyclesRef.current = 0
+            lastAlertCountRef.current = countActif
           } else {
-            cyclesSupplRef.current--
+            stableCyclesRef.current++
+            if (stableCyclesRef.current >= 10) {
+              clearInterval(pollingRef.current); clearInterval(timerRef.current); setAnalyseBg(false)
+            }
           }
         } catch { clearInterval(pollingRef.current); clearInterval(timerRef.current); setAnalyseBg(false) }
       }, 3000)
@@ -761,7 +771,11 @@ export default function Projet() {
             <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block', flexShrink: 0 }}>⏳</span>
             <div style={{ flex: 1 }}>
               <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
-              <p className="text-muted text-sm" style={{ margin: 0 }}>Extraction des faits et détection d'incohérences. Les alertes apparaîtront automatiquement.</p>
+              <p className="text-muted text-sm" style={{ margin: 0 }}>
+                {alertesActives.length > 0
+                  ? `${alertesActives.length} alerte${alertesActives.length > 1 ? 's' : ''} détectée${alertesActives.length > 1 ? 's' : ''} — comparaison en cours, d'autres peuvent apparaître.`
+                  : 'Comparaison multi-sections en cours — les alertes apparaissent au fur et à mesure, ne quitte pas la page.'}
+              </p>
             </div>
             <span style={{ fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
               {analyseTimer}s
