@@ -44,7 +44,7 @@ export default function Upload() {
   const [fichier, setFichier] = useState(null)
   const [resumeModif, setResumeModif] = useState('')
   const [categorieDoc, setCategorieDoc] = useState('')
-  const [comparaisonAvec, setComparaisonAvec] = useState('programme')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sousProgrammes, setSousProgrammes] = useState([])
@@ -72,9 +72,7 @@ export default function Upload() {
     formData.append('projetId', id)
     formData.append('resumeModif', resumeModif)
     formData.append('categorieDoc', categorieDoc)
-    if (categorieDoc === 'dpgf') {
-      formData.append('comparaisonAvec', comparaisonAvec)
-    }
+
     if (sousProgrammeId) {
       formData.append('sousProgrammeId', sousProgrammeId)
     }
@@ -152,30 +150,6 @@ export default function Upload() {
             )}
 
 
-            {/* Options de comparaison pour DPGF */}
-            {categorieDoc === 'dpgf' && (
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label>Comparer avec</label>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
-                  {[
-                    { value: 'programme', label: 'Programme uniquement' },
-                    { value: 'cctp',      label: 'CCTP uniquement' },
-                    { value: 'les_deux',  label: 'Programme + CCTP' },
-                  ].map(opt => (
-                    <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
-                      <input
-                        type="radio"
-                        name="comparaisonAvec"
-                        value={opt.value}
-                        checked={comparaisonAvec === opt.value}
-                        onChange={() => setComparaisonAvec(opt.value)}
-                      />
-                      {opt.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="form-group">
               <label>Fichier <span className="text-muted">(PDF, Word, Excel — max 20 Mo)</span></label>
