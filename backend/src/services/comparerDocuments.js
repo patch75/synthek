@@ -56,6 +56,35 @@ CRITICITÉ
 - MAJEUR : prestation importante manquante ou contradictoire, impact sur performances RE2020, diamètre incorrect sur réseau principal
 - MINEUR : accessoire prescrit absent, désignation imprécise non critique, manchette ou petit équipement manquant`
 
+// Prompt quantités — vérification de la cohérence des quantités du DPGF
+const SYSTEM_PROMPT_CHIFFRAGE = `Tu es un économiste de la construction senior avec 15 ans d'expérience en vérification de DPGF pour des opérations de logements collectifs, ERP et bureaux.
+
+TON RÔLE
+Vérifier la cohérence des quantités d'un DPGF en le croisant avec le CCTP de référence.
+Tu n'analyses PAS les désignations techniques ni les prix (ils sont renseignés par les entreprises, pas par le maître d'œuvre) — tu te concentres UNIQUEMENT sur les quantités et les omissions de postes.
+
+RÈGLES DE BASE
+1. "Sans objet", "N/A", "non applicable" → NE PAS créer d'alerte pour ce poste.
+2. Ne jamais alerter sur les prix unitaires.
+3. Ne pas alerter sur les variations de quantités globales liées à l'évolution normale du programme.
+4. Une quantité est acceptable si elle est cohérente avec le nombre de logements/bâtiments du projet.
+
+CHECKLIST DE VÉRIFICATION DES QUANTITÉS
+a) POSTES MANQUANTS : poste prescrit dans le CCTP avec quantité = 0 ou ligne absente du DPGF → EXIGENCE_MANQUANTE
+b) INCOHÉRENCES ENTRE BÂTIMENTS : même équipement avec des quantités très différentes entre bâtiments de gabarit similaire sans justification (ex: 3 VMC pour Bat A, 1 VMC pour Bat B de même taille) → INCOHÉRENCE_TECHNIQUE
+c) DOUBLONS : même prestation comptée plusieurs fois dans des lignes distinctes du même lot → INCOHÉRENCE_TECHNIQUE
+d) QUANTITÉS ABERRANTES : quantité manifestement incohérente avec le contexte projet (ex: 1 VMC pour 50 logements, 0 robinet pour une installation hydraulique complète) → SOUS_DIMENSIONNEMENT
+
+STATUTS D'ALERTE
+- EXIGENCE_MANQUANTE : poste du CCTP absent ou à quantité 0 dans le DPGF
+- INCOHÉRENCE_TECHNIQUE : incohérence de quantités entre bâtiments ou doublon
+- SOUS_DIMENSIONNEMENT : quantité manifestement insuffisante au regard du contexte projet
+
+CRITICITÉ
+- CRITIQUE : équipement principal entièrement absent ou à quantité 0
+- MAJEUR : incohérence de quantité significative entre bâtiments de même gabarit
+- MINEUR : doublon mineur, petit accessoire manquant, écart de quantité marginal`
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const MOTS_VIDES = new Set([
@@ -262,7 +291,7 @@ function splitParFeuilles(texteDoc) {
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
  * Pour les DPGF multi-feuilles : une passe Claude par feuille Excel.
  */
-async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null, idsRef = null) {
+async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null, idsRef = null, modeVerification = 'technique') {
   if (!texteDoc || texteDoc.trim().length < 200) return []
 
   // Détecter le lot si non fourni, et charger l'agent spécialisé
@@ -425,9 +454,10 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     const hasProg = docsRef.some(d => d.categorieDoc === 'programme')
     const hasCctp = docsRef.some(d => d.categorieDoc === 'cctp')
     const refLabel = hasProg && hasCctp ? 'Programme+CCTP' : hasProg ? 'Programme' : 'CCTP'
-    labelType = `DPGF vs ${refLabel}`
+    labelType = `DPGF vs ${refLabel} — ${modeVerification === 'chiffrage' ? 'Chiffrage' : 'Technique'}`
   } else {
-    labelType = `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
+    const refLabel = avecCctp ? 'Programme+CCTP' : 'Programme'
+    labelType = `DPGF vs ${refLabel} — ${modeVerification === 'chiffrage' ? 'Chiffrage' : 'Technique'}`
   }
   const LOT_LABELS = { cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades', etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie' }
   const nomLot = lotType ? LOT_LABELS[lotType] || lotType : null
@@ -497,10 +527,25 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
       ? `\nSection analysée : "${section.label}" — analyse UNIQUEMENT cette feuille du DPGF.`
       : (nomSousProgramme ? `\nPérimètre analysé : "${nomSousProgramme}" — analyse UNIQUEMENT la section correspondant à ce périmètre.` : '')
 
-    const prompt = `${SYSTEM_PROMPT_BET_FLUIDES}
+    const isChiffrage = modeVerification === 'chiffrage'
+    const systemPrompt = isChiffrage ? SYSTEM_PROMPT_CHIFFRAGE : SYSTEM_PROMPT_BET_FLUIDES
+    const mission = isChiffrage
+      ? `MISSION
+En analysant le DPGF ci-dessous et en le croisant avec le CCTP de référence :
+1. Applique la CHECKLIST DE VÉRIFICATION DU CHIFFRAGE (postes non chiffrés, prix manquants, incohérences de quantités, doublons, quantités aberrantes).
+2. Cite toujours la ligne/section précise du DPGF et le chapitre du CCTP correspondant.
+3. Priorise par criticité : CRITIQUE en premier, puis MAJEUR, puis MINEUR.`
+      : `MISSION
+En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus :
+1. Applique la CHECKLIST DE VÉRIFICATION SYSTÉMATIQUE (postes à zéro, accessoires prescrits, diamètres, équipements non justifiés, incohérences internes).
+2. Applique rigoureusement le dictionnaire d'équivalences — ne pas alerter pour des synonymes.
+3. Pour chaque alerte, cite la section et les valeurs précises des deux documents (ex: "CCTP §3.2.4 : Ø250 — DPGF ligne X : Ø200").
+4. Priorise par criticité : CRITIQUE en premier, puis MAJEUR, puis MINEUR.`
+
+    const prompt = `${systemPrompt}
 
 CONTEXTE DU PROJET
-${contextProjet}${contextSection}${promptConfig}${vocabMetier}${reglesAgent}${contextGeneralites}
+${contextProjet}${contextSection}${promptConfig}${vocabMetier}${isChiffrage ? '' : reglesAgent}${isChiffrage ? '' : contextGeneralites}
 
 ÉCARTS DÉTECTÉS PAR L'ANALYSE AUTOMATIQUE
 ${resumeEcartsSection}
@@ -508,12 +553,7 @@ ${resumeEcartsSection}
 SECTION DU ${categorieDoc.toUpperCase()} ANALYSÉE${labelSection}
 ${section.texte}
 
-MISSION
-En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus :
-1. Applique la CHECKLIST DE VÉRIFICATION SYSTÉMATIQUE (postes à zéro, accessoires prescrits, diamètres, équipements non justifiés, incohérences internes).
-2. Applique rigoureusement le dictionnaire d'équivalences — ne pas alerter pour des synonymes.
-3. Pour chaque alerte, cite la section et les valeurs précises des deux documents (ex: "CCTP §3.2.4 : Ø250 — DPGF ligne X : Ø200").
-4. Priorise par criticité : CRITIQUE en premier, puis MAJEUR, puis MINEUR.
+${mission}
 
 Réponds UNIQUEMENT en JSON :
 {

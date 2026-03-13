@@ -215,6 +215,7 @@ router.post('/:id/comparer', async (req, res) => {
 
   const modele = req.body.modeleIA === 'sonnet' ? 'sonnet' : 'haiku'
   const lotType = doc.lotType || detecterLot(doc.nom)
+  const modeVerification = req.body.modeVerification === 'chiffrage' ? 'chiffrage' : 'technique'
 
   // Sélection manuelle de fichiers (nouveau) ou sélection par catégorie (ancien comportement)
   const idsRefRaw = req.body.idsRef
@@ -226,7 +227,7 @@ router.post('/:id/comparer', async (req, res) => {
 
   res.json({ message: 'Comparaison lancée' })
 
-  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType, idsRef)
+  comparerAvecReference(doc.id, doc.projetId, doc.contenuTexte, doc.nom, doc.categorieDoc, avecCctp, null, modele, lotType, idsRef, modeVerification)
     .catch(err => console.error('Erreur comparaison:', err.message))
 })
 

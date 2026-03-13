@@ -200,6 +200,7 @@ export default function Projet() {
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
   const [comparerIdsRef, setComparerIdsRef] = useState([])
+  const [comparerMode, setComparerMode] = useState('technique')
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('sonnet')
   const [showEditProjet, setShowEditProjet] = useState(false)
@@ -482,7 +483,7 @@ export default function Projet() {
     if (!showComparerModal) return
     setComparerEnCours(true)
     try {
-      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, idsRef: comparerIdsRef })
+      await api.post(`/documents/${showComparerModal.id}/comparer`, { modeleIA: comparerModele, idsRef: comparerIdsRef, modeVerification: comparerMode })
       setShowComparerModal(null)
       // Démarrer le polling pour récupérer les alertes
       setAnalyseBg(true)
@@ -1750,6 +1751,25 @@ export default function Projet() {
                 </div>
               )
             })()}
+            {showComparerModal.categorie === 'dpgf' && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Que vérifier ?</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { value: 'technique', label: 'Cohérence technique', desc: 'Désignations, équipements, matériaux vs CCTP' },
+                    { value: 'chiffrage', label: 'Cohérence des quantités', desc: 'Postes manquants, quantités à 0, incohérences entre bâtiments' },
+                  ].map(opt => (
+                    <label key={opt.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${comparerMode === opt.value ? 'var(--primary)' : 'var(--border)'}`, background: comparerMode === opt.value ? 'var(--primary-light)' : 'transparent' }}>
+                      <input type="radio" name="comparerMode" value={opt.value} checked={comparerMode === opt.value} onChange={() => setComparerMode(opt.value)} style={{ marginTop: 2 }} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>{opt.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ marginBottom: 16 }}>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
               <div style={{ display: 'flex', gap: 16 }}>
