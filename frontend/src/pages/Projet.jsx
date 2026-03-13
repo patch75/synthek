@@ -189,6 +189,8 @@ export default function Projet() {
   const [showLexique, setShowLexique] = useState(false)
   const [showAlertes, setShowAlertes] = useState(false)
   const [alertesGroupesOuverts, setAlertesGroupesOuverts] = useState(new Set())
+  const [filtresCriticite, setFiltresCriticite] = useState(new Set())
+  const [filtreGroupe, setFiltreGroupe] = useState('')
   const [programmesOuverts, setProgrammesOuverts] = useState(new Set())
   const [showDeleteDoc, setShowDeleteDoc] = useState(null) // { id, nom }
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
@@ -679,7 +681,13 @@ export default function Projet() {
     if (m) return m[1].trim()
     return 'Général'
   }
-  const alertesParGroupe = alertesActives.reduce((acc, a) => {
+  const groupesDisponibles = [...new Set(alertesActives.map(a => extraireGroupeAlerte(a.message)))].sort()
+  const alertesFiltrees = alertesActives.filter(a => {
+    if (filtresCriticite.size > 0 && !filtresCriticite.has(a.criticite || '')) return false
+    if (filtreGroupe && extraireGroupeAlerte(a.message) !== filtreGroupe) return false
+    return true
+  })
+  const alertesParGroupe = alertesFiltrees.reduce((acc, a) => {
     const g = extraireGroupeAlerte(a.message)
     if (!acc[g]) acc[g] = []
     acc[g].push(a)
@@ -842,6 +850,48 @@ export default function Projet() {
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <strong>Résoudre</strong> archive l'alerte dans l'historique · <strong>Supprimer</strong> l'efface définitivement
               </p>
+              {/* Filtres */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                {[{ label: 'CRITIQUE', bg: '#dc2626' }, { label: 'MAJEUR', bg: '#ea580c' }, { label: 'MINEUR', bg: '#ca8a04' }].map(({ label, bg }) => {
+                  const actif = filtresCriticite.has(label)
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => setFiltresCriticite(prev => {
+                        const next = new Set(prev)
+                        actif ? next.delete(label) : next.add(label)
+                        return next
+                      })}
+                      style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, border: `2px solid ${bg}`, background: actif ? bg : 'transparent', color: actif ? 'white' : bg, cursor: 'pointer', transition: 'all 0.15s' }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+                {groupesDisponibles.length > 1 && (
+                  <select
+                    value={filtreGroupe}
+                    onChange={e => setFiltreGroupe(e.target.value)}
+                    style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: filtreGroupe ? 'var(--primary)' : 'var(--bg-muted)', color: filtreGroupe ? 'white' : 'var(--text)', cursor: 'pointer' }}
+                  >
+                    <option value=''>Tous les bâtiments</option>
+                    {groupesDisponibles.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                )}
+                {(filtresCriticite.size > 0 || filtreGroupe) && (
+                  <button
+                    onClick={() => { setFiltresCriticite(new Set()); setFiltreGroupe('') }}
+                    style={{ fontSize: 11, padding: '3px 8px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+                  >
+                    ✕ Réinitialiser
+                  </button>
+                )}
+                {(filtresCriticite.size > 0 || filtreGroupe) && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
+                    {alertesFiltrees.length} / {alertesActives.length} alertes
+                  </span>
+                )}
+              </div>
                 {Object.entries(alertesParGroupe).map(([groupe, alertesGroupe]) => (
                   <div key={groupe} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                     <div
