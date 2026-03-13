@@ -416,7 +416,7 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
   const alertesLiees = await prisma.alerteDocument.findMany({ where: { documentId }, select: { alerteId: true } })
   if (alertesLiees.length > 0) {
     const alerteIds = alertesLiees.map(a => a.alerteId)
-    await prisma.alerte.deleteMany({ where: { id: { in: alerteIds }, message: { startsWith: labelComplet } } })
+    await prisma.alerte.deleteMany({ where: { id: { in: alerteIds }, message: { startsWith: `[${labelType}` } } })
   }
 
   // Pour DPGF : traiter feuille par feuille (une passe Claude par feuille Excel)
@@ -525,10 +525,13 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
         for (const alerte of parsed.alertes) {
           const criticiteValides = ['CRITIQUE', 'MAJEUR', 'MINEUR']
           const criticite = criticiteValides.includes(alerte.criticite) ? alerte.criticite : null
+          const labelMessage = (feuilles.length > 1 && section.label)
+            ? `[${labelType} — ${section.label}]`
+            : labelComplet
           const nouvelleAlerte = await prisma.alerte.create({
             data: {
               projetId,
-              message: `${labelComplet} ${alerte.message}`,
+              message: `${labelMessage} ${alerte.message}`,
               criticite,
               documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
             }
