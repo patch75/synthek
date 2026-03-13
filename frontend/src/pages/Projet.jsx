@@ -531,6 +531,12 @@ export default function Projet() {
     setAlertes(prev => prev.map(a => ({ ...a, statut: 'resolue' })))
   }
 
+  async function toutSupprimer() {
+    if (!confirm(`Supprimer définitivement les ${alertesActives.length} alertes actives ? Cette action est irréversible.`)) return
+    await api.delete(`/alertes/projet/${id}/toutes`)
+    setAlertes(prev => prev.filter(a => a.statut !== 'active'))
+  }
+
   async function resoudreAlerte(alerteId) {
     await api.patch(`/alertes/${alerteId}/resoudre`, {
       resoluePar: resolType,
@@ -798,13 +804,21 @@ export default function Projet() {
               </h2>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {isAdmin && alertesActives.length > 1 && showAlertes && (
-                  <button
-                    onClick={e => { e.stopPropagation(); toutResoudre() }}
-                    className="btn-ghost"
-                    style={{ fontSize: 13, padding: '4px 10px' }}
-                  >
-                    Tout résoudre
-                  </button>
+                  <>
+                    <button
+                      onClick={e => { e.stopPropagation(); toutResoudre() }}
+                      className="btn-ghost"
+                      style={{ fontSize: 13, padding: '4px 10px' }}
+                    >
+                      Tout résoudre
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); toutSupprimer() }}
+                      style={{ fontSize: 13, padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Tout supprimer
+                    </button>
+                  </>
                 )}
                 <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
               </div>

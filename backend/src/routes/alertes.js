@@ -17,6 +17,14 @@ router.get('/:projetId', async (req, res) => {
   res.json(alertes)
 })
 
+// DELETE /alertes/projet/:projetId/toutes — supprimer toutes les alertes actives d'un projet
+router.delete('/projet/:projetId/toutes', async (req, res) => {
+  const { count } = await prisma.alerte.deleteMany({
+    where: { projetId: parseInt(req.params.projetId), statut: 'active' }
+  })
+  res.json({ message: `${count} alertes supprimées` })
+})
+
 // DELETE /alertes/:id — supprimer définitivement une alerte
 router.delete('/:id', async (req, res) => {
   await prisma.alerte.delete({ where: { id: parseInt(req.params.id) } })
