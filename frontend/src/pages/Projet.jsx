@@ -307,12 +307,12 @@ export default function Projet() {
         if (doc?.puce) puceDetecteeRef.current = true
 
         // Stabilisation : arrêt quand les alertes n'ont plus bougé depuis 10 cycles (30s)
-        // ET que la puce a été générée (extraction terminée)
+        // ET puce générée ET (au moins 1 alerte vue OU 3 min écoulées)
         const countActif = aRes.data.filter(a => a.statut === 'active').length
         if (countActif !== lastAlertCountRef.current) {
           stableCyclesRef.current = 0
           lastAlertCountRef.current = countActif
-        } else if (puceDetecteeRef.current) {
+        } else if (puceDetecteeRef.current && (countActif > 0 || Date.now() - start > 180000)) {
           stableCyclesRef.current++
           if (stableCyclesRef.current >= 10) {
             clearInterval(pollingRef.current)
@@ -503,7 +503,7 @@ export default function Projet() {
           if (countActif !== lastAlertCountRef.current) {
             stableCyclesRef.current = 0
             lastAlertCountRef.current = countActif
-          } else {
+          } else if (countActif > 0 || Date.now() - start > 180000) {
             stableCyclesRef.current++
             if (stableCyclesRef.current >= 10) {
               clearInterval(pollingRef.current); clearInterval(timerRef.current); setAnalyseBg(false)

@@ -518,8 +518,13 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
         messages: [{ role: 'user', content: prompt }]
       })
 
-      const rawText = response.content[0].text.trim().replace(/^```json?\s*/i, '').replace(/\s*```$/i, '')
-      const parsed = JSON.parse(rawText)
+      const raw = response.content[0].text
+      const jsonMatch = raw.match(/\{[\s\S]*"alertes"[\s\S]*\}/)
+      if (!jsonMatch) {
+        console.warn(`[comparerDocuments] Section "${section.label}" : pas de JSON valide dans la réponse, skip`)
+        continue
+      }
+      const parsed = JSON.parse(jsonMatch[0])
 
       if (parsed.alertes?.length) {
         for (const alerte of parsed.alertes) {
