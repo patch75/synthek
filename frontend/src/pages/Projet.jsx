@@ -779,7 +779,7 @@ export default function Projet() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 18, animation: 'spin 1s linear infinite', display: 'inline-block', flexShrink: 0 }}>⏳</span>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600, margin: 0 }}>Analyse IA en cours...</p>
+                  <p style={{ fontWeight: 600, margin: 0 }}>Analyse en cours...</p>
                   <p className="text-muted text-sm" style={{ margin: 0 }}>
                     {entries.length === 0
                       ? 'Comparaison en cours — les alertes apparaissent section par section.'
