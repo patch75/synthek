@@ -1358,7 +1358,7 @@ export default function Projet() {
               ) : hasSousProgrammes ? (
                 // Affichage groupé par sous-programme — accordéons
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {[...sousProgrammes, { id: '__sans__', nom: 'Sans périmètre' }].map(sp => {
+                  {[...sousProgrammes, { id: '__sans__', nom: 'Sans périmètre' }].map((sp, idx) => {
                     const docs = sp.id === '__sans__'
                       ? programmes.filter(d => !d.sousProgramme)
                       : programmes.filter(d => d.sousProgramme?.id === sp.id)
@@ -1366,11 +1366,27 @@ export default function Projet() {
                     const key = String(sp.id)
                     const ouvert = programmesOuverts.has(key)
                     const couleur = sp.id === '__sans__' ? '#94a3b8' : '#7c3aed'
+                    const isDraggable = sp.id !== '__sans__' && isAdmin
                     return (
-                      <div key={key} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                      <div
+                        key={key}
+                        style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}
+                        draggable={isDraggable}
+                        onDragStart={isDraggable ? () => { dragSpIdx.current = idx } : undefined}
+                        onDragOver={isDraggable ? e => e.preventDefault() : undefined}
+                        onDrop={isDraggable ? () => {
+                          const from = dragSpIdx.current
+                          if (from === null || from === idx) return
+                          const next = [...sousProgrammes]
+                          const [moved] = next.splice(from, 1)
+                          next.splice(idx, 0, moved)
+                          setProjet(prev => ({ ...prev, sousProgrammes: next }))
+                          api.patch(`/projets/${id}/sous-programmes/ordre`, { ordre: next.map(s => s.id) })
+                        } : undefined}
+                      >
                         <div
                           onClick={() => toggleProgramme(key)}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: 'pointer', userSelect: 'none' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: isDraggable ? 'grab' : 'pointer', userSelect: 'none' }}
                         >
                           <span style={{ fontWeight: 700, fontSize: 13, color: couleur, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                             {sp.nom}
