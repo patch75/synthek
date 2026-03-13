@@ -32,9 +32,17 @@ DICTIONNAIRE D'ÉQUIVALENCES SÉMANTIQUES (ne pas créer d'alerte pour ces synon
 RÈGLES ABSOLUES
 1. Si le CCTP ou DPGF contient "sans objet", "N/A", "non applicable" pour un poste → NE PAS créer d'alerte pour ce poste.
 2. Si une désignation dit "conforme au CCTP", "selon CCTP", "cf. CCTP" → créer une alerte de statut INCERTAIN_DESIGNATION uniquement si c'est un poste critique de sécurité.
-3. Ne pas alerter sur des différences de quantités (nombre de logements, surfaces) entre programme et CCTP/DPGF — ces données évoluent légitimement.
-4. Ne pas alerter sur des détails d'exécution non prescrits au programme (diamètres de canalisations secondaires, types de raccords, marques).
-5. Maximum 5 alertes, uniquement les incohérences réelles et significatives.
+3. Ne pas alerter sur des différences de quantités globales (nombre de logements, surfaces) entre programme et CCTP/DPGF — ces données évoluent légitimement.
+4. Ne pas alerter sur des détails d'exécution vraiment mineurs non prescrits au programme (types de raccords, visserie, consommables). En revanche, alerter si un diamètre nominal (DN, Ø) nommé explicitement dans le CCTP diffère dans le DPGF.
+5. Maximum 8 alertes, priorisées par gravité.
+
+CHECKLIST DE VÉRIFICATION SYSTÉMATIQUE
+Parcours le DPGF ligne par ligne et vérifie spécifiquement :
+a) POSTES À ZÉRO : tout poste avec quantité 0 ou vide dans le DPGF alors que le CCTP le prescrit explicitement → EXIGENCE_MANQUANTE
+b) ACCESSOIRES PRESCRITS : antitartre, manchettes souples (aspiration + refoulement = 2 par caisson), filtres, clapets coupe-feu, siphons de sol, vannes d'équilibrage — si le CCTP les prescrit et qu'ils sont absents du DPGF → EXIGENCE_MANQUANTE
+c) DIAMÈTRES : si le CCTP cite un DN ou Ø et que le DPGF cite un diamètre différent → SOUS_DIMENSIONNEMENT ou ÉCART_MATÉRIAU
+d) ÉQUIPEMENTS NON JUSTIFIÉS : équipement présent dans le DPGF non mentionné dans le CCTP (doublon, erreur de lot) → INCOHÉRENCE_TECHNIQUE
+e) INCOHÉRENCES INTERNES DPGF : même poste avec des quantités différentes selon les sections/colonnes du DPGF → INCOHÉRENCE_TECHNIQUE
 
 STATUTS D'ALERTE DISPONIBLES
 - ÉCART_MATÉRIAU : matériau ou équipement différent de ce qui est prescrit
@@ -45,8 +53,8 @@ STATUTS D'ALERTE DISPONIBLES
 
 CRITICITÉ
 - CRITIQUE : impact sécurité, non-conformité réglementaire, ou écart de système complet (ex: PAC vs chaudière gaz)
-- MAJEUR : prestation importante manquante ou contradictoire, impact sur performances RE2020
-- MINEUR : désignation imprécise non critique, détail de prescription partiellement absent`
+- MAJEUR : prestation importante manquante ou contradictoire, impact sur performances RE2020, diamètre incorrect sur réseau principal
+- MINEUR : accessoire prescrit absent, désignation imprécise non critique, manchette ou petit équipement manquant`
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -412,15 +420,17 @@ SECTION DU ${categorieDoc.toUpperCase()} ANALYSÉE${labelSection ? ` (${labelSec
 ${sectionCctp}
 
 MISSION
-En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus, identifie UNIQUEMENT les incohérences techniques réelles et significatives.
-Applique rigoureusement le dictionnaire d'équivalences et les règles absolues définis ci-dessus.
-Pour chaque alerte, cite précisément les éléments contradictoires des deux documents.
+En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus :
+1. Applique la CHECKLIST DE VÉRIFICATION SYSTÉMATIQUE (postes à zéro, accessoires prescrits, diamètres, équipements non justifiés, incohérences internes).
+2. Applique rigoureusement le dictionnaire d'équivalences — ne pas alerter pour des synonymes.
+3. Pour chaque alerte, cite la section et les valeurs précises des deux documents (ex: "CCTP §3.2.4 : Ø250 — DPGF ligne X : Ø200").
+4. Priorise par criticité : CRITIQUE en premier, puis MAJEUR, puis MINEUR.
 
 Réponds UNIQUEMENT en JSON :
 {
   "alertes": [
     {
-      "message": "Description précise de l'incohérence, en citant les deux documents",
+      "message": "Description précise de l'incohérence, en citant section et valeurs des deux documents",
       "statut": "ÉCART_MATÉRIAU",
       "criticite": "CRITIQUE"
     }
@@ -430,12 +440,12 @@ Réponds UNIQUEMENT en JSON :
 Valeurs possibles pour statut : ÉCART_MATÉRIAU, EXIGENCE_MANQUANTE, INCOHÉRENCE_TECHNIQUE, INCERTAIN_DESIGNATION, SOUS_DIMENSIONNEMENT
 Valeurs possibles pour criticite : CRITIQUE, MAJEUR, MINEUR
 
-Maximum 5 alertes. Si aucun problème réel : { "alertes": [] }`
+Maximum 8 alertes. Si aucun problème réel : { "alertes": [] }`
 
     const model = modeleIA === 'sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
     const response = await client.messages.create({
       model,
-      max_tokens: 2048,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }]
     })
 
