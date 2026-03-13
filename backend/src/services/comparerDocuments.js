@@ -231,10 +231,36 @@ function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
 }
 
 /**
+ * Découpe un texte produit par le parser Python en feuilles distinctes.
+ * Exploite les séparateurs "=== Feuille: NOM ===" générés par le microservice Python.
+ * Retourne [{nom, texte}], en excluant les feuilles RECAP.
+ */
+function splitParFeuilles(texteDoc) {
+  const regex = /=== Feuille: (.+?) ===/g
+  const positions = []
+  let match
+  while ((match = regex.exec(texteDoc)) !== null) {
+    positions.push({ nom: match[1].trim(), debut: match.index + match[0].length })
+  }
+  if (positions.length === 0) return []
+
+  const feuilles = []
+  for (let i = 0; i < positions.length; i++) {
+    const fin = i + 1 < positions.length ? positions[i + 1].debut - positions[i + 1].nom.length - 20 : texteDoc.length
+    const texte = texteDoc.substring(positions[i].debut, fin).trim()
+    if (texte.length > 200 && !/(recap|récap)/i.test(positions[i].nom)) {
+      feuilles.push({ nom: positions[i].nom, texte })
+    }
+  }
+  return feuilles
+}
+
+/**
  * Compare un document uploadé (CCTP ou DPGF) avec les références du projet.
  * Catégorie cctp → compare vs programmes uniquement
  * Catégorie dpgf → compare vs programmes + optionnellement CCTPs
  * Crée des alertes en BDD si des incohérences réelles sont détectées.
+ * Pour les DPGF multi-feuilles : une passe Claude par feuille Excel.
  */
 async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, categorieDoc, avecCctp = false, sousProgrammeId = null, modeleIA = 'haiku', lotType = null) {
   if (!texteDoc || texteDoc.trim().length < 200) return []
@@ -332,31 +358,9 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     return []
   }
 
-  // Résumé des écarts + extraits des deux côtés pour que Haiku puisse juger
-  const resumeEcarts = resultats.map(r => {
-    const a = r.analyse
-    const ref = docsRef.find(d => d.nom === a.nomRef)
-    const lignes = [`== ${nomDoc} vs ${a.nomRef} (couverture ${a.couverture}%) ==`]
-    if (a.termesManquants.length > 0) {
-      lignes.push(`Termes du programme absents du document : ${a.termesManquants.slice(0, 12).join(', ')}`)
-    }
-    if (a.exigencesNonCouvertes.length > 0) {
-      lignes.push(`Exigences potentiellement non couvertes :`)
-      a.exigencesNonCouvertes.forEach(e => lignes.push(`  • ${e.substring(0, 120)}`))
-    }
-    if (ref?.contenuTexte) {
-      lignes.push(`\nExtrait du programme de référence (${a.nomRef}) :`)
-      lignes.push(ref.contenuTexte.substring(0, 10000))
-    }
-    return lignes.join('\n')
-  }).join('\n\n---\n\n')
-
-  // Extraire la section pertinente du CCTP selon le sous-programme
   const premiereRef = docsRef[0]
-  const sectionCctp = extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte)
-  const labelSection = nomSousProgramme ? ` — section "${nomSousProgramme}"` : ''
 
-  // Construire le contexte projet pour le prompt
+  // Construire le contexte projet (partagé entre toutes les sections)
   let compositionBatiments = ''
   if (projet?.batimentsComposition) {
     try {
@@ -380,10 +384,6 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     compositionBatiments
   ].filter(Boolean).join('\n')
 
-  const contextSousProgramme = nomSousProgramme
-    ? `\nPérimètre analysé : "${nomSousProgramme}" — tu analyses UNIQUEMENT la section du CCTP correspondant à ce périmètre.`
-    : ''
-
   const promptConfig = configProjet?.promptSystemeGlobal
     ? `\nConsignes spécifiques du projet : ${configProjet.promptSystemeGlobal}`
     : ''
@@ -398,26 +398,94 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     ? `\nVOCABULAIRE MÉTIER (abréviations et équivalences à connaître) :\n${vocabGlobalStr}${vocabProjet ? '\nSpécifique au projet :\n' + vocabProjet : ''}`
     : ''
 
-  // Appel IA pour filtrer les vrais problèmes parmi les écarts détectés
-  try {
-    const reglesAgent = agent.reglesMetier?.length
-      ? `\nPOINTS DE CONTRÔLE SPÉCIFIQUES À CE LOT\n${agent.reglesMetier.map(r => `- ${r}`).join('\n')}`
-      : ''
+  const reglesAgent = agent.reglesMetier?.length
+    ? `\nPOINTS DE CONTRÔLE SPÉCIFIQUES À CE LOT\n${agent.reglesMetier.map(r => `- ${r}`).join('\n')}`
+    : ''
 
-    const contextGeneralites = cctpGeneralTexte
-      ? `\nPRESCRIPTIONS GÉNÉRALES APPLICABLES À TOUS LES LOTS (Lot 00)\nCes prescriptions s'appliquent en complément des exigences du programme :\n${cctpGeneralTexte}`
-      : ''
+  const contextGeneralites = cctpGeneralTexte
+    ? `\nPRESCRIPTIONS GÉNÉRALES APPLICABLES À TOUS LES LOTS (Lot 00)\nCes prescriptions s'appliquent en complément des exigences du programme :\n${cctpGeneralTexte}`
+    : ''
+
+  // Préparer label et nettoyer les anciennes alertes une seule fois (avant la boucle)
+  const labelType = categorieDoc === 'cctp' ? 'CCTP vs Programme' : `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
+  const LOT_LABELS = { cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades', etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie' }
+  const nomLot = lotType ? LOT_LABELS[lotType] || lotType : null
+  const groupe = nomSousProgramme || nomLot
+  const labelComplet = groupe ? `[${labelType} — ${groupe}]` : `[${labelType}]`
+
+  const alertesLiees = await prisma.alerteDocument.findMany({ where: { documentId }, select: { alerteId: true } })
+  if (alertesLiees.length > 0) {
+    const alerteIds = alertesLiees.map(a => a.alerteId)
+    await prisma.alerte.deleteMany({ where: { id: { in: alerteIds }, message: { startsWith: labelComplet } } })
+  }
+
+  // Pour DPGF : traiter feuille par feuille (une passe Claude par feuille Excel)
+  // Pour CCTP : traiter en une seule section (extraireSectionPertinente)
+  const feuilles = categorieDoc === 'dpgf' ? splitParFeuilles(texteDoc) : []
+  const sectionsATraiter = feuilles.length > 1
+    ? feuilles.map(f => ({ texte: f.texte, label: f.nom }))
+    : [{ texte: extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte), label: nomSousProgramme || null }]
+
+  console.log(`[comparerDocuments] ${sectionsATraiter.length} section(s) à traiter pour "${nomDoc}"`)
+
+  const refIds = docsRef.map(r => r.id)
+  const uniqueDocIds = [...new Set([documentId, ...refIds])]
+  const model = modeleIA === 'sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
+  const alertesCreees = []
+
+  for (let i = 0; i < sectionsATraiter.length; i++) {
+    const section = sectionsATraiter[i]
+
+    // Analyse JS pour cette section spécifiquement
+    const resultatsSection = docsRef
+      .filter(ref => ref.contenuTexte && ref.contenuTexte.length > 100)
+      .map(ref => ({
+        refNom: ref.nom,
+        analyse: analyserEcarts(section.texte, ref.contenuTexte, nomDoc, ref.nom)
+      }))
+
+    const aDesEcartsSection = resultatsSection.some(r =>
+      r.analyse.termesManquants.length > 3 || r.analyse.exigencesNonCouvertes.length > 0
+    )
+
+    if (!aDesEcartsSection) {
+      console.log(`[comparerDocuments] Section "${section.label || 'principale'}" — couverture correcte, skip`)
+      continue
+    }
+
+    const resumeEcartsSection = resultatsSection.map(r => {
+      const a = r.analyse
+      const ref = docsRef.find(d => d.nom === a.nomRef)
+      const lignes = [`== ${section.label || nomDoc} vs ${a.nomRef} (couverture ${a.couverture}%) ==`]
+      if (a.termesManquants.length > 0) {
+        lignes.push(`Termes du programme absents de cette section : ${a.termesManquants.slice(0, 12).join(', ')}`)
+      }
+      if (a.exigencesNonCouvertes.length > 0) {
+        lignes.push(`Exigences potentiellement non couvertes :`)
+        a.exigencesNonCouvertes.forEach(e => lignes.push(`  • ${e.substring(0, 120)}`))
+      }
+      if (ref?.contenuTexte) {
+        lignes.push(`\nExtrait du programme de référence (${a.nomRef}) :`)
+        lignes.push(ref.contenuTexte.substring(0, 10000))
+      }
+      return lignes.join('\n')
+    }).join('\n\n---\n\n')
+
+    const labelSection = section.label ? ` (${section.label})` : (nomSousProgramme ? ` — section "${nomSousProgramme}"` : '')
+    const contextSection = section.label
+      ? `\nSection analysée : "${section.label}" — analyse UNIQUEMENT cette feuille du DPGF.`
+      : (nomSousProgramme ? `\nPérimètre analysé : "${nomSousProgramme}" — analyse UNIQUEMENT la section correspondant à ce périmètre.` : '')
 
     const prompt = `${SYSTEM_PROMPT_BET_FLUIDES}
 
 CONTEXTE DU PROJET
-${contextProjet}${contextSousProgramme}${promptConfig}${vocabMetier}${reglesAgent}${contextGeneralites}
+${contextProjet}${contextSection}${promptConfig}${vocabMetier}${reglesAgent}${contextGeneralites}
 
 ÉCARTS DÉTECTÉS PAR L'ANALYSE AUTOMATIQUE
-${resumeEcarts}
+${resumeEcartsSection}
 
-SECTION DU ${categorieDoc.toUpperCase()} ANALYSÉE${labelSection ? ` (${labelSection})` : ''}
-${sectionCctp}
+SECTION DU ${categorieDoc.toUpperCase()} ANALYSÉE${labelSection}
+${section.texte}
 
 MISSION
 En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus :
@@ -440,68 +508,48 @@ Réponds UNIQUEMENT en JSON :
 Valeurs possibles pour statut : ÉCART_MATÉRIAU, EXIGENCE_MANQUANTE, INCOHÉRENCE_TECHNIQUE, INCERTAIN_DESIGNATION, SOUS_DIMENSIONNEMENT
 Valeurs possibles pour criticite : CRITIQUE, MAJEUR, MINEUR
 
-Maximum 8 alertes. Si aucun problème réel : { "alertes": [] }`
+Maximum 8 alertes pour cette section. Si aucun problème réel : { "alertes": [] }`
 
-    const model = modeleIA === 'sonnet' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
-    const response = await client.messages.create({
-      model,
-      max_tokens: 3000,
-      messages: [{ role: 'user', content: prompt }]
-    })
-
-    const rawText = response.content[0].text.trim().replace(/^```json?\s*/i, '').replace(/\s*```$/i, '')
-    const parsed = JSON.parse(rawText)
-
-    if (!parsed.alertes?.length) {
-      console.log(`[comparerDocuments] IA : aucun problème réel détecté pour doc ${documentId}`)
-      return []
-    }
-
-    // Créer les alertes en BDD
-    const refIds = docsRef.map(r => r.id)
-    const uniqueDocIds = [...new Set([documentId, ...refIds])]
-    const labelType = categorieDoc === 'cctp' ? 'CCTP vs Programme' : `DPGF vs ${avecCctp ? 'Programme+CCTP' : 'Programme'}`
-
-    const LOT_LABELS = { cvc: 'CVC', menuiseries: 'Menuiseries', facades: 'Façades', etancheite: 'Étanchéité', grosOeuvre: 'Gros œuvre', plomberie: 'Plomberie' }
-    const nomLot = lotType ? LOT_LABELS[lotType] || lotType : null
-    const groupe = nomSousProgramme || nomLot
-    const labelComplet = groupe ? `[${labelType} — ${groupe}]` : `[${labelType}]`
-
-    // Supprimer les anciennes alertes du même type pour ce document avant d'en créer de nouvelles
-    const alertesLiees = await prisma.alerteDocument.findMany({
-      where: { documentId },
-      select: { alerteId: true }
-    })
-    if (alertesLiees.length > 0) {
-      const alerteIds = alertesLiees.map(a => a.alerteId)
-      await prisma.alerte.deleteMany({
-        where: { id: { in: alerteIds }, message: { startsWith: labelComplet } }
+    try {
+      const response = await client.messages.create({
+        model,
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }]
       })
-    }
 
-    const alertesCreees = []
-    for (const alerte of parsed.alertes) {
-      const criticiteValides = ['CRITIQUE', 'MAJEUR', 'MINEUR']
-      const criticite = criticiteValides.includes(alerte.criticite) ? alerte.criticite : null
-      const nouvelleAlerte = await prisma.alerte.create({
-        data: {
-          projetId,
-          message: `${labelComplet} ${alerte.message}`,
-          criticite,
-          documents: {
-            create: uniqueDocIds.map(id => ({ documentId: id }))
-          }
+      const rawText = response.content[0].text.trim().replace(/^```json?\s*/i, '').replace(/\s*```$/i, '')
+      const parsed = JSON.parse(rawText)
+
+      if (parsed.alertes?.length) {
+        for (const alerte of parsed.alertes) {
+          const criticiteValides = ['CRITIQUE', 'MAJEUR', 'MINEUR']
+          const criticite = criticiteValides.includes(alerte.criticite) ? alerte.criticite : null
+          const nouvelleAlerte = await prisma.alerte.create({
+            data: {
+              projetId,
+              message: `${labelComplet} ${alerte.message}`,
+              criticite,
+              documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
+            }
+          })
+          alertesCreees.push(nouvelleAlerte)
         }
-      })
-      alertesCreees.push(nouvelleAlerte)
+        console.log(`[comparerDocuments] Section "${section.label || 'principale'}" : ${parsed.alertes.length} alertes`)
+      } else {
+        console.log(`[comparerDocuments] Section "${section.label || 'principale'}" : aucun problème détecté`)
+      }
+    } catch (err) {
+      console.error(`[comparerDocuments] Erreur IA section "${section.label}":`, err.message)
     }
 
-    console.log(`[comparerDocuments] ${alertesCreees.length} alertes créées pour doc ${documentId} (${nomDoc})`)
-    return alertesCreees
-  } catch (err) {
-    console.error(`[comparerDocuments] Erreur IA:`, err.message)
-    return []
+    // Pause entre sections pour respecter le rate limit Anthropic (Sonnet)
+    if (i < sectionsATraiter.length - 1) {
+      await new Promise(r => setTimeout(r, 2000))
+    }
   }
+
+  console.log(`[comparerDocuments] Total : ${alertesCreees.length} alertes créées pour doc ${documentId} (${nomDoc})`)
+  return alertesCreees
 }
 
 module.exports = { comparerAvecReference }
