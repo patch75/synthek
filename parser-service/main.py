@@ -85,12 +85,18 @@ def parse_docx(file_bytes):
 
         style_name = para.style.name.lower()
 
+        # Ignorer la table des matières
+        if any(s in style_name for s in ['toc ', 'toc\t', 'table des mat']):
+            continue
+
         if any(s in style_name for s in ['heading 1', 'titre 1', 'heading1']):
             result.append(f"\n## {text}")
         elif any(s in style_name for s in ['heading 2', 'titre 2', 'heading2']):
             result.append(f"\n### {text}")
         elif any(s in style_name for s in ['heading 3', 'titre 3', 'heading3']):
             result.append(f"\n#### {text}")
+        elif any(s in style_name for s in ['heading 4', 'titre 4', 'heading4']):
+            result.append(f"\n##### {text}")
         else:
             result.append(text)
 
