@@ -193,6 +193,62 @@ router.post('/upload', upload.single('fichier'), async (req, res) => {
   res.status(201).json(document)
 })
 
+// PUT /documents/:id — mettre à jour un document existant (remplace le fichier, conserve l'ID)
+router.put('/:id', upload.single('fichier'), async (req, res) => {
+  const docId = parseInt(req.params.id)
+  if (!req.file) return res.status(400).json({ error: 'Fichier requis' })
+
+  const doc = await prisma.document.findUnique({ where: { id: docId } })
+  if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+
+  const nomFichier = fixFilename(req.file.originalname)
+  const ext = path.extname(nomFichier).toLowerCase().replace('.', '')
+  const hashNouveauFichier = calculerHash(req.file.path)
+
+  // Supprimer l'ancien fichier du disque
+  if (doc.cheminFichier) {
+    const ancienChemin = path.resolve(__dirname, '../../', doc.cheminFichier)
+    if (fs.existsSync(ancienChemin)) fs.unlinkSync(ancienChemin)
+  }
+
+  let contenuTexte = null
+  try {
+    contenuTexte = await extractText(req.file.path, ext, nomFichier)
+  } catch (err) {
+    console.error('Erreur extraction texte:', err.message)
+  }
+
+  const { statutDocument, indiceRevision } = parseNomFichier(nomFichier)
+  const lotDetecte = (doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') ? detecterLot(nomFichier) : null
+
+  const updated = await prisma.document.update({
+    where: { id: docId },
+    data: {
+      nom: nomFichier,
+      type: ext,
+      cheminFichier: req.file.path,
+      contenuTexte,
+      hashFichier: hashNouveauFichier,
+      statutDocument,
+      indiceRevision,
+      lotType: lotDetecte || doc.lotType,
+      puce: null
+    }
+  })
+
+  const pid = doc.projetId
+  ;(async () => {
+    await Promise.all([
+      genererPuce(updated.id, pid, contenuTexte, updated.nom)
+        .catch(err => console.error('Erreur génération puce:', err.message)),
+      extraireFaits(updated.id, pid, contenuTexte, updated.nom)
+        .catch(err => console.error('Erreur extraction faits:', err.message))
+    ])
+  })()
+
+  res.json(updated)
+})
+
 // POST /documents/:id/comparer — relancer la comparaison sans re-uploader
 router.post('/:id/comparer', async (req, res) => {
   const docId = parseInt(req.params.id)

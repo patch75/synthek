@@ -444,10 +444,7 @@ export default function Projet() {
     try {
       const formData = new FormData()
       formData.append('fichier', fichier)
-      formData.append('projetId', projet.id)
-      if (doc.categorieDoc) formData.append('categorieDoc', doc.categorieDoc)
-      if (doc.sousProgrammeId) formData.append('sousProgrammeId', doc.sousProgrammeId)
-      await api.post('/documents/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      await api.put(`/documents/${doc.id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       const [pRes, aRes] = await Promise.all([api.get(`/projets/${id}`), api.get(`/alertes/${id}`)])
       setProjet(pRes.data)
       setAlertes(aRes.data)
