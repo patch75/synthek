@@ -1448,11 +1448,11 @@ export default function Projet() {
         {/* V3 — Configuration IA (admin uniquement) */}
         {isAdmin && (
           <section className="section section--config">
-            <div className="section-header">
+            <div className="section-header" style={{ cursor: 'pointer' }} onClick={() => showConfig ? setShowConfig(false) : chargerConfig()}>
               <h2>Configuration IA</h2>
-              <button onClick={() => showConfig ? setShowConfig(false) : chargerConfig()} className="btn-secondary">
-                {showConfig ? 'Masquer' : 'Configurer'}
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showConfig ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+              </div>
             </div>
             {showConfig && (
               <form onSubmit={sauvegarderConfig} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
