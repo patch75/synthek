@@ -133,7 +133,7 @@ router.get('/:id', async (req, res) => {
 // GET /projets/:id/sous-programmes
 router.get('/:id/sous-programmes', async (req, res) => {
   const projetId = parseInt(req.params.id)
-  const sps = await prisma.sousProgramme.findMany({ where: { projetId }, orderBy: { nom: 'asc' } })
+  const sps = await prisma.sousProgramme.findMany({ where: { projetId }, orderBy: { position: 'asc' } })
   res.json(sps)
 })
 
@@ -143,14 +143,27 @@ router.post('/:id/sous-programmes', async (req, res) => {
   const projetId = parseInt(req.params.id)
   const { nom, typologies } = req.body
   if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
+  const count = await prisma.sousProgramme.count({ where: { projetId } })
   const sp = await prisma.sousProgramme.create({
     data: {
       projetId,
       nom: nom.trim(),
-      typologies: typologies?.length ? JSON.stringify(typologies) : null
+      typologies: typologies?.length ? JSON.stringify(typologies) : null,
+      position: count
     }
   })
   res.status(201).json(sp)
+})
+
+// PATCH /projets/:id/sous-programmes/ordre — réordonner (DOIT être avant /:spId)
+router.patch('/:id/sous-programmes/ordre', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const { ordre } = req.body // tableau d'ids dans le nouvel ordre
+  if (!Array.isArray(ordre)) return res.status(400).json({ error: 'ordre requis (tableau d\'ids)' })
+  await Promise.all(ordre.map((spId, index) =>
+    prisma.sousProgramme.update({ where: { id: spId }, data: { position: index } })
+  ))
+  res.json({ ok: true })
 })
 
 // PATCH /projets/:id/sous-programmes/:spId — renommer / mettre à jour typologies

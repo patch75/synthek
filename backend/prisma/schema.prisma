@@ -61,6 +61,7 @@ model SousProgramme {
   projetId    Int
   nom         String
   typologies  String?    // JSON array ex: ["BRS","LLS"]
+  position    Int        @default(0)
 
   projet    Projet     @relation(fields: [projetId], references: [id], onDelete: Cascade)
   documents Document[]

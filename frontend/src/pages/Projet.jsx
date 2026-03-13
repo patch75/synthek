@@ -251,6 +251,7 @@ export default function Projet() {
 
   // Sous-programmes
   const [showSousProgrammes, setShowSousProgrammes] = useState(false)
+  const dragSpIdx = useRef(null)
   const [nouveauSp, setNouveauSp] = useState('')
   const [spEnCours, setSpEnCours] = useState(false)
   const [spRenomId, setSpRenomId] = useState(null)
@@ -1289,9 +1290,25 @@ export default function Projet() {
                       Aucun sous-programme — le projet est unique. Ajoutez des sous-programmes si l'opération comporte plusieurs typologies (accession, social, villas...).
                     </p>
                   ) : (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                      {sousProgrammes.map(sp => (
-                        <span key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-muted)', borderRadius: 20, padding: '4px 12px', fontSize: 13, fontWeight: 600 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                      {sousProgrammes.map((sp, idx) => (
+                        <span
+                          key={sp.id}
+                          draggable
+                          onDragStart={() => { dragSpIdx.current = idx }}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={() => {
+                            const from = dragSpIdx.current
+                            if (from === null || from === idx) return
+                            const next = [...sousProgrammes]
+                            const [moved] = next.splice(from, 1)
+                            next.splice(idx, 0, moved)
+                            setProjet(prev => ({ ...prev, sousProgrammes: next }))
+                            api.patch(`/projets/${id}/sous-programmes/ordre`, { ordre: next.map(s => s.id) })
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'grab', userSelect: 'none' }}
+                        >
+                          <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
                           {spRenomId === sp.id ? (
                             <>
                               <input
@@ -1306,9 +1323,9 @@ export default function Projet() {
                             </>
                           ) : (
                             <>
-                              {sp.nom}
-                              <button onClick={() => { setSpRenomId(sp.id); setSpRenomNom(sp.nom) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Renommer">✎</button>
-                              <button onClick={() => supprimerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
+                              <span style={{ flex: 1 }}>{sp.nom}</span>
+                              <button onClick={e => { e.stopPropagation(); setSpRenomId(sp.id); setSpRenomNom(sp.nom) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Renommer">✎</button>
+                              <button onClick={e => { e.stopPropagation(); supprimerSousProgramme(sp.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
                             </>
                           )}
                         </span>
