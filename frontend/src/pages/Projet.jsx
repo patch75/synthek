@@ -818,7 +818,7 @@ export default function Projet() {
 
         {/* Alertes actives */}
         {alertesActives.length > 0 && (
-          <section className="section">
+          <section className="section section--alertes">
             <div
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showAlertes ? 12 : 0 }}
               onClick={() => setShowAlertes(v => !v)}
@@ -969,7 +969,7 @@ export default function Projet() {
         )}
 
         {/* Documents */}
-        <section className="section">
+        <section className="section section--documents">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
             <h2 className="section-title" style={{ marginBottom: 0 }}>
             <span style={{ fontSize: 16 }}>📄</span> Documents
@@ -1129,7 +1129,7 @@ export default function Projet() {
 
         {/* Bâtiments */}
         {isAdmin && (
-          <section className="section">
+          <section className="section section--batiments">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
               <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
@@ -1271,7 +1271,7 @@ export default function Projet() {
           const sousProgrammes = projet.sousProgrammes || []
           const hasSousProgrammes = sousProgrammes.length > 0
           return (
-            <section className="section">
+            <section className="section section--programmes">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showProgrammes ? 12 : 0 }} onClick={() => setShowProgrammes(v => !v)}>
                 <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
@@ -1447,7 +1447,7 @@ export default function Projet() {
 
         {/* V3 — Configuration IA (admin uniquement) */}
         {isAdmin && (
-          <section className="section">
+          <section className="section section--config">
             <div className="section-header">
               <h2>Configuration IA</h2>
               <button onClick={() => showConfig ? setShowConfig(false) : chargerConfig()} className="btn-secondary">
@@ -1551,7 +1551,7 @@ export default function Projet() {
         )}
 
         {/* Membres */}
-        <section className="section">
+        <section className="section section--membres">
           <div className="section-header">
             <h2>Membres du projet</h2>
             {isAdmin && (

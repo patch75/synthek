@@ -202,12 +202,19 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
 /* =========================================
    SECTIONS
    ========================================= */
-.section { margin-bottom: 36px; }
+.section { margin-bottom: 36px; border-radius: 10px; padding: 20px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
 .section-header h2 { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
 .section-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; letter-spacing: -0.2px; }
 .alert-title { color: var(--danger); }
+
+.section--alertes   { border-left: 4px solid #ef4444; background: rgba(239,68,68,0.04); }
+.section--batiments { border-left: 4px solid #3b82f6; background: rgba(59,130,246,0.04); }
+.section--programmes { border-left: 4px solid #7c3aed; background: rgba(124,58,237,0.04); }
+.section--documents  { border-left: 4px solid #14b8a6; background: rgba(20,184,166,0.04); }
+.section--config     { border-left: 4px solid #6366f1; background: rgba(99,102,241,0.04); }
+.section--membres    { border-left: 4px solid #64748b; background: rgba(100,116,139,0.04); }
 
 /* =========================================
    BADGES
