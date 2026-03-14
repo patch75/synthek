@@ -536,7 +536,7 @@ export default function Projet() {
       setProjet(pRes.data)
       setAlertes(aRes.data)
       setVerifMsg(`${verifiees} alertes vérifiées — ${faux_positifs} faux positif${faux_positifs > 1 ? 's' : ''} écartés`)
-    } catch (err) {
+    } catch {
       setVerifMsg('Erreur lors de la vérification')
     } finally {
       setVerifEnCours(false)
