@@ -89,6 +89,59 @@ body {
 
 .topbar .text-muted { color: var(--text-muted); font-size: 13px; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.topbar-nav { display: flex; align-items: center; gap: 10px; }
+
+/* Burger menu */
+.burger-btn { display: none; font-size: 22px; padding: 6px 10px; }
+.burger-theme { display: none; }
+
+.burger-overlay {
+  position: fixed; inset: 0;
+  z-index: 98;
+  background: rgba(0,0,0,0.3);
+}
+.burger-menu {
+  position: fixed;
+  top: var(--topbar-height);
+  right: 0;
+  width: 240px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-bottom-left-radius: var(--radius);
+  padding: 8px;
+  z-index: 99;
+  box-shadow: -4px 8px 24px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.burger-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+.burger-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.burger-item:hover { background: var(--bg-muted); }
+.burger-item--danger { color: #ef4444; margin-top: 4px; }
 
 /* =========================================
    CARD — glassmorphism
@@ -800,6 +853,11 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
   .topbar-right { gap: 6px; }
   .topbar-right .text-muted { display: none; }
   .topbar-logo { height: 40px !important; }
+
+  /* Burger : afficher bouton, cacher nav desktop */
+  .topbar-nav { display: none; }
+  .burger-btn { display: flex; align-items: center; justify-content: center; }
+  .burger-theme { display: flex; align-items: center; justify-content: center; }
 
   .hero-banner { flex-direction: column; padding: 28px 24px; gap: 24px; }
   .hero-title { font-size: 18px; }

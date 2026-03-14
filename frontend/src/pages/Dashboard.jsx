@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [nombreLogements, setNombreLogements] = useState('')
   const [batiments, setBatiments] = useState([])
   const [createError, setCreateError] = useState('')
+  const [showMenu, setShowMenu] = useState(false)
 
   const TYPOLOGIES = [
     { value: 'BRS', label: 'BRS' },
@@ -117,29 +118,61 @@ export default function Dashboard() {
   return (
     <div className="page">
       <header className="topbar">
-        <img src={logo} alt="synthek" style={{ height: 60, cursor: 'pointer' }} onClick={() => navigate('/')} />
+        <img src={logo} alt="synthek" className="topbar-logo" style={{ height: 60, cursor: 'pointer' }} onClick={() => navigate('/')} />
         <div className="topbar-right">
-          <span className="text-muted">{user?.nom}</span>
-          {user?.role === 'admin' && (
-            <>
-              <span className="badge">Admin</span>
-              <button onClick={() => navigate('/users')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
-                Utilisateurs
-              </button>
-              <button onClick={() => navigate('/reglementation')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
-                Réglementation
-              </button>
-              <button onClick={() => navigate('/vocabulaire-global')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
-                Vocabulaire
-              </button>
-            </>
-          )}
-          <button onClick={toggleTheme} className="btn-ghost" title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'} style={{ fontSize: 18, padding: '6px 10px' }}>
+          {/* Nav desktop */}
+          <div className="topbar-nav">
+            <span className="text-muted">{user?.nom}</span>
+            {user?.role === 'admin' && (
+              <>
+                <span className="badge">Admin</span>
+                <button onClick={() => navigate('/users')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
+                  Utilisateurs
+                </button>
+                <button onClick={() => navigate('/reglementation')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
+                  Réglementation
+                </button>
+                <button onClick={() => navigate('/vocabulaire-global')} className="btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }}>
+                  Vocabulaire
+                </button>
+              </>
+            )}
+            <button onClick={toggleTheme} className="btn-ghost" title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'} style={{ fontSize: 18, padding: '6px 10px' }}>
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button onClick={logout} className="btn-ghost">Déconnexion</button>
+          </div>
+          {/* Theme toggle toujours visible sur mobile */}
+          <button onClick={toggleTheme} className="btn-ghost burger-theme" title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'} style={{ fontSize: 18, padding: '6px 10px' }}>
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
-          <button onClick={logout} className="btn-ghost">Déconnexion</button>
+          {/* Burger mobile */}
+          <button className="btn-ghost burger-btn" onClick={() => setShowMenu(v => !v)} aria-label="Menu">
+            {showMenu ? '✕' : '☰'}
+          </button>
         </div>
       </header>
+
+      {/* Menu burger mobile */}
+      {showMenu && (
+        <>
+          <div className="burger-overlay" onClick={() => setShowMenu(false)} />
+          <nav className="burger-menu">
+            <div className="burger-user">
+              <span>{user?.nom}</span>
+              {user?.role === 'admin' && <span className="badge">Admin</span>}
+            </div>
+            {user?.role === 'admin' && (
+              <>
+                <button onClick={() => { navigate('/users'); setShowMenu(false) }} className="burger-item">👥 Utilisateurs</button>
+                <button onClick={() => { navigate('/reglementation'); setShowMenu(false) }} className="burger-item">📋 Réglementation</button>
+                <button onClick={() => { navigate('/vocabulaire-global'); setShowMenu(false) }} className="burger-item">📖 Vocabulaire</button>
+              </>
+            )}
+            <button onClick={() => { logout(); setShowMenu(false) }} className="burger-item burger-item--danger">🚪 Déconnexion</button>
+          </nav>
+        </>
+      )}
 
       <main className="container">
 
