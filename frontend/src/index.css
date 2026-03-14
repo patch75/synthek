@@ -856,7 +856,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
 
   /* Burger : afficher bouton, cacher nav desktop */
   .topbar-nav { display: none; }
-  .burger-btn { display: flex; align-items: center; justify-content: center; }
+  .burger-btn { display: flex; align-items: center; justify-content: center; font-size: 30px !important; padding: 4px 12px !important; }
   .burger-theme { display: flex; align-items: center; justify-content: center; }
 
   .hero-banner { flex-direction: column; padding: 28px 24px; gap: 24px; }
