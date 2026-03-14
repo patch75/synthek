@@ -991,10 +991,13 @@ export default function Projet() {
         {/* Documents */}
         <section className="section section--documents">
           <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
-            <h2 className="section-title" style={{ marginBottom: 0 }}>
-              <span style={{ fontSize: 16 }}>📄</span> Documents
-              <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>({projet.documents.filter(d => d.categorieDoc !== 'programme').length})</span>
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              <h2 className="section-title" style={{ marginBottom: 0 }}>
+                <span style={{ fontSize: 16 }}>📄</span> Documents
+                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>({projet.documents.filter(d => d.categorieDoc !== 'programme').length})</span>
+              </h2>
+              <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showDocuments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+            </div>
             <div className="section-title-btns">
               {showDocuments && (<>
                 {!isBureauControle && (
@@ -1005,7 +1008,6 @@ export default function Projet() {
                 <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/syntheses`) }} className="btn-secondary" style={{ fontSize: 13 }}>Synthèses</button>
                 <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/historique`) }} className="btn-ghost" style={{ fontSize: 13 }}>Historique</button>
               </>)}
-              <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showDocuments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
             </div>
           </div>
 
