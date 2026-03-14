@@ -1490,24 +1490,24 @@ export default function Projet() {
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {configVocabEntries.map((entry, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div key={i} className="vocab-entry-row">
                         <input
                           value={entry.terme}
                           onChange={e => { const n = [...configVocabEntries]; n[i] = { ...n[i], terme: e.target.value }; setConfigVocabEntries(n) }}
                           placeholder="Terme / abréviation"
-                          style={{ width: 160, flexShrink: 0 }}
+                          style={{ minWidth: 100, flex: '0 1 160px' }}
                         />
-                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>→</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 13, flexShrink: 0 }}>→</span>
                         <input
                           value={entry.definition}
                           onChange={e => { const n = [...configVocabEntries]; n[i] = { ...n[i], definition: e.target.value }; setConfigVocabEntries(n) }}
                           placeholder="Définition / équivalent"
-                          style={{ flex: 1 }}
+                          style={{ flex: 1, minWidth: 100 }}
                         />
-                        <button type="button" onClick={() => setConfigVocabEntries(configVocabEntries.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
+                        <button type="button" onClick={() => setConfigVocabEntries(configVocabEntries.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, lineHeight: 1, flexShrink: 0 }}>✕</button>
                       </div>
                     ))}
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button type="button" onClick={() => setConfigVocabEntries([...configVocabEntries, { terme: '', definition: '' }])} className="btn-ghost" style={{ fontSize: 13 }}>
                         + Ajouter un terme
                       </button>
