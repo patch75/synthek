@@ -855,7 +855,7 @@ export default function Projet() {
                     </button>
                   </>
                 )}
-                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', marginLeft: 'auto' }}>▶</span>
               </div>
             </div>
             {showAlertes && (
