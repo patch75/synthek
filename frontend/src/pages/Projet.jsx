@@ -841,8 +841,7 @@ export default function Projet() {
                   <>
                     <button
                       onClick={e => { e.stopPropagation(); toutResoudre() }}
-                      className="btn-ghost"
-                      style={{ fontSize: 13, padding: '4px 10px' }}
+                      style={{ fontSize: 13, padding: '4px 10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                     >
                       Tout résoudre
                     </button>
