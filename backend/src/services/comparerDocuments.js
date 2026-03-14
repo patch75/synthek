@@ -260,6 +260,29 @@ function analyserEcarts(texteDoc, texteRef, nomDoc, nomRef) {
 }
 
 /**
+ * Découpe un texte en chunks de taille fixe avec chevauchement.
+ * Coupe de préférence aux sauts de ligne pour ne pas couper une phrase.
+ */
+function chunkerTexte(texte, tailleChunk = 6000, overlap = 500) {
+  const chunks = []
+  let debut = 0
+  while (debut < texte.length) {
+    const finBrute = Math.min(debut + tailleChunk, texte.length)
+    // Couper au dernier saut de ligne dans la zone finale (évite de couper une phrase)
+    let fin = finBrute
+    if (finBrute < texte.length) {
+      const nl = texte.lastIndexOf('\n', finBrute)
+      if (nl > debut + tailleChunk * 0.6) fin = nl
+    }
+    const chunk = texte.substring(debut, fin).trim()
+    if (chunk.length > 200) chunks.push(chunk)
+    debut = fin - overlap
+    if (debut >= texte.length - 100) break
+  }
+  return chunks
+}
+
+/**
  * Découpe un texte produit par le parser Python en feuilles distinctes.
  * Exploite les séparateurs "=== Feuille: NOM ===" générés par le microservice Python.
  * Retourne [{nom, texte}], en excluant les feuilles RECAP.
@@ -471,11 +494,19 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
   }
 
   // Pour DPGF : traiter feuille par feuille (une passe Claude par feuille Excel)
-  // Pour CCTP : traiter en une seule section (extraireSectionPertinente)
+  // Pour CCTP long (> 20 000 chars) : map-reduce par chunks de 6 000 chars
+  // Pour CCTP court : section unique (comportement historique)
   const feuilles = categorieDoc === 'dpgf' ? splitParFeuilles(texteDoc) : []
-  const sectionsATraiter = feuilles.length > 1
-    ? feuilles.map(f => ({ texte: f.texte, label: f.nom }))
-    : [{ texte: extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte), label: nomSousProgramme || null }]
+  let sectionsATraiter
+  if (feuilles.length > 1) {
+    sectionsATraiter = feuilles.map(f => ({ texte: f.texte, label: f.nom }))
+  } else if (categorieDoc === 'cctp' && texteDoc.length > 20000) {
+    const chunks = chunkerTexte(texteDoc, 6000, 500)
+    sectionsATraiter = chunks.map((chunk, i) => ({ texte: chunk, label: `Partie ${i + 1}/${chunks.length}` }))
+    console.log(`[comparerDocuments] CCTP long (${texteDoc.length} chars) → ${chunks.length} chunks de ~6 000 chars`)
+  } else {
+    sectionsATraiter = [{ texte: extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte), label: nomSousProgramme || null }]
+  }
 
   console.log(`[comparerDocuments] ${sectionsATraiter.length} section(s) à traiter pour "${nomDoc}"`)
 
@@ -619,7 +650,25 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
   }
 
   console.log(`[comparerDocuments] Total : ${alertesCreees.length} alertes créées pour doc ${documentId} (${nomDoc})`)
-  return alertesCreees
+
+  // Déduplication : supprimer les alertes dont le message est quasi-identique (premiers 80 chars)
+  // Peut arriver avec le chevauchement des chunks
+  const signaturesSeen = new Set()
+  const doublons = []
+  for (const alerte of alertesCreees) {
+    const sig = alerte.message.substring(0, 80).toLowerCase().replace(/\s+/g, ' ')
+    if (signaturesSeen.has(sig)) {
+      doublons.push(alerte.id)
+    } else {
+      signaturesSeen.add(sig)
+    }
+  }
+  if (doublons.length > 0) {
+    await prisma.alerte.deleteMany({ where: { id: { in: doublons } } })
+    console.log(`[comparerDocuments] ${doublons.length} alertes dupliquées supprimées`)
+  }
+
+  return alertesCreees.filter(a => !doublons.includes(a.id))
 }
 
 module.exports = { comparerAvecReference }
