@@ -92,7 +92,7 @@ body {
 .topbar-nav { display: flex; align-items: center; gap: 10px; }
 
 /* Burger menu */
-.burger-btn { display: none; font-size: 22px; padding: 6px 10px; }
+.burger-btn { display: none; font-size: 30px; padding: 6px 10px; }
 .burger-theme { display: none; }
 
 .burger-overlay {
