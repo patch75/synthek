@@ -833,9 +833,12 @@ export default function Projet() {
               style={{ cursor: 'pointer', marginBottom: showAlertes ? 12 : 0 }}
               onClick={() => setShowAlertes(v => !v)}
             >
-              <h2 className="section-title alert-title" style={{ marginBottom: 0 }}>
-                ⚠ {alertesActives.length} alerte{alertesActives.length > 1 ? 's' : ''} active{alertesActives.length > 1 ? 's' : ''}
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                <h2 className="section-title alert-title" style={{ marginBottom: 0 }}>
+                  ⚠ {alertesActives.length} alerte{alertesActives.length > 1 ? 's' : ''} active{alertesActives.length > 1 ? 's' : ''}
+                </h2>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+              </div>
               <div className="section-title-btns">
                 {isAdmin && alertesActives.length > 1 && showAlertes && (
                   <>
@@ -853,7 +856,6 @@ export default function Projet() {
                     </button>
                   </>
                 )}
-                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', marginLeft: 'auto' }}>▶</span>
               </div>
             </div>
             {showAlertes && (
