@@ -864,19 +864,22 @@ export default function Projet() {
                     <button
                       onClick={e => { e.stopPropagation(); verifierAlertesIA() }}
                       disabled={verifEnCours}
-                      style={{ fontSize: 13, padding: '4px 10px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, opacity: verifEnCours ? 0.6 : 1 }}
+                      className="alerte-action-btn"
+                      style={{ background: '#7c3aed', opacity: verifEnCours ? 0.6 : 1 }}
                     >
                       {verifEnCours ? '⏳ Vérification...' : '🤖 Vérifier avec IA'}
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); toutResoudre() }}
-                      style={{ fontSize: 13, padding: '4px 10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                      className="alerte-action-btn"
+                      style={{ background: '#2563eb' }}
                     >
                       Tout résoudre
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); toutSupprimer() }}
-                      style={{ fontSize: 13, padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                      className="alerte-action-btn"
+                      style={{ background: '#ef4444' }}
                     >
                       Tout supprimer
                     </button>
