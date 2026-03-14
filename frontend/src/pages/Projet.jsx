@@ -1160,15 +1160,17 @@ export default function Projet() {
         {isAdmin && (
           <section className="section section--batiments">
             <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
-              <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
+                </h2>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showBatiments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+              </div>
               <div className="section-title-btns">
                 {showBatiments && (<>
                   <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   <button onClick={e => { e.stopPropagation(); setNouvelleTypologie(v => v === null ? '' : null) }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>⚙️ Typologies</button>
                 </>)}
-                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showBatiments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
               </div>
             </div>
 
