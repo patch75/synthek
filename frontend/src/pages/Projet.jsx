@@ -860,7 +860,7 @@ export default function Projet() {
               </div>
               <div className="section-title-btns">
                 {showAlertes && (
-                  <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/historique`) }} className="btn-ghost" style={{ fontSize: 13 }}>Historique</button>
+                  <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/historique`) }} className="alerte-action-btn" style={{ background: '#0f766e' }}>Historique</button>
                 )}
                 {isAdmin && alertesActives.length > 1 && showAlertes && (
                   <>
