@@ -859,6 +859,9 @@ export default function Projet() {
                 <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showAlertes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
               </div>
               <div className="section-title-btns">
+                {showAlertes && (
+                  <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/historique`) }} className="btn-ghost" style={{ fontSize: 13 }}>Historique</button>
+                )}
                 {isAdmin && alertesActives.length > 1 && showAlertes && (
                   <>
                     <button
