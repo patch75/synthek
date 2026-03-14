@@ -226,7 +226,7 @@ export default function Projet() {
   // Bâtiments
   const [showBatiments, setShowBatiments] = useState(false)
   const [showProgrammes, setShowProgrammes] = useState(false)
-  const [showDocuments, setShowDocuments] = useState(true)
+  const [showDocuments, setShowDocuments] = useState(false)
   const [batimentEditIdx, setBatimentEditIdx] = useState(null)
   const [batimentEditNom, setBatimentEditNom] = useState('')
   const [batimentEditTypos, setBatimentEditTypos] = useState([])
