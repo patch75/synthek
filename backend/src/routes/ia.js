@@ -1,6 +1,6 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
-const { questionIA, analyserProjet } = require('../services/ia')
+const { questionIA, analyserProjet, verifierAlertes } = require('../services/ia')
 
 const router = express.Router()
 router.use(authMiddleware)
@@ -26,6 +26,19 @@ router.post('/analyser', async (req, res) => {
 
   const alertes = await analyserProjet(parseInt(projetId))
   res.json({ alertes, count: alertes.length })
+})
+
+// POST /ia/verifier-alertes/:projetId
+router.post('/verifier-alertes/:projetId', async (req, res) => {
+  const projetId = parseInt(req.params.projetId)
+  if (!projetId) return res.status(400).json({ error: 'projetId requis' })
+  try {
+    const result = await verifierAlertes(projetId)
+    res.json(result)
+  } catch (err) {
+    console.error('Erreur verifierAlertes:', err)
+    res.status(500).json({ error: err.message || 'Erreur lors de la vérification' })
+  }
 })
 
 module.exports = router

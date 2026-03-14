@@ -418,4 +418,117 @@ Réponds UNIQUEMENT en JSON avec ce format exact :
   return synthese
 }
 
-module.exports = { analyserProjet, questionIA, genererPuce, comparerVersions, analyserSynthese }
+// Vérifie les alertes actives d'un projet par batch de 10 — résout les faux positifs
+async function verifierAlertes(projetId) {
+  const BATCH_SIZE = 10
+
+  const [alertes, configProjet] = await Promise.all([
+    prisma.alerte.findMany({
+      where: { projetId, statut: 'active' },
+      include: {
+        documents: {
+          include: { document: { select: { nom: true, contenuTexte: true, categorieDoc: true } } }
+        }
+      }
+    }),
+    chargerConfigProjet(projetId)
+  ])
+
+  if (alertes.length === 0) return { verifiees: 0, faux_positifs: 0 }
+
+  const configSection = configProjet?.promptSystemeGlobal
+    ? `\nConsignes spécifiques du projet :\n${configProjet.promptSystemeGlobal}`
+    : ''
+
+  const vocabSection = configProjet?.vocabulaireMetier
+    ? `\nVocabulaire métier du projet :\n${Object.entries(configProjet.vocabulaireMetier).map(([k, v]) => `${k} → ${v}`).join('\n')}`
+    : ''
+
+  let totalFauxPositifs = 0
+
+  // Traitement par batch
+  for (let i = 0; i < alertes.length; i += BATCH_SIZE) {
+    const batch = alertes.slice(i, i + BATCH_SIZE)
+
+    // Extraire les documents uniques du batch pour le contexte
+    const docsMap = {}
+    for (const alerte of batch) {
+      for (const ad of alerte.documents) {
+        const doc = ad.document
+        if (doc.contenuTexte && !docsMap[doc.nom]) {
+          docsMap[doc.nom] = `--- ${doc.nom} (${doc.categorieDoc || 'document'}) ---\n${doc.contenuTexte.substring(0, 1500)}`
+        }
+      }
+    }
+    const contexteDocuments = Object.values(docsMap).join('\n\n') || 'Aucun document disponible'
+
+    const alertesJson = JSON.stringify(batch.map(a => ({
+      id: a.id,
+      message: a.message,
+      criticite: a.criticite
+    })), null, 2)
+
+    const prompt = `Tu es un expert en vérification documentaire BET thermique. Tu reçois des alertes générées automatiquement lors de la comparaison de documents (DPGF, CCTP, Programme).
+
+Ta mission : pour chaque alerte, décider si elle est réelle ou un faux positif.
+
+Critères de faux positif :
+- Simple reformulation ou synonyme sans écart technique réel
+- Différence de présentation ou de granularité sans impact
+- Information présente dans un document mais formulée différemment dans l'autre
+- Alerte redondante avec une autre
+
+Critères pour confirmer :
+- Valeur numérique différente (puissance, surface, quantité...)
+- Équipement ou matériau absent d'un document
+- Exigence du programme non couverte dans le CCTP ou DPGF
+- Incohérence technique réelle entre documents
+${configSection}${vocabSection}
+
+Extraits des documents concernés :
+${contexteDocuments}
+
+Alertes à vérifier :
+${alertesJson}
+
+Réponds UNIQUEMENT en JSON valide, sans texte autour :
+[
+  { "id": 123, "decision": "confirmer" },
+  { "id": 124, "decision": "faux_positif", "justification": "Explication courte et précise." }
+]`
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }]
+    })
+
+    let decisions = []
+    try {
+      const text = response.content[0].text.trim()
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (jsonMatch) decisions = JSON.parse(jsonMatch[0])
+    } catch {
+      continue // si parsing échoue, on passe au batch suivant
+    }
+
+    // Résoudre les faux positifs
+    for (const d of decisions) {
+      if (d.decision === 'faux_positif') {
+        await prisma.alerte.update({
+          where: { id: d.id },
+          data: {
+            statut: 'resolue',
+            resoluePar: 'ia_verification',
+            justificationDerogation: `Faux positif détecté par agent IA : ${d.justification || 'non pertinent'}`
+          }
+        })
+        totalFauxPositifs++
+      }
+    }
+  }
+
+  return { verifiees: alertes.length, faux_positifs: totalFauxPositifs }
+}
+
+module.exports = { analyserProjet, questionIA, genererPuce, comparerVersions, analyserSynthese, verifierAlertes }

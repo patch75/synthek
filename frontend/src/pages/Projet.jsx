@@ -163,6 +163,8 @@ export default function Projet() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
+  const [verifEnCours, setVerifEnCours] = useState(false)
+  const [verifMsg, setVerifMsg] = useState(null)
   const [analyseBg, setAnalyseBg] = useState(false) // polling en cours
   const [analyseTimer, setAnalyseTimer] = useState(0)
   const pollingRef = useRef(null)
@@ -524,6 +526,23 @@ export default function Projet() {
     }
   }
 
+  async function verifierAlertesIA() {
+    setVerifEnCours(true)
+    setVerifMsg(null)
+    try {
+      const res = await api.post(`/ia/verifier-alertes/${id}`)
+      const { verifiees, faux_positifs } = res.data
+      const [pRes, aRes] = await Promise.all([api.get(`/projets/${id}`), api.get(`/alertes/${id}`)])
+      setProjet(pRes.data)
+      setAlertes(aRes.data)
+      setVerifMsg(`${verifiees} alertes vérifiées — ${faux_positifs} faux positif${faux_positifs > 1 ? 's' : ''} écartés`)
+    } catch (err) {
+      setVerifMsg('Erreur lors de la vérification')
+    } finally {
+      setVerifEnCours(false)
+    }
+  }
+
   async function toutResoudre() {
     if (!confirm(`Résoudre les ${alertesActives.length} alertes actives ?`)) return
     await Promise.all(alertesActives.map(a =>
@@ -843,6 +862,13 @@ export default function Projet() {
                 {isAdmin && alertesActives.length > 1 && showAlertes && (
                   <>
                     <button
+                      onClick={e => { e.stopPropagation(); verifierAlertesIA() }}
+                      disabled={verifEnCours}
+                      style={{ fontSize: 13, padding: '4px 10px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, opacity: verifEnCours ? 0.6 : 1 }}
+                    >
+                      {verifEnCours ? '⏳ Vérification...' : '🤖 Vérifier avec IA'}
+                    </button>
+                    <button
                       onClick={e => { e.stopPropagation(); toutResoudre() }}
                       style={{ fontSize: 13, padding: '4px 10px', background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                     >
@@ -860,6 +886,11 @@ export default function Projet() {
             </div>
             {showAlertes && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {verifMsg && (
+                <p style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600, margin: 0, padding: '6px 10px', background: '#ede9fe', borderRadius: 6 }}>
+                  🤖 {verifMsg}
+                </p>
+              )}
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                 <strong>Résoudre</strong> archive l'alerte dans l'historique · <strong>Supprimer</strong> l'efface définitivement
               </p>
