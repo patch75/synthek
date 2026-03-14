@@ -118,7 +118,7 @@ function ProgrammeCard({ doc, isAdmin, onDelete }) {
   const [showFaits, setShowFaits] = useState(false)
   return (
     <>
-      <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div className="card programme-card-inner" style={{ borderLeft: '3px solid #7c3aed', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 700, fontSize: 14, margin: 0, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {doc.nom}
@@ -128,7 +128,7 @@ function ProgrammeCard({ doc, isAdmin, onDelete }) {
             {doc.indiceRevision && <> · <strong>{doc.indiceRevision}</strong></>}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div className="programme-card-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <span className="badge" style={{ background: '#7c3aed', color: 'white', fontSize: 11 }}>
             {doc.type.toUpperCase()}
           </span>
@@ -697,7 +697,7 @@ export default function Projet() {
     <div className="page">
       <header className="topbar">
         <button onClick={() => navigate(-1)} className="btn-ghost" style={{ fontSize: 22, lineHeight: 1 }}>⬅</button>
-        <img src={logo} alt="synthek" style={{ height: 60, cursor: 'pointer' }} onClick={() => navigate('/')} />
+        <img src={logo} alt="synthek" className="topbar-logo" style={{ height: 60, cursor: 'pointer' }} onClick={() => navigate('/')} />
         <div className="topbar-right">
           <button onClick={toggleTheme} className="btn-ghost" title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'} style={{ fontSize: 18, padding: '6px 10px' }}>
             {theme === 'dark' ? '☀️' : '🌙'}
@@ -830,13 +830,14 @@ export default function Projet() {
         {alertesActives.length > 0 && (
           <section className="section section--alertes">
             <div
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showAlertes ? 12 : 0 }}
+              className="section-title-row"
+              style={{ cursor: 'pointer', marginBottom: showAlertes ? 12 : 0 }}
               onClick={() => setShowAlertes(v => !v)}
             >
               <h2 className="section-title alert-title" style={{ marginBottom: 0 }}>
                 ⚠ {alertesActives.length} alerte{alertesActives.length > 1 ? 's' : ''} active{alertesActives.length > 1 ? 's' : ''}
               </h2>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="section-title-btns">
                 {isAdmin && alertesActives.length > 1 && showAlertes && (
                   <>
                     <button
@@ -980,12 +981,12 @@ export default function Projet() {
 
         {/* Documents */}
         <section className="section section--documents">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
+          <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
             <h2 className="section-title" style={{ marginBottom: 0 }}>
-            <span style={{ fontSize: 16 }}>📄</span> Documents
+              <span style={{ fontSize: 16 }}>📄</span> Documents
               <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>({projet.documents.filter(d => d.categorieDoc !== 'programme').length})</span>
             </h2>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div className="section-title-btns">
               {showDocuments && (<>
                 {!isBureauControle && (
                   <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/upload`) }} className="btn-primary" style={{ fontSize: 13 }}>+ Déposer</button>
@@ -1147,11 +1148,11 @@ export default function Projet() {
         {/* Bâtiments */}
         {isAdmin && (
           <section className="section section--batiments">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
+            <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
               <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
               </h2>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="section-title-btns">
                 {showBatiments && (<>
                   <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   <button onClick={e => { e.stopPropagation(); setNouvelleTypologie(v => v === null ? '' : null) }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>⚙️ Typologies</button>
@@ -1289,12 +1290,12 @@ export default function Projet() {
           const hasSousProgrammes = sousProgrammes.length > 0
           return (
             <section className="section section--programmes">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showProgrammes ? 12 : 0 }} onClick={() => setShowProgrammes(v => !v)}>
+              <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showProgrammes ? 12 : 0 }} onClick={() => setShowProgrammes(v => !v)}>
                 <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
                   <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>({programmes.length})</span>
                 </h2>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="section-title-btns">
                   {showProgrammes && (<>
                     {isAdmin && (
                       <button onClick={e => { e.stopPropagation(); setShowSousProgrammes(v => !v) }} className="btn-ghost" style={{ fontSize: 13, backgroundColor: '#f0f0ff', border: '1px solid #c5c5f0', color: '#5a5aaa' }}>

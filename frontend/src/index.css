@@ -643,6 +643,23 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
 .puce-valeur { font-size: 12px; color: var(--text-2); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* =========================================
+   SECTION TITLE ROW (responsive)
+   ========================================= */
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.section-title-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* =========================================
    JALON
    ========================================= */
 .jalon-actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -782,6 +799,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
   .topbar h1 { font-size: 16px; }
   .topbar-right { gap: 6px; }
   .topbar-right .text-muted { display: none; }
+  .topbar-logo { height: 40px !important; }
 
   .hero-banner { flex-direction: column; padding: 28px 24px; gap: 24px; }
   .hero-title { font-size: 18px; }
@@ -805,6 +823,18 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
   .onglets { width: 100%; overflow-x: auto; }
 
   .jalon-actions { flex-wrap: wrap; }
+
+  /* Section title rows */
+  .section-title-row { flex-wrap: wrap; }
+  .section-title-btns {
+    margin-left: auto;
+  }
+  .section-title-btns .btn-primary,
+  .section-title-btns .btn-secondary,
+  .section-title-btns .btn-ghost {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
 }
 
 /* =========================================
@@ -841,6 +871,52 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
   .section-actions button { font-size: 12px; padding: 7px 10px; }
 
   .empty-state { padding: 40px 16px; }
+
+  /* Section title btns full width sur très petit écran */
+  .section-title-btns {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* ProgrammeCard responsive */
+  .programme-card-inner {
+    flex-wrap: wrap;
+  }
+  .programme-card-inner .programme-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* Table documents → carte sur mobile */
+  .table-doc-mobile-card { display: flex; flex-direction: column; gap: 12px; }
+  .table-doc-card-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .table-doc-card-item .doc-nom {
+    font-weight: 700;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .table-doc-card-item .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .table-doc-card-item .doc-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
 }
 
 /* =========================================
