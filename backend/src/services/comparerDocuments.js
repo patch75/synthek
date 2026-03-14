@@ -630,7 +630,10 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
               projetId,
               message: `${labelMessage} ${alerte.message}`,
               criticite,
-              contexteSource: resumeEcartsSection ? resumeEcartsSection.substring(0, 4000) : null,
+              contexteSource: [
+                resumeEcartsSection ? `=== RÉFÉRENCE (CCTP/Programme) ===\n${resumeEcartsSection.substring(0, 3000)}` : null,
+                section.texte ? `=== DPGF ANALYSÉ ===\n${section.texte.substring(0, 3000)}` : null
+              ].filter(Boolean).join('\n\n'),
               documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
             }
           })
