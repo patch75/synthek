@@ -852,7 +852,7 @@ input[type="checkbox"], input[type="radio"] { width: auto; padding: 0; border: n
   .topbar h1 { font-size: 16px; }
   .topbar-right { gap: 6px; }
   .topbar-right .text-muted { display: none; }
-  .topbar-logo { height: 50px !important; }
+  .topbar-logo { height: 56px !important; }
 
   /* Burger : afficher bouton, cacher nav desktop */
   .topbar-nav { display: none; }
