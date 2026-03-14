@@ -105,7 +105,7 @@ body {
   top: var(--topbar-height);
   right: 0;
   width: 240px;
-  background: var(--surface);
+  background: var(--surface-solid);
   border-left: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   border-bottom-left-radius: var(--radius);
