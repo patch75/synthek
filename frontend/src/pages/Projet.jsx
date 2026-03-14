@@ -175,6 +175,7 @@ export default function Projet() {
   const { theme, toggleTheme } = useTheme()
   const [projet, setProjet] = useState(null)
   const [alertes, setAlertes] = useState([])
+  const [alerteSourceOuverte, setAlerteSourceOuverte] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showInvite, setShowInvite] = useState(false)
   const [emailInvite, setEmailInvite] = useState('')
@@ -994,6 +995,21 @@ export default function Projet() {
                                 </p>
                               )
                             })()}
+                            {alerte.contexteSource && (
+                              <div style={{ marginTop: 6 }}>
+                                <button
+                                  onClick={() => setAlerteSourceOuverte(alerteSourceOuverte === alerte.id ? null : alerte.id)}
+                                  style={{ fontSize: 11, padding: '2px 8px', background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                  {alerteSourceOuverte === alerte.id ? '▲ Masquer source' : '▼ Voir source IA'}
+                                </button>
+                                {alerteSourceOuverte === alerte.id && (
+                                  <pre style={{ marginTop: 6, padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 4, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto', color: 'var(--text-muted)' }}>
+                                    {alerte.contexteSource}
+                                  </pre>
+                                )}
+                              </div>
+                            )}
                             <div className="alerte-footer">
                               <span className="text-muted text-sm">
                                 Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
