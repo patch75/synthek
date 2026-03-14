@@ -1304,10 +1304,13 @@ export default function Projet() {
           return (
             <section className="section section--programmes">
               <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showProgrammes ? 12 : 0 }} onClick={() => setShowProgrammes(v => !v)}>
-                <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
-                  <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>({programmes.length})</span>
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                  <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>({programmes.length})</span>
+                  </h2>
+                  <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showProgrammes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+                </div>
                 <div className="section-title-btns">
                   {showProgrammes && (<>
                     {isAdmin && (
@@ -1321,7 +1324,6 @@ export default function Projet() {
                       </button>
                     )}
                   </>)}
-                  <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showProgrammes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
                 </div>
               </div>
 
@@ -1479,10 +1481,10 @@ export default function Projet() {
         {/* V3 — Configuration IA (admin uniquement) */}
         {isAdmin && (
           <section className="section section--config">
-            <div className="section-header" style={{ cursor: 'pointer' }} onClick={() => showConfig ? setShowConfig(false) : chargerConfig()}>
-              <h2>Configuration IA</h2>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showConfig ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+            <div className="section-title-row" style={{ cursor: 'pointer' }} onClick={() => showConfig ? setShowConfig(false) : chargerConfig()}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Configuration IA</h2>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showConfig ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
               </div>
             </div>
             {showConfig && (
