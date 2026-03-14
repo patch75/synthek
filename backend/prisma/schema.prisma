@@ -134,8 +134,9 @@ model Alerte {
   resoluePar              String?   // 'manuelle' | 'automatique'
   justificationDerogation String?   @db.Text
 
-  // Traçabilité — extrait du document source utilisé par l'IA
-  contexteSource          String?   @db.Text
+  // Traçabilité — extraits utilisés par l'IA
+  contexteSource          String?   @db.Text  // référence CCTP/Programme
+  dpgfSource              String?   @db.Text  // extrait DPGF analysé
 
   projet         Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
   documents      AlerteDocument[]

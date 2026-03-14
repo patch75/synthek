@@ -176,6 +176,7 @@ export default function Projet() {
   const [projet, setProjet] = useState(null)
   const [alertes, setAlertes] = useState([])
   const [alerteSourceOuverte, setAlerteSourceOuverte] = useState(null)
+  const [alerteDpgfOuverte, setAlerteDpgfOuverte] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showInvite, setShowInvite] = useState(false)
   const [emailInvite, setEmailInvite] = useState('')
@@ -995,18 +996,37 @@ export default function Projet() {
                                 </p>
                               )
                             })()}
-                            {alerte.contexteSource && (
-                              <div style={{ marginTop: 6 }}>
-                                <button
-                                  onClick={() => setAlerteSourceOuverte(alerteSourceOuverte === alerte.id ? null : alerte.id)}
-                                  style={{ fontSize: 11, padding: '2px 8px', background: 'var(--primary-light)', color: 'var(--primary)', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                  {alerteSourceOuverte === alerte.id ? '▲ Masquer source' : '▼ Voir source IA'}
-                                </button>
-                                {alerteSourceOuverte === alerte.id && (
-                                  <pre style={{ marginTop: 6, padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: 4, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto', color: 'var(--text-muted)' }}>
-                                    {alerte.contexteSource}
-                                  </pre>
+                            {(alerte.contexteSource || alerte.dpgfSource) && (
+                              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {alerte.contexteSource && (
+                                  <div>
+                                    <button
+                                      onClick={() => setAlerteSourceOuverte(alerteSourceOuverte === alerte.id ? null : alerte.id)}
+                                      style={{ fontSize: 11, padding: '2px 8px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                                    >
+                                      {alerteSourceOuverte === alerte.id ? '▲ Masquer CCTP/Programme' : '▼ Voir CCTP/Programme'}
+                                    </button>
+                                    {alerteSourceOuverte === alerte.id && (
+                                      <pre style={{ marginTop: 4, padding: '8px 10px', background: '#eff6ff', borderRadius: 4, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto', color: 'var(--text-muted)' }}>
+                                        {alerte.contexteSource}
+                                      </pre>
+                                    )}
+                                  </div>
+                                )}
+                                {alerte.dpgfSource && (
+                                  <div>
+                                    <button
+                                      onClick={() => setAlerteDpgfOuverte(alerteDpgfOuverte === alerte.id ? null : alerte.id)}
+                                      style={{ fontSize: 11, padding: '2px 8px', background: '#dcfce7', color: '#15803d', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                                    >
+                                      {alerteDpgfOuverte === alerte.id ? '▲ Masquer DPGF' : '▼ Voir DPGF'}
+                                    </button>
+                                    {alerteDpgfOuverte === alerte.id && (
+                                      <pre style={{ marginTop: 4, padding: '8px 10px', background: '#f0fdf4', borderRadius: 4, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto', color: 'var(--text-muted)' }}>
+                                        {alerte.dpgfSource}
+                                      </pre>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             )}
