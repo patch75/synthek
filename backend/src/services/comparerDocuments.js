@@ -630,7 +630,7 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
               projetId,
               message: `${labelMessage} ${alerte.message}`,
               criticite,
-              contexteSource: resumeEcartsSection ? resumeEcartsSection.substring(0, 4000) : null,
+              contexteSource: section.texte ? section.texte.substring(0, 4000) : null,
               dpgfSource: section.texte ? section.texte.substring(0, 4000) : null,
               documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
             }
