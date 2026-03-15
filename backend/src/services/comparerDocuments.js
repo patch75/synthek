@@ -636,10 +636,10 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
               message: `${labelMessage} ${alerte.message}`,
               criticite,
               contexteSource: categorieDoc === 'dpgf'
-                ? (docsRef.filter(r => r.contenuTexte).map(r => extraireSectionPertinente(r.contenuTexte, section.label, section.texte).substring(0, 2000)).join('\n\n---\n\n').substring(0, 4000) || null)
+                ? (docsRef.filter(r => r.contenuTexte).map(r => extraireSectionPertinente(r.contenuTexte, null, alerte.message).substring(0, 2000)).join('\n\n---\n\n').substring(0, 4000) || null)
                 : (section.texte ? section.texte.substring(0, 4000) : null),
               dpgfSource: categorieDoc === 'dpgf'
-                ? (section.texte ? section.texte.substring(0, 4000) : null)
+                ? (section.texte ? extraireSectionPertinente(section.texte, null, alerte.message).substring(0, 4000) : null)
                 : null,
               documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
             }
