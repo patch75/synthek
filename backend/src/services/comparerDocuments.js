@@ -630,8 +630,12 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
               projetId,
               message: `${labelMessage} ${alerte.message}`,
               criticite,
-              contexteSource: section.texte ? section.texte.substring(0, 4000) : null,
-              dpgfSource: section.texte ? section.texte.substring(0, 4000) : null,
+              contexteSource: categorieDoc === 'dpgf'
+                ? (docsRef.filter(r => r.contenuTexte).map(r => r.contenuTexte.substring(0, 2000)).join('\n\n---\n\n').substring(0, 4000) || null)
+                : (section.texte ? section.texte.substring(0, 4000) : null),
+              dpgfSource: categorieDoc === 'dpgf'
+                ? (section.texte ? section.texte.substring(0, 4000) : null)
+                : null,
               documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
             }
           })
