@@ -508,7 +508,12 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     sectionsATraiter = [{ texte: extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte), label: nomSousProgramme || null }]
   }
 
+  // TEST TEMPORAIRE — limiter à BAT A uniquement
+  sectionsATraiter = sectionsATraiter.filter(s => !s.label || s.label.toUpperCase().includes('BAT A'))
+  // FIN TEST
+
   console.log(`[comparerDocuments] ${sectionsATraiter.length} section(s) à traiter pour "${nomDoc}"`)
+
 
   const refIds = docsRef.map(r => r.id)
   const uniqueDocIds = [...new Set([documentId, ...refIds])]
