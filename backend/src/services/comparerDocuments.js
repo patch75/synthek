@@ -283,6 +283,22 @@ function chunkerTexte(texte, tailleChunk = 6000, overlap = 500) {
 }
 
 /**
+ * Extrait la section DPGF correspondant à un numéro de section (ex: "3.1.3")
+ * en se basant sur les marqueurs [SECTION] du texte parsé.
+ * Retourne null si non trouvé.
+ */
+function extraireSectionDpgf(texteDpgf, numeroSection) {
+  if (!texteDpgf || !numeroSection) return null
+  const blocs = texteDpgf.split(/\[SECTION\]/i)
+  // Cherche le bloc dont le début correspond au numéro de section
+  const normNum = numeroSection.replace(/\./g, '\\.') // échapper les points pour regex
+  const re = new RegExp(`^\\s*${normNum}[.\\s]`)
+  const bloc = blocs.find(b => re.test(b.trim()))
+  if (!bloc || bloc.trim().length < 10) return null
+  return bloc.trim()
+}
+
+/**
  * Découpe un texte produit par le parser Python en feuilles distinctes.
  * Exploite les séparateurs "=== Feuille: NOM ===" générés par le microservice Python.
  * Retourne [{nom, texte}], en excluant les feuilles RECAP.
@@ -639,7 +655,13 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
                 ? (docsRef.filter(r => r.contenuTexte).map(r => extraireSectionPertinente(r.contenuTexte, null, alerte.message).substring(0, 2000)).join('\n\n---\n\n').substring(0, 4000) || null)
                 : (section.texte ? section.texte.substring(0, 4000) : null),
               dpgfSource: categorieDoc === 'dpgf'
-                ? (section.texte ? extraireSectionPertinente(section.texte, null, alerte.message).substring(0, 4000) : null)
+                ? (() => {
+                    const numMatch = alerte.message.match(/§([\d.]+)/)
+                    const section_dpgf = numMatch ? extraireSectionDpgf(section.texte, numMatch[1]) : null
+                    return section_dpgf
+                      ? section_dpgf.substring(0, 4000)
+                      : (section.texte ? extraireSectionPertinente(section.texte, null, alerte.message).substring(0, 4000) : null)
+                  })()
                 : null,
               documents: { create: uniqueDocIds.map(id => ({ documentId: id })) }
             }
