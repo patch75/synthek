@@ -283,19 +283,30 @@ function chunkerTexte(texte, tailleChunk = 6000, overlap = 500) {
 }
 
 /**
- * Extrait la section DPGF correspondant à un numéro de section (ex: "3.1.3")
- * en se basant sur les marqueurs [SECTION] du texte parsé.
+ * Extrait la section DPGF correspondant à un numéro de section (ex: "3.1.4")
+ * depuis le [SECTION] correspondant jusqu'au prochain [SECTION] numéroté différent.
+ * Les sous-sections non numérotées (ex: "Colonne montante EF") sont incluses.
  * Retourne null si non trouvé.
  */
 function extraireSectionDpgf(texteDpgf, numeroSection) {
   if (!texteDpgf || !numeroSection) return null
-  const blocs = texteDpgf.split(/\[SECTION\]/i)
-  // Cherche le bloc dont le début correspond au numéro de section
-  const normNum = numeroSection.replace(/\./g, '\\.') // échapper les points pour regex
-  const re = new RegExp(`^\\s*${normNum}[.\\s]`)
-  const bloc = blocs.find(b => re.test(b.trim()))
-  if (!bloc || bloc.trim().length < 10) return null
-  return bloc.trim()
+
+  const normNum = numeroSection.replace(/\./g, '\\.')
+  const reDebut = new RegExp(`\\[SECTION\\]\\s*${normNum}[.\\s]`, 'i')
+  const debutMatch = reDebut.exec(texteDpgf)
+  if (!debutMatch) return null
+
+  const debut = debutMatch.index
+  const apresDebut = debut + debutMatch[0].length
+
+  // Cherche le prochain [SECTION] suivi d'un numéro de section (ex: "3.1.5." ou "3.2.")
+  const reProchain = /\[SECTION\]\s*\d+\.\d/gi
+  reProchain.lastIndex = apresDebut
+  const prochainMatch = reProchain.exec(texteDpgf)
+  const fin = prochainMatch ? prochainMatch.index : texteDpgf.length
+
+  const extrait = texteDpgf.substring(debut, fin).trim()
+  return extrait.length > 10 ? extrait : null
 }
 
 /**
