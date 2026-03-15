@@ -1004,7 +1004,7 @@ export default function Projet() {
                                       onClick={() => setAlerteSourceOuverte(alerteSourceOuverte === alerte.id ? null : alerte.id)}
                                       style={{ fontSize: 11, padding: '2px 8px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
                                     >
-                                      {alerteSourceOuverte === alerte.id ? '▲ Masquer CCTP/Programme' : '▼ Voir CCTP/Programme'}
+                                      {alerteSourceOuverte === alerte.id ? '▲ Masquer CCTP' : '▼ Voir CCTP'}
                                     </button>
                                     {alerteSourceOuverte === alerte.id && (
                                       <pre style={{ marginTop: 4, padding: '8px 10px', background: '#eff6ff', borderRadius: 4, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflowY: 'auto', color: 'var(--text-muted)' }}>
