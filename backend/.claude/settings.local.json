@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install pdfkit 2>&1 | tail -5)",
+      "Bash(npm run db:migrate -- --name \"puces_visas_phase_roles\" 2>&1)"
+    ]
+  }
+}

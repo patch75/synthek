@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /Users/pat/Desktop/climatic/synthek/frontend/src/pages/*.jsx | tail -10)",
+      "Bash(cd /Users/pat/Desktop/climatic/synthek/backend && npm run db:migrate 2>&1)",
+      "Bash(cd /Users/pat/Desktop/climatic/synthek/backend && npx prisma generate 2>&1)"
+    ]
+  }
+}

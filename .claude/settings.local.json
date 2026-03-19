@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"\nconst mammoth = require\\('./backend/node_modules/mammoth'\\)\nconst fs = require\\('fs'\\)\nmammoth.extractRawText\\({ path: 'cctp_cvc.docx' }\\).then\\(r => console.log\\(r.value\\)\\)\n\")",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -c \"\\\\conninfo\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -c \"\\\\conninfo\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -c \"CREATE DATABASE synthek;\")",
+      "Bash(npm install:*)",
+      "Read(//tmp/**)",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c \"\\\\d \"\"Document\"\"\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c \"SELECT id, nom, \"\"categorieDoc\"\" FROM \"\"Document\"\" ORDER BY id DESC LIMIT 5;\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c \"\\\\d \"\"Puce\"\"\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c 'SELECT id, \"\"documentId\"\", \"\"valeurCle\"\", \"\"typeLivrable\"\" FROM \"\"Puce\"\";')",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c 'SELECT p.id, p.nom FROM \"\"Projet\"\" p;')",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c 'SELECT id, \"\"projetId\"\", nom, type, \"\"contenuTexte\"\" IS NOT NULL as \"\"aTexte\"\" FROM \"\"Document\"\";')",
+      "Bash(curl -s -H \"Authorization: token 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\" https://api.github.com/user)"
+    ]
+  }
+}

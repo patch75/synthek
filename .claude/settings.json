@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Fabien/Desktop/SYNTHEK/ DEV/synthek/backend/**)",
+      "Bash(grep -v \"//\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c \"\\\\dt\")",
+      "Bash(sed -n '/^model FaitDocument {/,/^}/p' \"/c/Users/Fabien/Desktop/SYNTHEK DEV/synthek/backend/prisma/schema.prisma\")",
+      "Bash(sed -n '/^model VocabulaireGlobal {/,/^}/p' \"/c/Users/Fabien/Desktop/SYNTHEK DEV/synthek/backend/prisma/schema.prisma\")",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c ':*)",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c '\\\\d \"\"SousProgramme\"\"')",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c '\\\\d \"\"Alerte\"\"')",
+      "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c '\\\\d \"\"Document\"\"')",
+      "Bash(pip install:*)",
+      "Bash(curl -s http://localhost:3000/health 2)",
+      "Bash(1 curl:*)",
+      "Bash(powershell -Command \"& ''C:\\\\Users\\\\Fabien\\\\AppData\\\\Local\\\\Programs\\\\Microsoft VS Code\\\\bin\\\\code.cmd'' --install-extension dsznajder.es7-react-js-snippets\")",
+      "Bash(find . -name \"._*\" -not -path \"./.git/*\" -delete)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Fabien\\Desktop\\SYNTHEK DEV\\synthek\\backend\\prisma"
+    ]
+  }
+}

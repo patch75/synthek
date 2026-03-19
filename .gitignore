@@ -140,3 +140,17 @@ vite.config.ts.timestamp-*
 
 # Script de déploiement local (contient des infos sensibles)
 deploy.sh
+
+# Fichiers macOS
+.DS_Store
+**/.DS_Store
+._*
+**/._*
+
+# Dossiers générés localement
+backend/uploads/
+backend/storage/
+
+# Fichiers locaux
+instructions.rtf
+publier.bat
