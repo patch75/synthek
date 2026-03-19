@@ -9,6 +9,8 @@ import pdfplumber
 import base64
 import io
 import traceback
+from comparaison_cctp_dpgf import extraire_cctp, extraire_dpgf, detecter_alertes, extraire_programme
+from equivalences_fluides import est_ligne_exclue, sont_equivalents
 
 app = Flask(__name__)
 
@@ -184,6 +186,102 @@ def route_pdf():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
+
+
+def _criticite_moeai_to_synthek(code):
+    """Convertit le code MOE.AI en criticité Synthek — V2.1 complet."""
+    return {
+        'C01': 'MAJEUR',
+        'C02': 'MINEUR',
+        'C03': 'CRITIQUE',
+        'C04': 'MAJEUR',
+        'C05': 'CRITIQUE',
+        'INCERTAIN': 'INCERTAIN',
+    }.get(code, 'MINEUR')
+
+
+@app.route('/compare/cctp-dpgf', methods=['POST'])
+def route_compare_cctp_dpgf():
+    """
+    Compare un CCTP et un DPGF selon les règles MOE.AI.
+
+    Body JSON :
+    {
+        "cctp": "<base64 du .docx>",
+        "dpgf": "<base64 du .xlsx>",
+        "config": {
+            "projet": "Mon projet",
+            "mapping_batiments": {
+                "CCTP_section_3": ["BAT A", "BAT B"]
+            },
+            "programme": [
+                {
+                    "nom": "Bâtiment A",
+                    "section_cctp": "CCTP_section_3",
+                    "feuilles_dpgf": ["BAT A"],
+                    "nb_logements_total": 12,
+                    "types_logements": {"Accession": 8, "BRS": 4},
+                    "systeme_chauffage": "Chaudière gaz N0/N1 + PAC N2"
+                }
+            ]
+        }
+    }
+
+    Retourne :
+    {
+        "alertes": [ ... ],
+        "nb_alertes": 5,
+        "nb_conformes": 245
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'cctp' not in data or 'dpgf' not in data:
+            return jsonify({'error': 'cctp (base64) et dpgf (base64) requis'}), 400
+
+        cctp_bytes = base64.b64decode(data['cctp'])
+        dpgf_bytes = base64.b64decode(data['dpgf'])
+        config = data.get('config', {})
+
+        if not config.get('mapping_batiments'):
+            config['mapping_batiments'] = {}
+
+        # Extraire le programme bâtiment si présent
+        programme = extraire_programme(config) if 'programme' in config else None
+
+        articles = extraire_cctp(cctp_bytes, config)
+        lignes = extraire_dpgf(dpgf_bytes, config)
+        alertes = detecter_alertes(
+            articles, lignes, config,
+            utiliser_ia=False,
+            programme=programme,
+        )
+
+        return jsonify({
+            'alertes': [
+                {
+                    'code': a.code,
+                    'criticite': _criticite_moeai_to_synthek(a.code),
+                    'confiance': a.confiance,
+                    'batiment': a.batiment,
+                    'cctp_section': a.cctp_section,
+                    'cctp_texte': a.cctp_texte,
+                    'dpgf_feuille': a.dpgf_feuille,
+                    'dpgf_ligne': a.dpgf_ligne,
+                    'dpgf_texte': a.dpgf_texte,
+                    'motif': a.motif,
+                    'regle': a.regle,
+                    'methode': a.methode,
+                }
+                for a in alertes
+            ],
+            'nb_alertes': len(alertes),
+            'nb_conformes': max(0, len(articles) - len(alertes)),
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':

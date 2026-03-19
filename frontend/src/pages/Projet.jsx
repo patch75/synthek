@@ -200,6 +200,8 @@ export default function Projet() {
   const [deleteResoudreAlertes, setDeleteResoudreAlertes] = useState(false)
   const [showComparerModal, setShowComparerModal] = useState(null) // { id, nom }
   const [showTexteModal, setShowTexteModal] = useState(null) // { id, nom, contenuTexte, loading }
+  const [showPreAnalyse, setShowPreAnalyse] = useState(null) // { loading, data, error }
+  const [preAnalyseFeedback, setPreAnalyseFeedback] = useState({}) // { idx: 'ok'|'fp' }
 
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
@@ -1195,6 +1197,23 @@ export default function Projet() {
                                 style={{ fontSize: 12, padding: '4px 8px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                 title="Voir le texte extrait"
                               >👁</button>
+                              {doc.categorieDoc === 'dpgf' && (
+                                <button
+                                  onClick={async () => {
+                                    const ids = projet.documents.filter(d => d.categorieDoc === 'cctp').map(d => d.id)
+                                    setPreAnalyseFeedback({})
+                                    setShowPreAnalyse({ loading: true, data: null, error: null })
+                                    try {
+                                      const res = await api.post(`/documents/${doc.id}/pre-analyse`, { idsRef: ids })
+                                      setShowPreAnalyse({ loading: false, data: res.data, error: null })
+                                    } catch (e) {
+                                      setShowPreAnalyse({ loading: false, data: null, error: e.response?.data?.error || e.message })
+                                    }
+                                  }}
+                                  style={{ fontSize: 12, padding: '4px 8px', background: '#f59e0b', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                                  title="Pré-analyse Python (sans IA)"
+                                >🔍 Python</button>
+                              )}
                               {(doc.categorieDoc === 'cctp' || doc.categorieDoc === 'dpgf') && (
                                 <button
                                   onClick={() => {
@@ -2050,6 +2069,88 @@ export default function Projet() {
                 <button type="button" onClick={() => setShowEditProjet(false)} className="btn-ghost">Annuler</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pré-analyse Python */}
+      {showPreAnalyse && (
+        <div className="modal-overlay" onClick={() => setShowPreAnalyse(null)}>
+          <div className="modal-card" style={{ maxWidth: 820, width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🔍 Pré-analyse Python</h3>
+              <button className="btn-ghost" onClick={() => setShowPreAnalyse(null)} style={{ padding: '4px 8px' }}>✕</button>
+            </div>
+
+            {showPreAnalyse.loading && (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, padding: '20px 0' }}>Analyse en cours… (peut prendre 10-30s)</p>
+            )}
+            {showPreAnalyse.error && (
+              <p style={{ color: '#ef4444', fontSize: 13, padding: '20px 0' }}>{showPreAnalyse.error}</p>
+            )}
+            {showPreAnalyse.data && (() => {
+              const d = showPreAnalyse.data
+              const alertes = d.alertes || []
+              const nbOk = Object.values(preAnalyseFeedback).filter(v => v === 'ok').length
+              const nbFp = Object.values(preAnalyseFeedback).filter(v => v === 'fp').length
+              const CRITICITE_COLOR = { CRITIQUE: '#ef4444', MAJEUR: '#f59e0b', MINEUR: '#6b7280', INCERTAIN: '#8b5cf6' }
+              const CODE_LABEL = { C01: 'CCTP→absent DPGF', C02: 'DPGF orphelin', C03: 'Type différent', C04: 'Marque différente', C05: 'Puissance différente', INCERTAIN: 'Désignation incertaine' }
+
+              // Filtrer : exclure les batiments "SECTION_X" (faux positifs mapping vide)
+              const alertesFiltrees = alertes.filter(a => a.batiment && !a.batiment.match(/^SECTION_/))
+
+              return (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <div style={{ padding: '8px 0 12px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--text-muted)' }}>
+                    <strong style={{ color: 'var(--text)' }}>{d.dpgf_nom}</strong> vs <strong style={{ color: 'var(--text)' }}>{d.cctp_nom}</strong>
+                    <span style={{ marginLeft: 16 }}>{alertesFiltrees.length} écarts détectés</span>
+                    {(nbOk + nbFp) > 0 && <span style={{ marginLeft: 12, color: '#22c55e' }}>✓ {nbOk} judicieux</span>}
+                    {nbFp > 0 && <span style={{ marginLeft: 8, color: '#6b7280' }}>✗ {nbFp} faux positifs</span>}
+                    <span style={{ marginLeft: 12, fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10 }}>Résultats non sauvegardés — calibrage uniquement</span>
+                  </div>
+
+                  <div style={{ flex: 1, overflowY: 'auto', paddingTop: 8 }}>
+                    {alertesFiltrees.length === 0 && (
+                      <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>Aucun écart détecté (mapping bâtiment non configuré — résultats partiels).</p>
+                    )}
+                    {alertesFiltrees.map((a, idx) => {
+                      const fb = preAnalyseFeedback[idx]
+                      return (
+                        <div key={idx} style={{
+                          padding: '10px 12px', marginBottom: 6, borderRadius: 8,
+                          background: fb === 'ok' ? '#f0fdf4' : fb === 'fp' ? '#f9fafb' : 'var(--bg-card)',
+                          border: `1px solid ${fb === 'ok' ? '#86efac' : fb === 'fp' ? '#e5e7eb' : 'var(--border)'}`,
+                          opacity: fb === 'fp' ? 0.5 : 1
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, background: CRITICITE_COLOR[a.criticite] || '#6b7280', color: 'white', padding: '2px 7px', borderRadius: 10 }}>{a.criticite}</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg)', padding: '2px 7px', borderRadius: 10, border: '1px solid var(--border)' }}>{CODE_LABEL[a.code] || a.code}</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.batiment}</span>
+                              </div>
+                              <p style={{ fontSize: 13, color: 'var(--text)', margin: 0, marginBottom: a.cctp_texte || a.dpgf_texte ? 4 : 0 }}>{a.motif}</p>
+                              {a.cctp_texte && <p style={{ fontSize: 11, color: '#0ea5e9', margin: 0 }}>CCTP{a.cctp_section ? ` §${a.cctp_section}` : ''} : « {a.cctp_texte.substring(0, 120)} »</p>}
+                              {a.dpgf_texte && <p style={{ fontSize: 11, color: '#22c55e', margin: 0 }}>DPGF : « {a.dpgf_texte.substring(0, 120)} »</p>}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                              <button
+                                onClick={() => setPreAnalyseFeedback(prev => ({ ...prev, [idx]: prev[idx] === 'ok' ? undefined : 'ok' }))}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontWeight: 600, background: fb === 'ok' ? '#22c55e' : 'white', color: fb === 'ok' ? 'white' : '#22c55e', borderColor: '#22c55e' }}
+                              >✓ Judicieux</button>
+                              <button
+                                onClick={() => setPreAnalyseFeedback(prev => ({ ...prev, [idx]: prev[idx] === 'fp' ? undefined : 'fp' }))}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontWeight: 600, background: fb === 'fp' ? '#6b7280' : 'white', color: fb === 'fp' ? 'white' : '#6b7280', borderColor: '#6b7280' }}
+                              >✗ Faux positif</button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

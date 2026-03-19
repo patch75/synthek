@@ -280,6 +280,82 @@ router.post('/:id/comparer', async (req, res) => {
     .catch(err => console.error('Erreur comparaison:', err.message))
 })
 
+// POST /documents/:id/pre-analyse — pré-analyse Python (diff binaire, pas d'écriture en base)
+router.post('/:id/pre-analyse', async (req, res) => {
+  const docId = parseInt(req.params.id)
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { id: docId },
+      select: { id: true, nom: true, categorieDoc: true, projetId: true, cheminFichier: true, type: true }
+    })
+    if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+    if (doc.categorieDoc !== 'dpgf') return res.status(400).json({ error: 'Pré-analyse disponible uniquement pour les DPGF' })
+
+    // Trouver le CCTP de référence parmi les docs du projet
+    const idsRefRaw = req.body.idsRef
+    let cctpDoc
+    if (idsRefRaw?.length > 0) {
+      cctpDoc = await prisma.document.findFirst({
+        where: { id: { in: idsRefRaw.map(Number) }, categorieDoc: 'cctp' },
+        select: { cheminFichier: true, nom: true }
+      })
+    }
+    if (!cctpDoc) {
+      cctpDoc = await prisma.document.findFirst({
+        where: { projetId: doc.projetId, categorieDoc: 'cctp' },
+        select: { cheminFichier: true, nom: true }
+      })
+    }
+    if (!cctpDoc) return res.status(400).json({ error: 'Aucun CCTP trouvé dans le projet' })
+
+    const dpgfPath = path.resolve(doc.cheminFichier)
+    const cctpPath = path.resolve(cctpDoc.cheminFichier)
+    if (!fs.existsSync(dpgfPath)) return res.status(400).json({ error: 'Fichier DPGF introuvable sur le disque' })
+    if (!fs.existsSync(cctpPath)) return res.status(400).json({ error: 'Fichier CCTP introuvable sur le disque' })
+
+    const dpgfBuf = fs.readFileSync(dpgfPath)
+    const cctpBuf = fs.readFileSync(cctpPath)
+
+    const PARSER_URL = process.env.PARSER_SERVICE_URL || 'http://127.0.0.1:5001'
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 60000)
+    const response = await fetch(`${PARSER_URL}/compare/cctp-dpgf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cctp: cctpBuf.toString('base64'),
+        dpgf: dpgfBuf.toString('base64'),
+        config: { mapping_batiments: {} }
+      }),
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) throw new Error(`Parser service: ${response.status}`)
+    const data = await response.json()
+
+    // Grouper par bâtiment pour affichage
+    const parBatiment = {}
+    for (const a of data.alertes || []) {
+      const bat = a.batiment || 'Inconnu'
+      if (!parBatiment[bat]) parBatiment[bat] = []
+      parBatiment[bat].push(a)
+    }
+
+    res.json({
+      nb_alertes: data.nb_alertes,
+      nb_conformes: data.nb_conformes,
+      cctp_nom: cctpDoc.nom,
+      dpgf_nom: doc.nom,
+      par_batiment: parBatiment,
+      alertes: data.alertes || []
+    })
+  } catch (err) {
+    console.error('[pre-analyse]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /documents/:id/texte — retourne le contenu texte extrait
 router.get('/:id/texte', async (req, res) => {
   const docId = parseInt(req.params.id)

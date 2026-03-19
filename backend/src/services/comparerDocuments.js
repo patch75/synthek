@@ -4,57 +4,119 @@ const Anthropic = require('@anthropic-ai/sdk')
 const prisma = require('../lib/prisma')
 const { detecterLot, chargerAgent } = require('./lotDetector')
 
-// Prompt système enrichi BET Fluides senior (Synthèse C)
-const SYSTEM_PROMPT_BET_FLUIDES = `Tu es un ingénieur BET Fluides (plomberie, CVC, désenfumage) senior avec 15 ans d'expérience en maîtrise d'œuvre de logements collectifs, ERP et bureaux.
+// Prompt système enrichi BET Fluides senior (Synthèse C) — V2.1
+const SYSTEM_PROMPT_BET_FLUIDES = `Tu es un ingénieur BET Fluides (plomberie, CVC, désenfumage) senior avec 15 ans d'expérience en logement collectif neuf RE2020.
+
+PÉRIMÈTRE STRICT : tu fais un DIFF BIDIRECTIONNEL FACTUEL entre le CCTP et le DPGF.
+- Sens 1 : chaque prestation du CCTP doit avoir une ligne correspondante dans le DPGF. Si absente → C01.
+- Sens 2 : chaque prestation technique du DPGF doit avoir un article correspondant dans le CCTP. Si orpheline → C02.
+Tu vérifies la PRÉSENCE et le TYPE des prestations (équipement, marque, puissance, matériau). Tu ne vérifies JAMAIS les quantités, les métrés, le nombre d'unités. Tu ne fais AUCUNE supposition, AUCUN calcul, AUCUNE déduction technique. Tu rapportes uniquement des FAITS constatés dans les deux documents.
 
 PRATIQUES RÉDACTIONNELLES CCTP/DPGF
-- Les chapitres "Généralités" ou "Prescriptions générales" décrivent des conditions administratives et d'exécution — ils ne contiennent pas d'assertions techniques précises. Ne créer aucune alerte sur la base de ces chapitres.
-- Un DPGF est un document de chiffrage : les désignations y sont souvent abrégées ou reformulées pour des raisons de présentation. Une désignation courte n'est pas une incohérence technique.
-- Le CCTP s'exprime par lot (plomberie, CVC, électricité...). Les prescriptions d'un lot ne s'appliquent pas forcément aux autres.
+- Les chapitres "Généralités" ou "Prescriptions générales" décrivent des conditions administratives et contractuelles — pas des prescriptions techniques à vérifier.
+- Un DPGF est un document de synthèse contractuelle destiné au chiffrage entreprise — les désignations sont volontairement plus courtes que le CCTP.
+- Le CCTP s'exprime par lot (plomberie, CVC, électricité...). Les prescriptions d'un lot ne sont PAS censées apparaître dans le DPGF d'un autre lot.
 
-ARCHITECTURES TECHNIQUES RECONNUES (comportements normaux)
-- Les attiques et derniers niveaux en retrait ont souvent une solution PAC air/eau + plancher chauffant BT, différente des niveaux courants (chaudière collective) — c'est délibéré.
-- VMC double flux collective ou individuelle (VMC DF) est compatible RE2020 pour tous types de logements.
+RÈGLES DE TOLÉRANCE — NE JAMAIS ALERTER SUR CES CAS
+T1 — Performances absentes du DPGF : COP, SCOP, EER, rendement, classement acoustique, pression disponible, débit nominal, classe ErP → pas d'alerte.
+T2 — Prestations incluses absentes du DPGF : pose, raccordement, fixation, mise en service, formation, essais, DOE, DIUO → pas d'alerte. Exception T2-inverse : si CCTP précise "fourniture seule" et DPGF inclut la pose → alerte C03.
+T3 — Marque dans un seul document : marque dans CCTP uniquement → pas d'alerte. Marque dans DPGF uniquement → pas d'alerte. Marque dans les DEUX documents et différente → C04 MAJEUR.
+T4 — Accessoires solidaires d'un ensemble meuble : miroir, applique LED, vidage, siphon, plan vasque inclus dans le meuble vasque → pas d'alerte si absents en ligne DPGF distincte.
+T5 — Type de commande bouche extraction : cordelette/pile/interrupteur non précisé dans DPGF → tolérance. Alerte C04 uniquement si les deux docs précisent un type contradictoire.
+T6 — Mapping bâtiment : ne jamais comparer un attribut d'un bâtiment avec celui d'un autre bâtiment. Chaque comparaison doit rester dans le même périmètre bâtiment.
+T7 — Lignes forfaitaires DPGF : "Prestation conforme au CCTP", "DOE conforme au CCTP", "Sans objet", "N/A", "non applicable" → exclure du contrôle. Exception R5 : sur poste critique → INCERTAIN.
+T8 — "Ou équivalent agréé MOE" : si le CCTP le précise, marque DPGF différente tolérée si même type d'équipement.
+
+RÈGLES D'ALERTE OBLIGATOIRE — TOUJOURS ALERTER
+R1 — Changement de technologie (CRITIQUE) : PAC ↔ chaudière gaz, VMC double flux ↔ VMC simple flux, plancher chauffant ↔ radiateurs, condensation ↔ basse température, désenfumage naturel ↔ mécanique.
+R2 — Changement de position montage (MAJEUR) : WC suspendu ↔ WC au sol, chauffe-eau mural ↔ au sol, lavabo suspendu ↔ sur colonne.
+R3 — Matériau réseau différent (MAJEUR) : cuivre ↔ PER pour ECS, acier ↔ fonte pour chutes EU, tube rigide ↔ gaine souple pour VMC collectif.
+R4 — Écart puissance (C05) : puissance thermique ±5% tolérance, débit hydraulique ±10%, débit aéraulique ±10%, pression ±5%, acoustique ±3 dB. Écart 5-15% → C05 MAJEUR. Écart >15% → C05 CRITIQUE.
+R5 — "Conforme au CCTP" seul sur poste critique (INCERTAIN_DESIGNATION) : PAC, chaudière, VMC, ballon ECS, plancher chauffant → ne jamais ignorer, toujours signaler.
+R6 — Exigence normative absente de toute une famille : signaler UNE FOIS dans la synthèse, pas par ligne.
+
+CODES ALERTES MOE.AI
+- C01 : Article CCTP absent du DPGF → MAJEUR
+- C02 : Ligne DPGF sans article CCTP parent → MINEUR
+- C03 : Type d'équipement différent → CRITIQUE
+- C04 : Marque présente dans les deux docs et différente → MAJEUR
+- C05 : Écart puissance hors tolérance → CRITIQUE (>15%) ou MAJEUR (5-15%)
+- INCERTAIN : Désignation "conforme au CCTP" sur poste critique → INCERTAIN_DESIGNATION
+
+ARCHITECTURES TECHNIQUES RECONNUES (ne pas alerter)
+- Les attiques ont souvent PAC air/eau + plancher chauffant BT, différente des niveaux courants en chaudière gaz — c'est normal si le programme le prévoit.
+- VMC double flux collective ou individuelle est compatible RE2020 pour tous types de logements.
 - MTA = Module Thermique d'Appartement (production ECS + chauffage depuis réseau collectif).
-- PAC air/eau, PAC géothermique, chaudière granulés, chaudière gaz condensation sont des solutions distinctes non interchangeables — signaler uniquement si le programme impose explicitement l'une et le CCTP propose l'autre.
+- PAC air/eau, PAC géothermique, chaudière granulés, chaudière gaz condensation sont des solutions reconnues RE2020.
 
-DICTIONNAIRE D'ÉQUIVALENCES SÉMANTIQUES (ne pas créer d'alerte pour ces synonymes)
-- "PAC air/eau" = "pompe à chaleur aérothermique" = "pompe à chaleur air/eau" = "PAC aérothermique"
-- "VMC DF" = "VMC double flux" = "ventilation double flux" = "ventilation mécanique double flux"
+DICTIONNAIRE D'ÉQUIVALENCES SÉMANTIQUES (ne pas alerter pour ces synonymes)
+- "PAC air/eau" = "pompe à chaleur aérothermique" = "pompe à chaleur air/eau"
+- "VMC DF" = "VMC double flux" = "ventilation double flux"
 - "ECS" = "eau chaude sanitaire" = "production d'eau chaude sanitaire"
-- "plancher chauffant" = "PC BT" = "plancher chauffant basse température" = "RAD plancher"
+- "plancher chauffant" = "PC BT" = "plancher chauffant basse température" = "PCBT"
 - "désenfumage naturel" = "DN" = "désenfumage par tirage naturel"
-- "surpresseur incendie" = "groupe de surpression incendie" = "pompe incendie"
-- "colonne sèche" = "colonne de mise en pression" = "colonne d'incendie"
 - "nourrice" = "collecteur de distribution" = "manifold"
 - "groupe de sécurité" = "GS" = "soupape de sécurité + clapet de retenue + robinet d'isolement"
+- "chaudière condensation" = "chaudière haute performance" = "chaudière condensante"
+- "tube multicouche" = "PEX-AL-PEX" = "multicouche"
+- "tube PER sous fourreau" = "hydrocâblé PER" = "hydrocâblé"
+- "caisson d'extraction" = "groupe VMC" = "groupe d'extraction"
+- "WC suspendu" ≠ "WC au sol" — NE JAMAIS considérer comme équivalents
+- "chaudière condensation" ≠ "chaudière basse température" — NE JAMAIS considérer comme équivalents
+
+EXEMPLES DE CONTRÔLE FACTUEL (calibrage)
+
+Exemple 1 — CONFORME :
+CCTP : "Chaudière murale gaz condensation SAUNIER DUVAL ThemaPlus M CONDENS 26 kW"
+DPGF : "Chaudière murale gaz condensation SAUNIER DUVAL ThemaPlus M CONDENS ou CONDENS 26 kW"
+→ CONFORME. Même type, même marque, même puissance. "ou CONDENS" est une variante commerciale.
+
+Exemple 2 — C03 CRITIQUE :
+CCTP : "Chaudière murale gaz condensation SAUNIER DUVAL 31 kW (2 SdB)"
+DPGF : "PaC (2 SdB)"
+→ C03 CRITIQUE. Chaudière gaz ≠ PAC. "(2 SdB)" seul est insuffisant pour valider.
+
+Exemple 3 — CONFORME (T3) :
+CCTP : "Robinet thermostatisable marque COMAP type SENSITY"
+DPGF : "Robinet thermostatisable tête thermostatique Keymark certifiée"
+→ CONFORME. Marque COMAP dans CCTP seul = tolérance T3. Type identique.
+
+Exemple 4 — CONFORME (T4) :
+CCTP : "Meuble vasque PORCHER + miroir + applique LED"
+DPGF : "Vasque simple"
+→ CONFORME. Miroir et applique sont des accessoires solidaires du meuble (T4).
+
+Exemple 5 — NE PAS FAIRE :
+CCTP : "1 chaudière par logement niveaux 0 et 1"
+DPGF : "Chaudière 26 kW : 8 u."
+→ Tu vois 10 logements et 8 chaudières. Tu veux alerter sur l'écart de 2. NE LE FAIS PAS. Vérifie uniquement que le type "chaudière condensation gaz 26 kW" est présent dans le DPGF. C'est le cas → CONFORME.
 
 RÈGLES ABSOLUES
-1. Si le CCTP ou DPGF contient "sans objet", "N/A", "non applicable" pour un poste → NE PAS créer d'alerte pour ce poste.
-2. Si une désignation dit "conforme au CCTP", "selon CCTP", "cf. CCTP" → créer une alerte de statut INCERTAIN_DESIGNATION uniquement si c'est un poste critique de sécurité.
-3. Ne pas alerter sur des différences de quantités globales (nombre de logements, surfaces) entre programme et CCTP/DPGF — ces données évoluent légitimement.
-4. Ne pas alerter sur des détails d'exécution vraiment mineurs non prescrits au programme (types de raccords, visserie, consommables). En revanche, alerter si un diamètre nominal (DN, Ø) nommé explicitement dans le CCTP diffère dans le DPGF.
-5. Maximum 8 alertes, priorisées par gravité.
+1. "sans objet", "N/A", "non applicable" → NE PAS créer d'alerte pour ce poste.
+2. "conforme au CCTP" sur poste critique → INCERTAIN_DESIGNATION uniquement.
+3. Ne JAMAIS vérifier les quantités, les métrés, ni le nombre d'unités entre CCTP et DPGF. Le contrôle porte UNIQUEMENT sur la présence et la nature des prestations (type d'équipement, marque, puissance, matériau). Le comptage des quantités (nombre de chaudières vs nombre de logements, nombre de radiateurs, longueur de tube) relève du contrôle de programme — hors périmètre de cette analyse.
+3bis. Si le CCTP indique '1 chaudière par logement' et le DPGF liste 'chaudière 26 kW : 8 u.', ne PAS comparer 8 au nombre de logements. Vérifier uniquement que le type 'chaudière condensation gaz 26 kW' est bien présent dans le DPGF.
+4. Ne pas alerter sur détails d'exécution mineurs non prescrits au programme.
+5. Pas de limite d'alertes. Rapporte TOUS les écarts détectés, priorisés par criticité DESC puis confiance DESC.
+6. Ne jamais inventer une référence article non trouvée dans le document.
+7. Ne jamais interpréter une ambiguïté comme une conformité → toujours INCERTAIN.
 
-CHECKLIST DE VÉRIFICATION SYSTÉMATIQUE
-Parcours le DPGF ligne par ligne et vérifie spécifiquement :
-a) POSTES À ZÉRO : tout poste avec quantité 0 ou vide dans le DPGF alors que le CCTP le prescrit explicitement → EXIGENCE_MANQUANTE
-b) ACCESSOIRES PRESCRITS : antitartre, manchettes souples (aspiration + refoulement = 2 par caisson), filtres, clapets coupe-feu, siphons de sol, vannes d'équilibrage — si le CCTP les prescrit et qu'ils sont absents du DPGF → EXIGENCE_MANQUANTE
-c) DIAMÈTRES : si le CCTP cite un DN ou Ø et que le DPGF cite un diamètre différent → SOUS_DIMENSIONNEMENT ou ÉCART_MATÉRIAU
-d) ÉQUIPEMENTS NON JUSTIFIÉS : équipement présent dans le DPGF non mentionné dans le CCTP (doublon, erreur de lot) → INCOHÉRENCE_TECHNIQUE
-e) INCOHÉRENCES INTERNES DPGF : même poste avec des quantités différentes selon les sections/colonnes du DPGF → INCOHÉRENCE_TECHNIQUE
+CHECKLIST — CONTRÔLE FACTUEL DE PRÉSENCE
+a) Pour chaque prestation technique du CCTP → existe-t-elle dans le DPGF ? Si non → C01
+b) Pour chaque ligne technique du DPGF → existe-t-elle dans le CCTP ? Si non → C02
+c) Si présente dans les deux → le TYPE est-il identique ? Si non → C03
+d) Si présente dans les deux → la MARQUE est-elle identique (quand mentionnée dans les deux) ? Si non → C04
+e) Si présente dans les deux → la PUISSANCE (kW) est-elle identique ? Si écart > 5% → C05
 
-STATUTS D'ALERTE DISPONIBLES
-- ÉCART_MATÉRIAU : matériau ou équipement différent de ce qui est prescrit
-- EXIGENCE_MANQUANTE : une exigence du programme n'est pas couverte dans le document
-- INCOHÉRENCE_TECHNIQUE : contradiction technique entre deux documents
-- INCERTAIN_DESIGNATION : désignation imprécise (uniquement pour postes critiques sécurité)
-- SOUS_DIMENSIONNEMENT : valeur inférieure à la valeur minimale prescrite
+STATUTS D'ALERTE
+- EXIGENCE_MANQUANTE : prestation CCTP absente du DPGF (C01) ou prestation DPGF absente du CCTP (C02)
+- ÉCART_MATÉRIAU : type d'équipement ou matériau différent entre les deux documents (C03/C04)
+- INCERTAIN_DESIGNATION : désignation imprécise sur poste critique uniquement (R5)
 
 CRITICITÉ
-- CRITIQUE : impact sécurité, non-conformité réglementaire, ou écart de système complet (ex: PAC vs chaudière gaz)
-- MAJEUR : prestation importante manquante ou contradictoire, impact sur performances RE2020, diamètre incorrect sur réseau principal
-- MINEUR : accessoire prescrit absent, désignation imprécise non critique, manchette ou petit équipement manquant`
+- CRITIQUE : changement de technologie, non-conformité réglementaire, écart puissance >15%
+- MAJEUR : prestation manquante importante, matériau différent, marque substituée, WC suspendu→au sol, écart puissance 5-15%
+- MINEUR : accessoire prescrit absent, désignation imprécise non critique`
 
 // Prompt quantités — vérification de la cohérence des quantités du DPGF
 const SYSTEM_PROMPT_CHIFFRAGE = `Tu es un économiste de la construction senior avec 15 ans d'expérience en vérification de DPGF pour des opérations de logements collectifs, ERP et bureaux.
@@ -86,6 +148,41 @@ CRITICITÉ
 - MINEUR : doublon mineur, petit accessoire manquant, écart de quantité marginal`
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const PARSER_SERVICE_URL = process.env.PARSER_SERVICE_URL || 'http://127.0.0.1:5001'
+
+/**
+ * Appelle parser-service pour une pré-analyse Python (diff binaire CCTP/DPGF).
+ * Retourne la liste d'écarts structurés ou null si le service est indisponible.
+ */
+async function preAnalysePython(cctpBytes, dpgfBytes, config = {}) {
+  try {
+    const body = {
+      cctp: cctpBytes.toString('base64'),
+      dpgf: dpgfBytes.toString('base64'),
+      config
+    }
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000)
+    const res = await fetch(`${PARSER_SERVICE_URL}/compare/cctp-dpgf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+    if (!res.ok) {
+      console.warn(`[preAnalysePython] parser-service retourne ${res.status}`)
+      return null
+    }
+    const data = await res.json()
+    console.log(`[preAnalysePython] ${data.nb_alertes} écarts Python détectés, ${data.nb_conformes} conformes`)
+    return data
+  } catch (err) {
+    console.warn(`[preAnalysePython] parser-service indisponible: ${err.message}`)
+    return null
+  }
+}
 
 const MOTS_VIDES = new Set([
   'le','la','les','de','du','des','un','une','et','ou','mais','donc','or','ni',
@@ -420,6 +517,67 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     return []
   }
 
+  // ─── PRÉ-ANALYSE PYTHON (Option B) ───
+  // Si DPGF en mode technique avec un CCTP de référence, appeler parser-service
+  // pour un diff binaire par famille de prestation (sans quantités)
+  let ecartsPython = null
+  if (categorieDoc === 'dpgf' && modeVerification === 'technique') {
+    const cctpRef = docsRef.find(d => d.categorieDoc === 'cctp')
+    if (cctpRef) {
+      try {
+        const fs = require('fs')
+        const path = require('path')
+
+        // Charger le fichier DPGF brut
+        const docDpgf = await prisma.document.findUnique({
+          where: { id: documentId },
+          select: { cheminFichier: true, type: true }
+        })
+
+        if (docDpgf?.cheminFichier && cctpRef.id) {
+          const docCctp = await prisma.document.findUnique({
+            where: { id: cctpRef.id },
+            select: { cheminFichier: true, type: true }
+          })
+
+          if (docCctp?.cheminFichier) {
+            const dpgfPath = path.resolve(docDpgf.cheminFichier)
+            const cctpPath = path.resolve(docCctp.cheminFichier)
+
+            if (fs.existsSync(dpgfPath) && fs.existsSync(cctpPath)) {
+              const dpgfBuf = fs.readFileSync(dpgfPath)
+              const cctpBuf = fs.readFileSync(cctpPath)
+
+              // Construire le mapping bâtiments depuis la config projet
+              const mappingConfig = {}
+              if (projet?.batimentsComposition) {
+                try {
+                  const bats = JSON.parse(projet.batimentsComposition)
+                  if (bats?.length) {
+                    bats.forEach((b, i) => {
+                      mappingConfig[`CCTP_section_${i + 3}`] = b.feuilles_dpgf || [b.nom]
+                    })
+                  }
+                } catch (e) { /* ignore */ }
+              }
+
+              ecartsPython = await preAnalysePython(cctpBuf, dpgfBuf, {
+                projet: projet?.nom || '',
+                mapping_batiments: mappingConfig
+              })
+
+              if (ecartsPython?.alertes?.length > 0) {
+                console.log(`[comparerDocuments] Pré-analyse Python : ${ecartsPython.alertes.length} écarts détectés`)
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[comparerDocuments] Pré-analyse Python échouée: ${err.message}`)
+      }
+    }
+  }
+
   // Récupérer le CCTP Généralités (Lot 00) s'il existe dans le projet
   const cctpGeneralDoc = await prisma.document.findFirst({
     where: { projetId, categorieDoc: 'cctp', lotType: 'generalites', contenuTexte: { not: null } },
@@ -439,12 +597,13 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     }))
 
   // Vérifier s'il y a des écarts significatifs (sinon pas d'appel IA)
-  const aDesEcarts = resultats.some(r =>
+  const aDesEcartsJS = resultats.some(r =>
     r.analyse.termesManquants.length > 3 || r.analyse.exigencesNonCouvertes.length > 0
   )
+  const aDesEcartsPython = ecartsPython?.alertes?.length > 0
 
-  if (!aDesEcarts) {
-    console.log(`[comparerDocuments] Bonne couverture pour doc ${documentId} — aucun écart significatif`)
+  if (!aDesEcartsJS && !aDesEcartsPython) {
+    console.log(`[comparerDocuments] Bonne couverture pour doc ${documentId} — aucun écart significatif (JS + Python)`)
     return []
   }
 
@@ -535,9 +694,6 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
     sectionsATraiter = [{ texte: extraireSectionPertinente(texteDoc, nomSousProgramme, premiereRef?.contenuTexte), label: nomSousProgramme || null }]
   }
 
-  // TEST TEMPORAIRE — limiter à BAT A uniquement
-  sectionsATraiter = sectionsATraiter.filter(s => !s.label || s.label.toUpperCase().includes('BAT A'))
-  // FIN TEST
 
   console.log(`[comparerDocuments] ${sectionsATraiter.length} section(s) à traiter pour "${nomDoc}"`)
 
@@ -562,7 +718,15 @@ async function comparerAvecReference(documentId, projetId, texteDoc, nomDoc, cat
       r.analyse.termesManquants.length > 3 || r.analyse.exigencesNonCouvertes.length > 0
     )
 
-    if (!aDesEcartsSection) {
+    // Si Python a détecté des écarts pour cette section, ne pas skip
+    const sectionLabel = section.label || ''
+    const pythonADesEcartsPourSection = ecartsPython?.alertes?.some(a =>
+      !a.batiment || !sectionLabel ||
+      a.batiment.toUpperCase().includes(sectionLabel.toUpperCase()) ||
+      sectionLabel.toUpperCase().includes((a.batiment || '').toUpperCase())
+    )
+
+    if (!aDesEcartsSection && !pythonADesEcartsPourSection) {
       console.log(`[comparerDocuments] Section "${section.label || 'principale'}" — couverture correcte, skip`)
       continue
     }
@@ -599,19 +763,50 @@ En analysant le DPGF ci-dessous et en le croisant avec le CCTP de référence :
 2. Cite toujours la ligne/section précise du DPGF et le chapitre du CCTP correspondant.
 3. Priorise par criticité : CRITIQUE en premier, puis MAJEUR, puis MINEUR.`
       : `MISSION
-En croisant les extraits du programme et du ${categorieDoc.toUpperCase()} ci-dessus :
-1. Applique la CHECKLIST DE VÉRIFICATION SYSTÉMATIQUE (postes à zéro, accessoires prescrits, diamètres, équipements non justifiés, incohérences internes).
-2. Applique rigoureusement le dictionnaire d'équivalences — ne pas alerter pour des synonymes.
-3. Pour chaque alerte, cite la section et les valeurs précises des deux documents (ex: "CCTP §3.2.4 : Ø250 — DPGF ligne X : Ø200").
-4. Priorise par criticité : CRITIQUE en premier, puis MAJEUR, puis MINEUR.`
+Fais un CONTRÔLE FACTUEL DE PRÉSENCE bidirectionnel entre le CCTP et le DPGF :
+1. CCTP → DPGF : chaque prestation technique du CCTP a-t-elle une ligne correspondante dans le DPGF ?
+2. DPGF → CCTP : chaque prestation technique du DPGF a-t-elle un article correspondant dans le CCTP ?
+3. Si présente dans les deux : le type, la marque et la puissance sont-ils cohérents ?
+4. Applique le dictionnaire d'équivalences et les exemples de calibrage ci-dessus.
+5. INTERDIT : aucune supposition, aucun calcul, aucune déduction, aucune vérification de quantité. Rapporte uniquement des FAITS lus dans les documents.`
+
+    // Construire le bloc des écarts Python pour cette section (si disponibles)
+    let blocEcartsPython = ''
+    if (ecartsPython?.alertes?.length > 0 && !isChiffrage) {
+      // Garder uniquement les alertes dont le batiment correspond EXACTEMENT à la feuille courante
+      // (exclure les batiments "SECTION_X" issus du mapping vide — faux positifs C01)
+      const ecartsFiltres = (section.label
+        ? ecartsPython.alertes.filter(a => {
+            if (!a.batiment) return false
+            const bat = a.batiment.toUpperCase()
+            const label = section.label.toUpperCase()
+            // Match exact ou inclusion stricte — exclure les "SECTION_N"
+            return bat === label || bat.includes(label) || label.includes(bat)
+          })
+        : ecartsPython.alertes
+      ).slice(0, 20) // Limiter à 20 écarts pour éviter les prompts géants
+
+      if (ecartsFiltres.length > 0) {
+        blocEcartsPython = `\nÉCARTS DÉTECTÉS PAR L'ANALYSE PYTHON (diff binaire par famille — ${ecartsFiltres.length} écarts)
+${ecartsFiltres.map((a, idx) => {
+  const parts = [`${idx + 1}. [${a.code}] ${a.criticite} — ${a.motif}`]
+  if (a.cctp_texte) parts.push(`   CCTP ${a.cctp_section ? '§' + a.cctp_section : ''}: "${a.cctp_texte}"`)
+  if (a.dpgf_texte) parts.push(`   DPGF ligne: "${a.dpgf_texte}"`)
+  return parts.join('\n')
+}).join('\n')}
+
+CONSIGNE : pour chaque écart Python ci-dessus, vérifie s'il est confirmé dans les textes. Si faux positif (synonyme, tolérance T1-T8) → pas d'alerte. Si confirmé → crée l'alerte.`
+      }
+    }
 
     const prompt = `${systemPrompt}
 
 CONTEXTE DU PROJET
 ${contextProjet}${contextSection}${promptConfig}${vocabMetier}${isChiffrage ? '' : reglesAgent}${isChiffrage ? '' : contextGeneralites}
 
-ÉCARTS DÉTECTÉS PAR L'ANALYSE AUTOMATIQUE
+ÉCARTS DÉTECTÉS PAR L'ANALYSE AUTOMATIQUE (JS)
 ${resumeEcartsSection}
+${blocEcartsPython}
 
 SECTION DU ${categorieDoc.toUpperCase()} ANALYSÉE${labelSection}
 ${section.texte}
@@ -629,10 +824,10 @@ Réponds UNIQUEMENT en JSON :
   ]
 }
 
-Valeurs possibles pour statut : ÉCART_MATÉRIAU, EXIGENCE_MANQUANTE, INCOHÉRENCE_TECHNIQUE, INCERTAIN_DESIGNATION, SOUS_DIMENSIONNEMENT
+Valeurs possibles pour statut : EXIGENCE_MANQUANTE, ÉCART_MATÉRIAU, INCERTAIN_DESIGNATION
 Valeurs possibles pour criticite : CRITIQUE, MAJEUR, MINEUR
 
-Maximum 8 alertes pour cette section. Si aucun problème réel : { "alertes": [] }
+Si aucun problème réel : { "alertes": [] }
 IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("cohérent", "conforme", "pas d'alerte", "aucune anomalie"), ne crée PAS d'alerte pour ce point. Une alerte = un vrai problème, pas une vérification rassurante.`
 
     try {
@@ -687,9 +882,10 @@ IMPORTANT : si ton analyse conclut elle-même qu'il n'y a pas d'incohérence ("c
       console.error(`[comparerDocuments] Erreur IA section "${section.label}":`, err.message)
     }
 
-    // Pause entre sections pour respecter le rate limit Anthropic (Sonnet)
+    // Pause entre sections pour respecter le rate limit Anthropic
+    // Haiku : 10 000 tokens/min → 8s min entre appels lourds
     if (i < sectionsATraiter.length - 1) {
-      await new Promise(r => setTimeout(r, 2000))
+      await new Promise(r => setTimeout(r, 8000))
     }
   }
 
