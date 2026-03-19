@@ -311,7 +311,7 @@ export default function Projet() {
         setProjet(pRes.data)
         setAlertes(aRes.data)
 
-        if (doc?.puce) {
+        if (doc?.puce || !doc) {
           clearInterval(pollingRef.current)
           clearInterval(timerRef.current)
           setAnalyseBg(false)
@@ -809,6 +809,7 @@ export default function Projet() {
                 <span style={{ fontSize: 13, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
                   {analyseTimer}s
                 </span>
+                <button onClick={() => { clearInterval(pollingRef.current); clearInterval(timerRef.current); setAnalyseBg(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-muted)', padding: '0 4px', flexShrink: 0 }} title="Fermer">×</button>
               </div>
               {entries.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
