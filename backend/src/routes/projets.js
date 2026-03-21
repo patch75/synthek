@@ -188,39 +188,12 @@ router.delete('/:id/sous-programmes/:spId', async (req, res) => {
 router.patch('/:id', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   const projetId = parseInt(req.params.id)
-  const {
-    nom, client, adresse, typeBatiment, nombreNiveaux, shon,
-    energieRetenue, zoneClimatique, classementErp, typeErp, nombreLogements,
-    batimentsComposition
-  } = req.body
-
-  // Validations
-  const typesValides = ['logements_collectifs', 'bureaux', 'erp', 'industrie', 'mixte']
-  if (typeBatiment && !typesValides.includes(typeBatiment)) {
-    return res.status(400).json({ error: `typeBatiment invalide. Valeurs : ${typesValides.join(', ')}` })
-  }
-  const energiesValides = ['gaz', 'electricite', 'pac', 'geothermie', 'bois', 'mixte']
-  if (energieRetenue && !energiesValides.includes(energieRetenue)) {
-    return res.status(400).json({ error: `energieRetenue invalide. Valeurs : ${energiesValides.join(', ')}` })
-  }
-  const zonesValides = ['H1a', 'H1b', 'H1c', 'H2a', 'H2b', 'H2c', 'H2d', 'H3']
-  if (zoneClimatique && !zonesValides.includes(zoneClimatique)) {
-    return res.status(400).json({ error: `zoneClimatique invalide. Valeurs : ${zonesValides.join(', ')}` })
-  }
+  const { nom, client, metadonnees } = req.body
 
   const data = {}
   if (nom?.trim()) data.nom = nom.trim()
   if (client?.trim()) data.client = client.trim()
-  if (adresse !== undefined) data.adresse = adresse || null
-  if (typeBatiment !== undefined) data.typeBatiment = typeBatiment || null
-  if (nombreNiveaux != null) data.nombreNiveaux = nombreNiveaux === '' ? null : parseInt(nombreNiveaux)
-  if (shon != null) data.shon = shon === '' ? null : parseFloat(shon)
-  if (energieRetenue !== undefined) data.energieRetenue = energieRetenue || null
-  if (zoneClimatique !== undefined) data.zoneClimatique = zoneClimatique || null
-  if (classementErp !== undefined) data.classementErp = !!classementErp
-  if (typeErp !== undefined) data.typeErp = typeErp || null
-  if (nombreLogements != null) data.nombreLogements = nombreLogements === '' ? null : parseInt(nombreLogements)
-  if (batimentsComposition !== undefined) data.batimentsComposition = batimentsComposition || null
+  if (metadonnees !== undefined) data.metadonnees = metadonnees ? JSON.stringify(metadonnees) : null
 
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
 
@@ -443,6 +416,19 @@ router.post('/:id/rapport-jalon', async (req, res) => {
     destinataires: bureauControle.map(u => u.email),
     signatureGlobale
   })
+})
+
+// PATCH /projets/:id/intervenants — mettre à jour les intervenants (admin only)
+router.patch('/:id/intervenants', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { intervenants } = req.body
+  if (!Array.isArray(intervenants)) return res.status(400).json({ error: 'intervenants doit être un tableau' })
+  const projet = await prisma.projet.update({
+    where: { id: projetId },
+    data: { intervenants: JSON.stringify(intervenants) }
+  })
+  res.json({ intervenants: JSON.parse(projet.intervenants || '[]') })
 })
 
 module.exports = router

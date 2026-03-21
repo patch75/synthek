@@ -42,6 +42,8 @@ model Projet {
   nombreLogements Int?      // si résidentiel
   adresse         String?   // pour API GPU/PLU
   batimentsComposition String? @db.Text  // JSON [{"nom":"BAT A","typologies":["BRS","LLS"]}]
+  metadonnees          String? @db.Text  // JSON {adresse, commune, reglementation, ...}
+  intervenants         String? @db.Text  // JSON [{role, societe, contact, email, tel}]
 
   membres         ProjetUser[]
   documents       Document[]

@@ -210,6 +210,53 @@ export default function Projet() {
   const [comparerEnCours, setComparerEnCours] = useState(false)
   const [comparerModele, setComparerModele] = useState('sonnet')
   const [showEditProjet, setShowEditProjet] = useState(false)
+  const [editMeta, setEditMeta] = useState({})
+
+  const TYPES_OPERATION = [
+    'Logements collectifs neufs',
+    'Logements individuels groupés neufs',
+    'Logements collectifs neufs et individuels neufs',
+    'Réhabilitation logements collectifs',
+  ]
+  const RT_OPTIONS = [
+    { value: 'RT2012', label: 'RT2012', detail: 'PC déposé avant le 01/01/2022' },
+    { value: 'RE2020_2022', label: 'RE2020 — Seuil 2022', detail: 'PC déposé entre 01/01/2022 et 31/12/2024' },
+    { value: 'RE2020_2025', label: 'RE2020 — Seuil 2025', detail: 'PC déposé entre 01/01/2025 et 31/12/2027' },
+    { value: 'RE2020_2028', label: 'RE2020 — Seuil 2028', detail: 'PC déposé à partir du 01/01/2028 ou avance de phase / exigence PLUi' },
+    { value: 'RT_existant_elements', label: 'RT bâtiments existants par éléments', detail: '' },
+    { value: 'RT_existant_global', label: 'RT bâtiments existants global', detail: '' },
+  ]
+  const ZONES_CLIM = ['H1a', 'H1b', 'H1c', 'H2a', 'H2b', 'H2c', 'H2d', 'H3']
+  const LABELS_OPTIONS = ['NF Habitat', 'NF Habitat HQE', 'BBCA', 'E+C-', 'Aucune']
+
+  function getMeta() {
+    try { return JSON.parse(projet.metadonnees || '{}') } catch { return {} }
+  }
+  const [showIntervenants, setShowIntervenants] = useState(false)
+  const [editIntervenants, setEditIntervenants] = useState(false)
+
+  const INTERVENANTS_BASE = [
+    { role: 'MOA', label: 'Maître d\'ouvrage (MOA)' },
+    { role: 'MOE', label: 'Maître d\'œuvre d\'exécution (MOE)' },
+    { role: 'Architecte', label: 'Architecte mandataire' },
+    { role: 'BET Structure', label: 'Bureau d\'études Structure' },
+    { role: 'BET Fluides', label: 'Bureau d\'études Fluides / CVC / Plomberie' },
+    { role: 'BET Électricité', label: 'Bureau d\'études Électricité / CFO-CFA' },
+    { role: 'BET VRD', label: 'Bureau d\'études VRD / Réseaux extérieurs' },
+    { role: 'BCT', label: 'Bureau de contrôle technique (BCT)' },
+    { role: 'Économiste', label: 'Économiste de la construction' },
+  ]
+  const BCT_MISSIONS = ['L', 'S', 'Ph', 'Hand', 'Th', 'Élec']
+
+  function getIntervenants() {
+    try { return JSON.parse(projet.intervenants || '[]') } catch { return [] }
+  }
+
+  function getIntervenant(role) {
+    return getIntervenants().find(i => i.role === role) || { role, societe: '', contact: '', email: '', tel: '', missions: [] }
+  }
+
+  const [intervenantsEdit, setIntervenantsEdit] = useState([])
   const [editNom, setEditNom] = useState('')
   const [editClient, setEditClient] = useState('')
   const [editAdresse, setEditAdresse] = useState('')
@@ -224,7 +271,7 @@ export default function Projet() {
   const [editBatiments, setEditBatiments] = useState([]) // [{ id?, nom, typologies[] }]
   const [editEnCours, setEditEnCours] = useState(false)
 
-  const TYPOLOGIES_BASE = ['BRS', 'LLS', 'LLTS', 'PLS', 'Accession libre', 'Accession aidée']
+  const TYPOLOGIES_BASE = ['Social LLS', 'Social LLI', 'Accession BRS', 'Accession standard', 'Accession premium / Attique']
   const [typologiesCustom, setTypologiesCustom] = useState([])
   const [nouvelleTypologie, setNouvelleTypologie] = useState(null)
   const TYPOLOGIES_OPTIONS = [...TYPOLOGIES_BASE, ...typologiesCustom.map(t => t.nom)]
@@ -402,16 +449,7 @@ export default function Projet() {
   function ouvrirEditProjet() {
     setEditNom(projet.nom)
     setEditClient(projet.client)
-    setEditAdresse(projet.adresse || '')
-    setEditTypeBatiment(projet.typeBatiment || '')
-    setEditNombreNiveaux(projet.nombreNiveaux ?? '')
-    setEditShon(projet.shon ?? '')
-    setEditEnergieRetenue(projet.energieRetenue || '')
-    setEditZoneClimatique(projet.zoneClimatique || '')
-    setEditClassementErp(projet.classementErp || false)
-    setEditTypeErp(projet.typeErp || '')
-    setEditNombreLogements(projet.nombreLogements ?? '')
-    setEditBatiments(getBatiments())
+    setEditMeta(getMeta())
     setShowEditProjet(true)
   }
 
@@ -419,23 +457,7 @@ export default function Projet() {
     e.preventDefault()
     setEditEnCours(true)
     try {
-      const body = {
-        nom: editNom,
-        client: editClient,
-        adresse: editAdresse,
-        typeBatiment: editTypeBatiment,
-        nombreNiveaux: editNombreNiveaux,
-        shon: editShon,
-        energieRetenue: editEnergieRetenue,
-        zoneClimatique: editZoneClimatique,
-        classementErp: editClassementErp,
-        typeErp: editTypeErp,
-        nombreLogements: editNombreLogements
-      }
-      const batsValides = editBatiments.filter(b => b.nom.trim())
-      body.batimentsComposition = batsValides.length ? JSON.stringify(batsValides) : null
-
-      const res = await api.patch(`/projets/${id}`, body)
+      const res = await api.patch(`/projets/${id}`, { nom: editNom, client: editClient, metadonnees: editMeta })
       setProjet(prev => ({ ...prev, ...res.data }))
       setShowEditProjet(false)
     } catch (err) {
@@ -1064,6 +1086,470 @@ export default function Projet() {
           </section>
         )}
 
+        {/* Projet */}
+        {(() => {
+          const m = getMeta()
+          const rt = RT_OPTIONS.find(r => r.value === m.reglementation)
+          const RT_COURT = {
+            RT2012: 'RT2012', RE2020_2022: 'RE2020 S.2022', RE2020_2025: 'RE2020 S.2025',
+            RE2020_2028: 'RE2020 S.2028', RT_existant_elements: 'RT Exist. éléments', RT_existant_global: 'RT Exist. global'
+          }
+          const TYPE_COURT = {
+            'Logements collectifs neufs': 'LC Neuf',
+            'Logements individuels groupés neufs': 'LIG Neuf',
+            'Logements collectifs neufs et individuels neufs': 'Mixte Neuf',
+            'Réhabilitation logements collectifs': 'Réhab.',
+          }
+          const champStyle = { flex: '1 1 0', minWidth: 0, borderRight: '1px solid var(--border)', padding: '10px 16px', lastChild: { borderRight: 'none' } }
+          const labelStyle = { fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }
+          const valStyle = { fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+          const valVideStyle = { fontSize: 13, color: 'var(--text-muted)', margin: 0 }
+
+          const champs = [
+            { label: "Nom de l'opération", val: projet.nom },
+            { label: "Type d'opération", val: TYPE_COURT[m.typeOperation] || m.typeOperation },
+            { label: "Adresse chantier", val: m.adresse || m.commune },
+            { label: "MOA / Client", val: projet.client },
+            { label: "Réglementation", val: RT_COURT[m.reglementation] },
+            { label: "Label / Certification", val: m.labels?.filter(l => l !== 'Aucune').join(', ') || (m.labels?.includes('Aucune') ? 'Aucune' : null) },
+          ]
+
+          return (
+            <section className="section" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                <h2 className="section-title" style={{ marginBottom: 0, fontSize: 14 }}>⚙ Projet</h2>
+                {isAdmin && (
+                  <button onClick={ouvrirEditProjet} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)', padding: '3px 10px' }}>✎ Modifier</button>
+                )}
+              </div>
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+                {champs.map((c, i) => (
+                  <div key={i} style={{ ...champStyle, borderRight: i < champs.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={labelStyle}>{c.label}</span>
+                    {c.val ? <p style={valStyle} title={c.val}>{c.val}</p> : <p style={valVideStyle}>—</p>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )
+        })()}
+
+        {/* Intervenants */}
+        <section className="section">
+          <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showIntervenants ? 12 : 0 }} onClick={() => setShowIntervenants(v => !v)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h2 className="section-title" style={{ marginBottom: 0 }}>👥 Intervenants</h2>
+              <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showIntervenants ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▶</span>
+            </div>
+            {isAdmin && showIntervenants && (
+              <div className="section-title-btns">
+                {editIntervenants ? (
+                  <>
+                    <button onClick={async e => {
+                      e.stopPropagation()
+                      await api.patch(`/projets/${id}/intervenants`, { intervenants: intervenantsEdit })
+                      setProjet(prev => ({ ...prev, intervenants: JSON.stringify(intervenantsEdit) }))
+                      setEditIntervenants(false)
+                    }} className="btn-primary" style={{ fontSize: 13 }}>✓ Enregistrer</button>
+                    <button onClick={e => { e.stopPropagation(); setEditIntervenants(false) }} className="btn-ghost" style={{ fontSize: 13 }}>Annuler</button>
+                  </>
+                ) : (
+                  <button onClick={e => {
+                    e.stopPropagation()
+                    const base = INTERVENANTS_BASE.map(b => ({ ...b, ...getIntervenant(b.role), label: b.label }))
+                    setIntervenantsEdit(base)
+                    setEditIntervenants(true)
+                  }} className="btn-ghost" style={{ fontSize: 13, border: '1px solid var(--border)' }}>✎ Modifier</button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {showIntervenants && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {INTERVENANTS_BASE.map((base, idx) => {
+                const iv = getIntervenant(base.role)
+                const editIv = intervenantsEdit[idx] || {}
+                const vide = !iv.societe && !iv.contact && !iv.email && !iv.tel
+                return (
+                  <div key={base.role} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
+                    <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--primary)', marginBottom: 8 }}>{base.label}</p>
+                    {editIntervenants ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: 11 }}>Société / Organisme</label>
+                          <input value={editIv.societe || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, societe: e.target.value } : x))} style={{ fontSize: 13 }} />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: 11 }}>Contact</label>
+                          <input value={editIv.contact || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, contact: e.target.value } : x))} style={{ fontSize: 13 }} />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: 11 }}>Email</label>
+                          <input type="email" value={editIv.email || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, email: e.target.value } : x))} style={{ fontSize: 13 }} />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label style={{ fontSize: 11 }}>Tél</label>
+                          <input value={editIv.tel || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, tel: e.target.value } : x))} style={{ fontSize: 13 }} />
+                        </div>
+                        {base.role === 'BCT' && (
+                          <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
+                            <label style={{ fontSize: 11 }}>Missions</label>
+                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                              {BCT_MISSIONS.map(m => (
+                                <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
+                                  <input type="checkbox" style={{ width: 'auto' }}
+                                    checked={(editIv.missions || []).includes(m)}
+                                    onChange={() => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, missions: (x.missions || []).includes(m) ? x.missions.filter(v => v !== m) : [...(x.missions || []), m] } : x))}
+                                  /> {m}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : vide ? (
+                      <p className="text-muted text-sm" style={{ margin: 0 }}>— Non renseigné</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '4px 16px', fontSize: 13 }}>
+                        {iv.societe && <span><strong>Société :</strong> {iv.societe}</span>}
+                        {iv.contact && <span><strong>Contact :</strong> {iv.contact}</span>}
+                        {iv.email && <span><strong>Email :</strong> <a href={`mailto:${iv.email}`} style={{ color: 'var(--primary)' }}>{iv.email}</a></span>}
+                        {iv.tel && <span><strong>Tél :</strong> {iv.tel}</span>}
+                        {base.role === 'BCT' && iv.missions?.length > 0 && (
+                          <span style={{ gridColumn: '1 / -1' }}><strong>Missions :</strong> {iv.missions.join(', ')}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Bâtiments */}
+        {isAdmin && (
+          <section className="section section--batiments">
+            <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
+                </h2>
+                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showBatiments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+              </div>
+              <div className="section-title-btns">
+                {showBatiments && (<>
+                  <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
+                  <button onClick={e => { e.stopPropagation(); setNouvelleTypologie(v => v === null ? '' : null) }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>⚙️ Typologies</button>
+                </>)}
+              </div>
+            </div>
+
+            {showBatiments && (<>
+            {nouvelleTypologie !== null && (
+              <div style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Typologies disponibles</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {typologiesCustom.map(t => (
+                    <span key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+                      {t.nom}
+                      <button onClick={async () => { await api.delete(`/typologies/${t.id}`); setTypologiesCustom(prev => prev.filter(x => x.id !== t.id)) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, lineHeight: 1, padding: 0 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={nouvelleTypologie}
+                    onChange={e => setNouvelleTypologie(e.target.value)}
+                    placeholder="Ex : Niveau Attiques, Duplex, T4..."
+                    style={{ flex: 1, fontSize: 13 }}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && nouvelleTypologie.trim()) {
+                        const res = await api.post('/typologies', { nom: nouvelleTypologie.trim() })
+                        setTypologiesCustom(prev => [...prev, res.data])
+                        setNouvelleTypologie('')
+                      }
+                    }}
+                  />
+                  <button onClick={async () => {
+                    if (!nouvelleTypologie.trim()) return
+                    const res = await api.post('/typologies', { nom: nouvelleTypologie.trim() })
+                    setTypologiesCustom(prev => [...prev, res.data])
+                    setNouvelleTypologie('')
+                  }} className="btn-primary" style={{ fontSize: 13 }}>Ajouter</button>
+                </div>
+              </div>
+            )}
+
+            {getBatiments().length === 0 && !showAddBatiment && (
+              <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {getBatiments().map((bat, i) => (
+                <div
+                  key={i}
+                  draggable={batimentEditIdx !== i}
+                  onDragStart={() => { dragBatIdx.current = i }}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => {
+                    const from = dragBatIdx.current
+                    if (from === null || from === i) return
+                    const next = [...getBatiments()]
+                    const [moved] = next.splice(from, 1)
+                    next.splice(i, 0, moved)
+                    saveBatiments(next)
+                  }}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', cursor: batimentEditIdx === i ? 'default' : 'grab' }}
+                >
+                  {batimentEditIdx === i ? (
+                    <div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                        <input
+                          value={batimentEditNom}
+                          onChange={e => setBatimentEditNom(e.target.value)}
+                          style={{ flex: 1, fontSize: 13 }}
+                          autoFocus
+                        />
+                        <button onClick={() => sauvegarderBatimentEdit(i)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>✓</button>
+                        <button onClick={() => setBatimentEditIdx(null)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                        {TYPOLOGIES_OPTIONS.map(t => (
+                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
+                            <input type="checkbox" checked={batimentEditTypos.includes(t)} onChange={() => setBatimentEditTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
+                            {t}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{bat.nom}</span>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 2 }}>
+                        {bat.typologies?.map(t => (
+                          <span key={t} style={{ fontSize: 11, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 8px' }}>{t}</span>
+                        ))}
+                      </div>
+                      <button onClick={() => { setBatimentEditIdx(i); setBatimentEditNom(bat.nom); setBatimentEditTypos(bat.typologies || []) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: 0 }} title="Modifier">✎</button>
+                      <button onClick={() => supprimerBatimentLocal(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 0 }} title="Supprimer">×</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {showAddBatiment && (
+                <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                    <input
+                      value={newBatimentNom}
+                      onChange={e => setNewBatimentNom(e.target.value)}
+                      placeholder="Ex : Bâtiment A, Villas..."
+                      style={{ flex: 1, fontSize: 13 }}
+                      autoFocus
+                    />
+                    <button onClick={ajouterBatimentLocal} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>Ajouter</button>
+                    <button onClick={() => setShowAddBatiment(false)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    {TYPOLOGIES_OPTIONS.map(t => (
+                      <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
+                        <input type="checkbox" checked={newBatimentTypos.includes(t)} onChange={() => setNewBatimentTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
+                        {t}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            </>)}
+          </section>
+        )}
+
+        {/* Programme - Notices */}
+        {(() => {
+          const programmes = projet.documents.filter(d => d.categorieDoc === 'programme')
+          const sousProgrammes = projet.sousProgrammes || []
+          const hasSousProgrammes = sousProgrammes.length > 0
+          return (
+            <section className="section section--programmes">
+              <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showProgrammes ? 12 : 0 }} onClick={() => setShowProgrammes(v => !v)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                  <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>📌</span> Programme - Notices
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>({programmes.length})</span>
+                  </h2>
+                  <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showProgrammes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+                </div>
+                <div className="section-title-btns">
+                  {showProgrammes && (<>
+                    {isAdmin && (
+                      <button onClick={e => { e.stopPropagation(); setShowSousProgrammes(v => !v) }} className="btn-ghost" style={{ fontSize: 13, backgroundColor: '#f0f0ff', border: '1px solid #c5c5f0', color: '#5a5aaa' }}>
+                        ✏️ Sous-programmes
+                      </button>
+                    )}
+                    {!isBureauControle && (
+                      <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/upload`) }} className="btn-primary" style={{ fontSize: 13 }}>
+                        + Déposer
+                      </button>
+                    )}
+                  </>)}
+                </div>
+              </div>
+
+              {showProgrammes && (<>
+              {/* Gestion sous-programmes (admin) */}
+              {isAdmin && showSousProgrammes && (
+                <div className="card" style={{ marginBottom: 14, padding: '14px 18px' }}>
+                  <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
+                    Sous-programmes de ce projet
+                  </p>
+                  {sousProgrammes.length === 0 ? (
+                    <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
+                      Aucun sous-programme — le projet est unique. Ajoutez des sous-programmes si l'opération comporte plusieurs typologies (accession, social, villas...).
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                      {sousProgrammes.map((sp, idx) => (
+                        <span
+                          key={sp.id}
+                          draggable
+                          onDragStart={() => { dragSpIdx.current = idx }}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={() => {
+                            const from = dragSpIdx.current
+                            if (from === null || from === idx) return
+                            const next = [...sousProgrammes]
+                            const [moved] = next.splice(from, 1)
+                            next.splice(idx, 0, moved)
+                            setProjet(prev => ({ ...prev, sousProgrammes: next }))
+                            api.patch(`/projets/${id}/sous-programmes/ordre`, { ordre: next.map(s => s.id) })
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'grab', userSelect: 'none' }}
+                        >
+                          <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
+                          {spRenomId === sp.id ? (
+                            <>
+                              <input
+                                value={spRenomNom}
+                                onChange={e => setSpRenomNom(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') renommerSousProgramme(sp.id); if (e.key === 'Escape') setSpRenomId(null) }}
+                                autoFocus
+                                style={{ fontSize: 13, width: 120, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}
+                              />
+                              <button onClick={() => renommerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', fontSize: 14, lineHeight: 1, padding: 0 }} title="Valider">✓</button>
+                              <button onClick={() => setSpRenomId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, lineHeight: 1, padding: 0 }} title="Annuler">✕</button>
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ flex: 1 }}>{sp.nom}</span>
+                              <button onClick={e => { e.stopPropagation(); setSpRenomId(sp.id); setSpRenomNom(sp.nom) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Renommer">✎</button>
+                              <button onClick={e => { e.stopPropagation(); supprimerSousProgramme(sp.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
+                            </>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <form onSubmit={ajouterSousProgramme} style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={nouveauSp}
+                      onChange={e => setNouveauSp(e.target.value)}
+                      placeholder="Ex : Accession, Social, Villas..."
+                      style={{ flex: 1, fontSize: 13 }}
+                    />
+                    <button type="submit" disabled={spEnCours || !nouveauSp.trim()} className="btn-primary" style={{ fontSize: 13 }}>
+                      Ajouter
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {programmes.length === 0 ? (
+                <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '16px 20px' }}>
+                  <p style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
+                    Aucun programme déposé
+                  </p>
+                  <p className="text-muted text-sm" style={{ margin: 0 }}>
+                    Commencez par déposer le ou les programmes du projet. Ils serviront de référence pour la vérification automatique des CCTP et DPGF.
+                  </p>
+                </div>
+              ) : hasSousProgrammes ? (
+                // Affichage groupé par sous-programme — accordéons
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[...sousProgrammes, { id: '__sans__', nom: 'Sans périmètre' }].map((sp, idx) => {
+                    const docs = sp.id === '__sans__'
+                      ? programmes.filter(d => !d.sousProgramme)
+                      : programmes.filter(d => d.sousProgramme?.id === sp.id)
+                    if (sp.id === '__sans__' && docs.length === 0) return null
+                    const key = String(sp.id)
+                    const ouvert = programmesOuverts.has(key)
+                    const couleur = sp.id === '__sans__' ? '#94a3b8' : '#7c3aed'
+                    const isDraggable = sp.id !== '__sans__' && isAdmin
+                    return (
+                      <div
+                        key={key}
+                        style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}
+                        draggable={isDraggable}
+                        onDragStart={isDraggable ? () => { dragSpIdx.current = idx } : undefined}
+                        onDragOver={isDraggable ? e => e.preventDefault() : undefined}
+                        onDrop={isDraggable ? () => {
+                          const from = dragSpIdx.current
+                          if (from === null || from === idx) return
+                          const next = [...sousProgrammes]
+                          const [moved] = next.splice(from, 1)
+                          next.splice(idx, 0, moved)
+                          setProjet(prev => ({ ...prev, sousProgrammes: next }))
+                          api.patch(`/projets/${id}/sous-programmes/ordre`, { ordre: next.map(s => s.id) })
+                        } : undefined}
+                      >
+                        <div
+                          onClick={() => toggleProgramme(key)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: isDraggable ? 'grab' : 'pointer', userSelect: 'none' }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: 13, color: couleur, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            {sp.nom}
+                            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, textTransform: 'none', letterSpacing: 0 }}>
+                              {docs.length} document{docs.length > 1 ? 's' : ''}
+                            </span>
+                          </span>
+                          <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: ouvert ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+                        </div>
+                        {ouvert && (
+                          <div style={{ padding: '10px 10px 4px' }}>
+                            {docs.length === 0 ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 8px' }}>
+                                <p className="text-muted text-sm" style={{ margin: 0 }}>Aucun programme pour ce périmètre.</p>
+                                {!isBureauControle && (
+                                  <button onClick={() => navigate(`/projets/${id}/upload?sousProgrammeId=${sp.id}`)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>+ Déposer</button>
+                                )}
+                                {isAdmin && sp.id !== '__sans__' && (
+                                  <button onClick={() => supprimerSousProgramme(sp.id)} style={{ fontSize: 12, padding: '4px 10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Supprimer</button>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {docs.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {programmes.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
+                </div>
+              )}
+            </>)}
+            </section>
+          )
+        })()}
+
         {/* Documents */}
         <section className="section section--documents">
           <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showDocuments ? 12 : 0 }} onClick={() => setShowDocuments(v => !v)}>
@@ -1248,328 +1734,6 @@ export default function Projet() {
           })()}
           </>)}
         </section>
-
-        {/* Bâtiments */}
-        {isAdmin && (
-          <section className="section section--batiments">
-            <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
-                </h2>
-                <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showBatiments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
-              </div>
-              <div className="section-title-btns">
-                {showBatiments && (<>
-                  <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
-                  <button onClick={e => { e.stopPropagation(); setNouvelleTypologie(v => v === null ? '' : null) }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>⚙️ Typologies</button>
-                </>)}
-              </div>
-            </div>
-
-            {showBatiments && (<>
-            {nouvelleTypologie !== null && (
-              <div style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
-                <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Typologies disponibles</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                  {typologiesCustom.map(t => (
-                    <span key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-                      {t.nom}
-                      <button onClick={async () => { await api.delete(`/typologies/${t.id}`); setTypologiesCustom(prev => prev.filter(x => x.id !== t.id)) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, lineHeight: 1, padding: 0 }}>×</button>
-                    </span>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    value={nouvelleTypologie}
-                    onChange={e => setNouvelleTypologie(e.target.value)}
-                    placeholder="Ex : Niveau Attiques, Duplex, T4..."
-                    style={{ flex: 1, fontSize: 13 }}
-                    onKeyDown={async e => {
-                      if (e.key === 'Enter' && nouvelleTypologie.trim()) {
-                        const res = await api.post('/typologies', { nom: nouvelleTypologie.trim() })
-                        setTypologiesCustom(prev => [...prev, res.data])
-                        setNouvelleTypologie('')
-                      }
-                    }}
-                  />
-                  <button onClick={async () => {
-                    if (!nouvelleTypologie.trim()) return
-                    const res = await api.post('/typologies', { nom: nouvelleTypologie.trim() })
-                    setTypologiesCustom(prev => [...prev, res.data])
-                    setNouvelleTypologie('')
-                  }} className="btn-primary" style={{ fontSize: 13 }}>Ajouter</button>
-                </div>
-              </div>
-            )}
-
-            {getBatiments().length === 0 && !showAddBatiment && (
-              <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {getBatiments().map((bat, i) => (
-                <div
-                  key={i}
-                  draggable={batimentEditIdx !== i}
-                  onDragStart={() => { dragBatIdx.current = i }}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => {
-                    const from = dragBatIdx.current
-                    if (from === null || from === i) return
-                    const next = [...getBatiments()]
-                    const [moved] = next.splice(from, 1)
-                    next.splice(i, 0, moved)
-                    saveBatiments(next)
-                  }}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', cursor: batimentEditIdx === i ? 'default' : 'grab' }}
-                >
-                  {batimentEditIdx === i ? (
-                    <div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                        <input
-                          value={batimentEditNom}
-                          onChange={e => setBatimentEditNom(e.target.value)}
-                          style={{ flex: 1, fontSize: 13 }}
-                          autoFocus
-                        />
-                        <button onClick={() => sauvegarderBatimentEdit(i)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>✓</button>
-                        <button onClick={() => setBatimentEditIdx(null)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                        {TYPOLOGIES_OPTIONS.map(t => (
-                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
-                            <input type="checkbox" checked={batimentEditTypos.includes(t)} onChange={() => setBatimentEditTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
-                            {t}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
-                      <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{bat.nom}</span>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 2 }}>
-                        {bat.typologies?.map(t => (
-                          <span key={t} style={{ fontSize: 11, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 8px' }}>{t}</span>
-                        ))}
-                      </div>
-                      <button onClick={() => { setBatimentEditIdx(i); setBatimentEditNom(bat.nom); setBatimentEditTypos(bat.typologies || []) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: 0 }} title="Modifier">✎</button>
-                      <button onClick={() => supprimerBatimentLocal(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 0 }} title="Supprimer">×</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {showAddBatiment && (
-                <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: '10px 14px' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                    <input
-                      value={newBatimentNom}
-                      onChange={e => setNewBatimentNom(e.target.value)}
-                      placeholder="Ex : Bâtiment A, Villas..."
-                      style={{ flex: 1, fontSize: 13 }}
-                      autoFocus
-                    />
-                    <button onClick={ajouterBatimentLocal} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>Ajouter</button>
-                    <button onClick={() => setShowAddBatiment(false)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                    {TYPOLOGIES_OPTIONS.map(t => (
-                      <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
-                        <input type="checkbox" checked={newBatimentTypos.includes(t)} onChange={() => setNewBatimentTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
-                        {t}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            </>)}
-          </section>
-        )}
-
-        {/* Programmes de référence */}
-        {(() => {
-          const programmes = projet.documents.filter(d => d.categorieDoc === 'programme')
-          const sousProgrammes = projet.sousProgrammes || []
-          const hasSousProgrammes = sousProgrammes.length > 0
-          return (
-            <section className="section section--programmes">
-              <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showProgrammes ? 12 : 0 }} onClick={() => setShowProgrammes(v => !v)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-                  <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>📌</span> Programmes de référence
-                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>({programmes.length})</span>
-                  </h2>
-                  <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showProgrammes ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
-                </div>
-                <div className="section-title-btns">
-                  {showProgrammes && (<>
-                    {isAdmin && (
-                      <button onClick={e => { e.stopPropagation(); setShowSousProgrammes(v => !v) }} className="btn-ghost" style={{ fontSize: 13, backgroundColor: '#f0f0ff', border: '1px solid #c5c5f0', color: '#5a5aaa' }}>
-                        ✏️ Sous-programmes
-                      </button>
-                    )}
-                    {!isBureauControle && (
-                      <button onClick={e => { e.stopPropagation(); navigate(`/projets/${id}/upload`) }} className="btn-primary" style={{ fontSize: 13 }}>
-                        + Déposer
-                      </button>
-                    )}
-                  </>)}
-                </div>
-              </div>
-
-              {showProgrammes && (<>
-              {/* Gestion sous-programmes (admin) */}
-              {isAdmin && showSousProgrammes && (
-                <div className="card" style={{ marginBottom: 14, padding: '14px 18px' }}>
-                  <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
-                    Sous-programmes de ce projet
-                  </p>
-                  {sousProgrammes.length === 0 ? (
-                    <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
-                      Aucun sous-programme — le projet est unique. Ajoutez des sous-programmes si l'opération comporte plusieurs typologies (accession, social, villas...).
-                    </p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                      {sousProgrammes.map((sp, idx) => (
-                        <span
-                          key={sp.id}
-                          draggable
-                          onDragStart={() => { dragSpIdx.current = idx }}
-                          onDragOver={e => e.preventDefault()}
-                          onDrop={() => {
-                            const from = dragSpIdx.current
-                            if (from === null || from === idx) return
-                            const next = [...sousProgrammes]
-                            const [moved] = next.splice(from, 1)
-                            next.splice(idx, 0, moved)
-                            setProjet(prev => ({ ...prev, sousProgrammes: next }))
-                            api.patch(`/projets/${id}/sous-programmes/ordre`, { ordre: next.map(s => s.id) })
-                          }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-muted)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'grab', userSelect: 'none' }}
-                        >
-                          <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
-                          {spRenomId === sp.id ? (
-                            <>
-                              <input
-                                value={spRenomNom}
-                                onChange={e => setSpRenomNom(e.target.value)}
-                                onKeyDown={e => { if (e.key === 'Enter') renommerSousProgramme(sp.id); if (e.key === 'Escape') setSpRenomId(null) }}
-                                autoFocus
-                                style={{ fontSize: 13, width: 120, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}
-                              />
-                              <button onClick={() => renommerSousProgramme(sp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22c55e', fontSize: 14, lineHeight: 1, padding: 0 }} title="Valider">✓</button>
-                              <button onClick={() => setSpRenomId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, lineHeight: 1, padding: 0 }} title="Annuler">✕</button>
-                            </>
-                          ) : (
-                            <>
-                              <span style={{ flex: 1 }}>{sp.nom}</span>
-                              <button onClick={e => { e.stopPropagation(); setSpRenomId(sp.id); setSpRenomNom(sp.nom) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, lineHeight: 1, padding: 0 }} title="Renommer">✎</button>
-                              <button onClick={e => { e.stopPropagation(); supprimerSousProgramme(sp.id) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, lineHeight: 1, padding: 0 }} title="Supprimer">×</button>
-                            </>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <form onSubmit={ajouterSousProgramme} style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      value={nouveauSp}
-                      onChange={e => setNouveauSp(e.target.value)}
-                      placeholder="Ex : Accession, Social, Villas..."
-                      style={{ flex: 1, fontSize: 13 }}
-                    />
-                    <button type="submit" disabled={spEnCours || !nouveauSp.trim()} className="btn-primary" style={{ fontSize: 13 }}>
-                      Ajouter
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              {programmes.length === 0 ? (
-                <div className="card" style={{ borderLeft: '3px solid #7c3aed', padding: '16px 20px' }}>
-                  <p style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
-                    Aucun programme déposé
-                  </p>
-                  <p className="text-muted text-sm" style={{ margin: 0 }}>
-                    Commencez par déposer le ou les programmes du projet. Ils serviront de référence pour la vérification automatique des CCTP et DPGF.
-                  </p>
-                </div>
-              ) : hasSousProgrammes ? (
-                // Affichage groupé par sous-programme — accordéons
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {[...sousProgrammes, { id: '__sans__', nom: 'Sans périmètre' }].map((sp, idx) => {
-                    const docs = sp.id === '__sans__'
-                      ? programmes.filter(d => !d.sousProgramme)
-                      : programmes.filter(d => d.sousProgramme?.id === sp.id)
-                    if (sp.id === '__sans__' && docs.length === 0) return null
-                    const key = String(sp.id)
-                    const ouvert = programmesOuverts.has(key)
-                    const couleur = sp.id === '__sans__' ? '#94a3b8' : '#7c3aed'
-                    const isDraggable = sp.id !== '__sans__' && isAdmin
-                    return (
-                      <div
-                        key={key}
-                        style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}
-                        draggable={isDraggable}
-                        onDragStart={isDraggable ? () => { dragSpIdx.current = idx } : undefined}
-                        onDragOver={isDraggable ? e => e.preventDefault() : undefined}
-                        onDrop={isDraggable ? () => {
-                          const from = dragSpIdx.current
-                          if (from === null || from === idx) return
-                          const next = [...sousProgrammes]
-                          const [moved] = next.splice(from, 1)
-                          next.splice(idx, 0, moved)
-                          setProjet(prev => ({ ...prev, sousProgrammes: next }))
-                          api.patch(`/projets/${id}/sous-programmes/ordre`, { ordre: next.map(s => s.id) })
-                        } : undefined}
-                      >
-                        <div
-                          onClick={() => toggleProgramme(key)}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-muted)', cursor: isDraggable ? 'grab' : 'pointer', userSelect: 'none' }}
-                        >
-                          <span style={{ fontWeight: 700, fontSize: 13, color: couleur, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            {sp.nom}
-                            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontWeight: 400, fontSize: 12, textTransform: 'none', letterSpacing: 0 }}>
-                              {docs.length} document{docs.length > 1 ? 's' : ''}
-                            </span>
-                          </span>
-                          <span style={{ fontSize: 14, color: 'var(--text-muted)', transform: ouvert ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
-                        </div>
-                        {ouvert && (
-                          <div style={{ padding: '10px 10px 4px' }}>
-                            {docs.length === 0 ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 4px 8px' }}>
-                                <p className="text-muted text-sm" style={{ margin: 0 }}>Aucun programme pour ce périmètre.</p>
-                                {!isBureauControle && (
-                                  <button onClick={() => navigate(`/projets/${id}/upload?sousProgrammeId=${sp.id}`)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>+ Déposer</button>
-                                )}
-                                {isAdmin && sp.id !== '__sans__' && (
-                                  <button onClick={() => supprimerSousProgramme(sp.id)} style={{ fontSize: 12, padding: '4px 10px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Supprimer</button>
-                                )}
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {docs.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {programmes.map(doc => <ProgrammeCard key={doc.id} doc={doc} isAdmin={isAdmin} onDelete={() => { setShowDeleteDoc({ id: doc.id, nom: doc.nom }); setDeleteResoudreAlertes(false) }} />)}
-                </div>
-              )}
-            </>)}
-            </section>
-          )
-        })()}
 
         {/* V3 — Configuration IA (admin uniquement) */}
         {isAdmin && (
@@ -1943,124 +2107,131 @@ export default function Projet() {
 
       {showEditProjet && (
         <div className="modal-overlay" onClick={() => setShowEditProjet(false)}>
-          <div className="modal-card" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Modifier le projet</h3>
               <button className="btn-ghost" onClick={() => setShowEditProjet(false)} style={{ padding: '4px 8px' }}>✕</button>
             </div>
             <form onSubmit={sauvegarderProjet}>
-              <div style={{ overflowY: 'auto', maxHeight: '65vh', display: 'flex', flexDirection: 'column', gap: 14, paddingRight: 4 }}>
-                <div className="form-group">
-                  <label>Nom du projet *</label>
-                  <input value={editNom} onChange={e => setEditNom(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label>Client / Maître d'ouvrage *</label>
-                  <input value={editClient} onChange={e => setEditClient(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label>Adresse</label>
-                  <input value={editAdresse} onChange={e => setEditAdresse(e.target.value)} placeholder="Adresse du projet" />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div className="form-group">
-                    <label>Type de bâtiment</label>
-                    <select value={editTypeBatiment} onChange={e => setEditTypeBatiment(e.target.value)}>
-                      <option value="">— Non défini —</option>
-                      <option value="logements_collectifs">Logements collectifs</option>
-                      <option value="bureaux">Bureaux</option>
-                      <option value="erp">ERP</option>
-                      <option value="industrie">Industrie</option>
-                      <option value="mixte">Mixte</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Énergie retenue</label>
-                    <select value={editEnergieRetenue} onChange={e => setEditEnergieRetenue(e.target.value)}>
-                      <option value="">— Non défini —</option>
-                      <option value="gaz">Gaz</option>
-                      <option value="electricite">Électricité</option>
-                      <option value="pac">PAC</option>
-                      <option value="geothermie">Géothermie</option>
-                      <option value="bois">Bois</option>
-                      <option value="mixte">Mixte</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Nombre de niveaux</label>
-                    <input type="number" min="1" value={editNombreNiveaux} onChange={e => setEditNombreNiveaux(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>SHON (m²)</label>
-                    <input type="number" min="0" step="0.1" value={editShon} onChange={e => setEditShon(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>Zone climatique</label>
-                    <select value={editZoneClimatique} onChange={e => setEditZoneClimatique(e.target.value)}>
-                      <option value="">— Non défini —</option>
-                      {['H1a','H1b','H1c','H2a','H2b','H2c','H2d','H3'].map(z => (
-                        <option key={z} value={z}>{z}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {(editTypeBatiment === 'logements_collectifs' || editTypeBatiment === 'mixte') && (
-                    <div className="form-group">
-                      <label>Nombre de logements</label>
-                      <input type="number" min="1" value={editNombreLogements} onChange={e => setEditNombreLogements(e.target.value)} />
-                    </div>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={editClassementErp} onChange={e => setEditClassementErp(e.target.checked)} />
-                    Classement ERP
-                  </label>
-                </div>
-                {editClassementErp && (
-                  <div className="form-group">
-                    <label>Type ERP</label>
-                    <input value={editTypeErp} onChange={e => setEditTypeErp(e.target.value)} placeholder="M, J, U, W, PS..." />
-                  </div>
-                )}
-                {/* Bâtiments / typologies */}
+              <div style={{ overflowY: 'auto', maxHeight: '70vh', display: 'flex', flexDirection: 'column', gap: 20, paddingRight: 4 }}>
+
+                {/* 1. Identification */}
                 <div>
-                  <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
-                    Composition des bâtiments <span style={{ fontWeight: 400 }}>(optionnel)</span>
-                  </p>
-                  {editBatiments.map((bat, i) => (
-                    <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 10, marginBottom: 8 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                        <input
-                          value={bat.nom}
-                          onChange={e => setEditBatiments(prev => prev.map((b, j) => j === i ? { ...b, nom: e.target.value } : b))}
-                          placeholder="Ex : Bâtiment A, Villas..."
-                          style={{ flex: 1, fontSize: 13 }}
-                        />
-                        <button type="button" onClick={() => setEditBatiments(prev => prev.filter((_, j) => j !== i))} className="btn-ghost" style={{ padding: '4px 8px', color: '#ef4444' }}>✕</button>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>1. Identification du projet</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Nom de l'opération *</label>
+                      <input value={editNom} onChange={e => setEditNom(e.target.value)} required />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>MOA / Client *</label>
+                      <input value={editClient} onChange={e => setEditClient(e.target.value)} required />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label>Adresse complète</label>
+                        <input value={editMeta.adresse || ''} onChange={e => setEditMeta(p => ({ ...p, adresse: e.target.value }))} />
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {TYPOLOGIES_OPTIONS.map(t => (
-                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
-                            <input
-                              type="checkbox"
-                              checked={bat.typologies.includes(t)}
-                              onChange={() => setEditBatiments(prev => prev.map((b, j) => {
-                                if (j !== i) return b
-                                const typos = b.typologies.includes(t) ? b.typologies.filter(v => v !== t) : [...b.typologies, t]
-                                return { ...b, typologies: typos }
-                              }))}
-                              style={{ width: 'auto' }}
-                            />
-                            {t}
-                          </label>
-                        ))}
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label>Commune + Code postal</label>
+                        <input value={editMeta.commune || ''} onChange={e => setEditMeta(p => ({ ...p, commune: e.target.value }))} placeholder="Ex : Lumbin 38660" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label>Références cadastrales</label>
+                        <input value={editMeta.refCadastrales || ''} onChange={e => setEditMeta(p => ({ ...p, refCadastrales: e.target.value }))} placeholder="Section + numéro de parcelle" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label>Zone climatique RE2020</label>
+                        <select value={editMeta.zoneClimatique || ''} onChange={e => setEditMeta(p => ({ ...p, zoneClimatique: e.target.value }))}>
+                          <option value="">— Non défini —</option>
+                          {ZONES_CLIM.map(z => <option key={z} value={z}>{z}</option>)}
+                        </select>
                       </div>
                     </div>
-                  ))}
-                  <button type="button" onClick={() => setEditBatiments(prev => [...prev, { nom: '', typologies: [] }])} className="btn-secondary" style={{ fontSize: 13, padding: '6px 12px' }}>
-                    + Ajouter un bâtiment
-                  </button>
+                  </div>
                 </div>
+
+                {/* 2. Nature et programme */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>2. Nature et programme</p>
+                  <div className="form-group" style={{ margin: '0 0 10px' }}>
+                    <label>Type d'opération</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                      {TYPES_OPERATION.map(t => (
+                        <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                          <input type="radio" name="typeOperation" style={{ width: 'auto' }} checked={editMeta.typeOperation === t} onChange={() => setEditMeta(p => ({ ...p, typeOperation: t }))} />
+                          {t}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ margin: 0, maxWidth: 160 }}>
+                    <label>Nombre de bâtiments</label>
+                    <input type="number" min="1" value={editMeta.nombreBatiments || ''} onChange={e => setEditMeta(p => ({ ...p, nombreBatiments: e.target.value }))} />
+                  </div>
+                </div>
+
+                {/* 3. Réglementation thermique */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>3. Réglementation thermique applicable</p>
+                  <div className="form-group" style={{ margin: '0 0 12px' }}>
+                    <label>Réglementation</label>
+                    <select value={editMeta.reglementation || ''} onChange={e => setEditMeta(p => ({ ...p, reglementation: e.target.value }))}>
+                      <option value="">— Sélectionner —</option>
+                      {RT_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}{r.detail ? ` — ${r.detail}` : ''}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Date dépôt PC</label>
+                      <input type="date" value={editMeta.datePCDepot || ''} disabled={editMeta.pcNonDepose} onChange={e => setEditMeta(p => ({ ...p, datePCDepot: e.target.value }))} />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 4, cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: 'auto' }} checked={!!editMeta.pcNonDepose} onChange={e => setEditMeta(p => ({ ...p, pcNonDepose: e.target.checked, datePCDepot: e.target.checked ? '' : p.datePCDepot }))} />
+                        PC non déposé
+                      </label>
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Date obtention PC</label>
+                      <input type="date" value={editMeta.datePCObtention || ''} disabled={editMeta.pcEnCours} onChange={e => setEditMeta(p => ({ ...p, datePCObtention: e.target.value }))} />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 4, cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: 'auto' }} checked={!!editMeta.pcEnCours} onChange={e => setEditMeta(p => ({ ...p, pcEnCours: e.target.checked, datePCObtention: e.target.checked ? '' : p.datePCObtention }))} />
+                        En cours / Non obtenu
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Labels / PLUi */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>4. Labels, certifications et exigences PLUi</p>
+                  <div className="form-group" style={{ margin: '0 0 10px' }}>
+                    <label>Label / Certification visée</label>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+                      {LABELS_OPTIONS.map(l => (
+                        <label key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                          <input type="checkbox" style={{ width: 'auto' }}
+                            checked={(editMeta.labels || []).includes(l)}
+                            onChange={() => setEditMeta(p => {
+                              const cur = p.labels || []
+                              return { ...p, labels: cur.includes(l) ? cur.filter(v => v !== l) : [...cur, l] }
+                            })}
+                          /> {l}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Taux EnR PLUi (%)</label>
+                      <input type="number" min="0" max="100" value={editMeta.tauxEnR || ''} onChange={e => setEditMeta(p => ({ ...p, tauxEnR: e.target.value }))} placeholder="Ex : 30" />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Autres exigences PLUi</label>
+                      <input value={editMeta.autresExigences || ''} onChange={e => setEditMeta(p => ({ ...p, autresExigences: e.target.value }))} placeholder="Ex : gaz interdit, toiture végétalisée..." />
+                    </div>
+                  </div>
+                </div>
+
               </div>
               <div className="form-actions" style={{ marginTop: 16 }}>
                 <button type="submit" disabled={editEnCours} className="btn-primary">
