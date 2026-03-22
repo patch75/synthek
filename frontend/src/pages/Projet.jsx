@@ -292,8 +292,8 @@ export default function Projet() {
   const [importGranuloError, setImportGranuloError] = useState(null)
   const [importGranuloFichierB64, setImportGranuloFichierB64] = useState(null)
   const [importGranuloNomFichier, setImportGranuloNomFichier] = useState('')
-  const [propositionRegroupement, setPropositionRegroupement] = useState(null) // { groupName: [montees] }
-  const [regroupementEdite, setRegroupementEdite] = useState(null)
+  const [feuillesDisponibles, setFeuillesDisponibles] = useState(null) // { feuilles_disponibles, feuille_suggeree }
+  const [regroupementEdite, setRegroupementEdite] = useState(null) // liste de batiment objects (Sonnet)
   const [granulometreD1, setGranulometreD1] = useState(null)
 
   // V3 — Config IA
@@ -469,9 +469,32 @@ export default function Projet() {
       setImportGranuloFichierB64(b64)
       setImportGranuloNomFichier(file.name)
       const res = await api.post(`/projets/${id}/granulometrie/proposer`, { fichier: b64, nom_fichier: file.name })
-      setPropositionRegroupement(res.data.proposition_regroupement)
-      setRegroupementEdite(JSON.parse(JSON.stringify(res.data.proposition_regroupement)))
-      setImportGranuloStep(1)
+      if (res.data.etape === 'selection_feuille') {
+        setFeuillesDisponibles(res.data)
+        setImportGranuloStep(1)
+      } else if (res.data.etape === 'validation') {
+        setFeuillesDisponibles(null)
+        setRegroupementEdite(res.data.batiments)
+        setImportGranuloStep(1)
+      }
+    } catch (err) {
+      setImportGranuloError(err.response?.data?.error || err.message)
+    } finally {
+      setImportGranuloLoading(false)
+    }
+  }
+
+  async function choisirFeuille(nomFeuille) {
+    setImportGranuloLoading(true)
+    setImportGranuloError(null)
+    try {
+      const res = await api.post(`/projets/${id}/granulometrie/proposer`, {
+        fichier: importGranuloFichierB64,
+        nom_fichier: importGranuloNomFichier,
+        nom_feuille: nomFeuille
+      })
+      setFeuillesDisponibles(null)
+      setRegroupementEdite(res.data.batiments)
     } catch (err) {
       setImportGranuloError(err.response?.data?.error || err.message)
     } finally {
@@ -487,7 +510,7 @@ export default function Projet() {
       const res = await api.post(`/projets/${id}/granulometrie/import`, {
         fichier: importGranuloFichierB64,
         nom_fichier: importGranuloNomFichier,
-        regroupement: regroupementEdite
+        regroupement: regroupementEdite  // liste de batiment objects validés
       })
       setGranulometreD1(res.data)
       setProjet(prev => ({ ...prev, batimentsComposition: JSON.stringify(res.data.batiments) }))
@@ -1308,9 +1331,9 @@ export default function Projet() {
                   <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   {isAdmin && (
                     <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
-                      <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); importerGranuloFichier(e) }} />
+                      <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onClick={e => e.target.value = ''} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); setFeuillesDisponibles(null); setRegroupementEdite(null); importerGranuloFichier(e) }} />
                       <span className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-                        {importGranuloLoading ? '⏳' : '📥 Importer Excel'}
+                        {importGranuloLoading ? '⏳ Analyse IA...' : '📥 Importer Excel'}
                       </span>
                     </label>
                   )}
@@ -1321,67 +1344,83 @@ export default function Projet() {
 
             {showBatiments && (<>
 
-            {/* Import granulométrie — Étape 1 : proposition regroupement éditable */}
-            {importGranuloStep === 1 && regroupementEdite && (() => {
-              // Construire la liste montée → bâtiment depuis regroupementEdite
-              const monteeVersGroupe = {}
-              Object.entries(regroupementEdite).forEach(([groupe, montees]) => {
-                montees.forEach(m => { monteeVersGroupe[m] = groupe })
-              })
-              const toutesLesMontees = Object.keys(monteeVersGroupe)
-              const tousLesGroupes = Object.keys(regroupementEdite)
+            {/* Import granulométrie — Étape 1 : sélection feuille OU validation tableau D1 */}
+            {importGranuloStep === 1 && (
+              <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: 14, marginBottom: 12 }}>
 
-              function changerGroupe(montee, nouveauGroupe) {
-                setRegroupementEdite(prev => {
-                  const next = {}
-                  Object.entries(prev).forEach(([g, ms]) => {
-                    next[g] = ms.filter(m => m !== montee)
-                  })
-                  if (!next[nouveauGroupe]) next[nouveauGroupe] = []
-                  next[nouveauGroupe] = [...next[nouveauGroupe], montee]
-                  // Supprimer les groupes vides
-                  Object.keys(next).forEach(g => { if (next[g].length === 0) delete next[g] })
-                  return next
-                })
-              }
-
-              return (
-                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: 14, marginBottom: 12 }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: '#0369a1' }}>📥 Proposition de regroupement — vérifier et corriger si besoin</p>
-                  <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', marginBottom: 10 }}>
-                    <thead>
-                      <tr style={{ background: '#e0f2fe', textAlign: 'left' }}>
-                        <th style={{ padding: '5px 10px', fontWeight: 700 }}>Montée</th>
-                        <th style={{ padding: '5px 10px', fontWeight: 700 }}>Bâtiment</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {toutesLesMontees.map(montee => (
-                        <tr key={montee} style={{ borderTop: '1px solid #bae6fd' }}>
-                          <td style={{ padding: '5px 10px', fontWeight: 600 }}>{montee}</td>
-                          <td style={{ padding: '5px 10px' }}>
-                            <select
-                              value={monteeVersGroupe[montee]}
-                              onChange={e => changerGroupe(montee, e.target.value)}
-                              style={{ fontSize: 13, padding: '2px 6px', borderRadius: 4, border: '1px solid #bae6fd' }}
-                            >
-                              {tousLesGroupes.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                          </td>
-                        </tr>
+                {/* Sélection de feuille (fichier multi-onglets) */}
+                {feuillesDisponibles && (
+                  <>
+                    <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: '#0369a1' }}>📋 Plusieurs feuilles disponibles — choisir la feuille de référence</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                      {feuillesDisponibles.feuilles_disponibles.map(f => (
+                        <button
+                          key={f}
+                          onClick={() => choisirFeuille(f)}
+                          disabled={importGranuloLoading}
+                          className={f === feuillesDisponibles.feuille_suggeree ? 'btn-primary' : 'btn-ghost'}
+                          style={{ fontSize: 12, border: '1px solid #bae6fd' }}
+                        >
+                          {f === feuillesDisponibles.feuille_suggeree ? '★ ' : ''}{f}
+                        </button>
                       ))}
-                    </tbody>
-                  </table>
-                  {importGranuloError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{importGranuloError}</p>}
-                  <div style={{ display: 'flex', gap: 8 }}>
+                    </div>
+                    {importGranuloLoading && <p style={{ fontSize: 12, color: '#0369a1' }}>⏳ Analyse en cours...</p>}
+                  </>
+                )}
+
+                {/* Tableau D1 de validation (résultat Sonnet, éditable) */}
+                {!feuillesDisponibles && regroupementEdite && (
+                  <>
+                    <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: '#0369a1' }}>🤖 Résultat Sonnet — vérifier et corriger si besoin</p>
+                    <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+                      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#e0f2fe', textAlign: 'left' }}>
+                            {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                              <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {regroupementEdite.map((b, i) => (
+                            <tr key={i} style={{ borderTop: '1px solid #bae6fd' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
+                              <td style={{ padding: '4px 8px', color: '#64748b', fontSize: 11 }}>{b.montees?.join(', ') || '—'}</td>
+                              {['nb_logements', 'LLI', 'LLS', 'BRS', 'acces_std', 'acces_premium', 'villas'].map(field => (
+                                <td key={field} style={{ padding: '2px 4px' }}>
+                                  <input
+                                    type="number"
+                                    value={b[field] ?? ''}
+                                    placeholder="—"
+                                    onChange={e => {
+                                      const val = e.target.value === '' ? null : parseInt(e.target.value) || 0
+                                      setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, [field]: val } : x))
+                                    }}
+                                    style={{ width: 52, fontSize: 12, padding: '2px 4px', border: '1px solid #bae6fd', borderRadius: 4, textAlign: 'center' }}
+                                  />
+                                </td>
+                              ))}
+                              <td style={{ padding: '4px 8px', fontSize: 11, color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+
+                {importGranuloError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{importGranuloError}</p>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {!feuillesDisponibles && regroupementEdite && (
                     <button onClick={confirmerGranulo} className="btn-primary" style={{ fontSize: 12 }} disabled={importGranuloLoading}>
                       {importGranuloLoading ? '⏳ Import...' : '✓ Confirmer et importer'}
                     </button>
-                    <button onClick={() => { setImportGranuloStep(0); setImportGranuloError(null) }} className="btn-ghost" style={{ fontSize: 12 }}>Annuler</button>
-                  </div>
+                  )}
+                  <button onClick={() => { setImportGranuloStep(0); setImportGranuloError(null); setFeuillesDisponibles(null) }} className="btn-ghost" style={{ fontSize: 12 }}>Annuler</button>
                 </div>
-              )
-            })()}
+              </div>
+            )}
 
             {/* Import granulométrie — Étape 2 : tableau D1 */}
             {importGranuloStep === 2 && granulometreD1 && (
@@ -1401,13 +1440,13 @@ export default function Projet() {
                         <tr key={i} style={{ borderTop: '1px solid #bbf7d0' }}>
                           <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
                           <td style={{ padding: '4px 8px', color: '#64748b' }}>{b.montees?.join(', ')}</td>
-                          <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nb_logements}</td>
-                          <td style={{ padding: '4px 8px' }}>{b.LLI || '-'}</td>
-                          <td style={{ padding: '4px 8px' }}>{b.LLS || '-'}</td>
-                          <td style={{ padding: '4px 8px' }}>{b.BRS || '-'}</td>
-                          <td style={{ padding: '4px 8px' }}>{b.acces_std || '-'}</td>
-                          <td style={{ padding: '4px 8px' }}>{b.acces_premium || '-'}</td>
-                          <td style={{ padding: '4px 8px' }}>{b.villas || '-'}</td>
+                          <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nb_logements ?? '?'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.LLI !== null && b.LLI !== undefined ? b.LLI : '?'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.LLS !== null && b.LLS !== undefined ? b.LLS : '?'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.BRS !== null && b.BRS !== undefined ? b.BRS : '?'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.acces_std !== null && b.acces_std !== undefined ? b.acces_std : '?'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.acces_premium !== null && b.acces_premium !== undefined ? b.acces_premium : '?'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.villas !== null && b.villas !== undefined ? b.villas : '?'}</td>
                           <td style={{ padding: '4px 8px', color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
                         </tr>
                       ))}
@@ -1417,12 +1456,12 @@ export default function Projet() {
                         <td style={{ padding: '5px 8px', fontWeight: 700 }}>TOTAL</td>
                         <td style={{ padding: '5px 8px' }}></td>
                         <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.nb_logements || 0), 0)}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.LLI || 0), 0) || '-'}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.LLS || 0), 0) || '-'}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.BRS || 0), 0) || '-'}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.acces_std || 0), 0) || '-'}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.acces_premium || 0), 0) || '-'}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.villas || 0), 0) || '-'}</td>
+                        {['LLI','LLS','BRS','acces_std','acces_premium','villas'].slice(0,5).map(f => {
+                          const anyNull = granulometreD1.batiments.some(b => b[f] === null || b[f] === undefined)
+                          const total = granulometreD1.batiments.reduce((s, b) => s + (b[f] || 0), 0)
+                          return <td key={f} style={{ padding: '5px 8px', fontWeight: 700 }}>{anyNull ? '?' : total || '0'}</td>
+                        })}
+                        {(() => { const f='villas'; const anyNull=granulometreD1.batiments.some(b=>b[f]===null||b[f]===undefined); const total=granulometreD1.batiments.reduce((s,b)=>s+(b[f]||0),0); return <td style={{padding:'5px 8px',fontWeight:700}}>{anyNull?'?':total||'0'}</td> })()}
                         <td style={{ padding: '5px 8px' }}></td>
                       </tr>
                     </tfoot>
@@ -1435,12 +1474,18 @@ export default function Projet() {
                     ))}
                   </div>
                 )}
-                <button onClick={() => setImportGranuloStep(0)} className="btn-ghost" style={{ fontSize: 12, marginTop: 8 }}>Fermer</button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button onClick={() => { setRegroupementEdite([...granulometreD1.batiments]); setImportGranuloStep(1) }} className="btn-ghost" style={{ fontSize: 12 }}>✏️ Modifier</button>
+                  <button onClick={() => setImportGranuloStep(0)} className="btn-ghost" style={{ fontSize: 12 }}>Fermer</button>
+                </div>
               </div>
             )}
 
             {importGranuloError && importGranuloStep === 0 && (
               <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>⚠ {importGranuloError}</p>
+            )}
+            {importGranuloLoading && importGranuloStep === 0 && (
+              <p style={{ fontSize: 12, color: '#0369a1', marginBottom: 8 }}>⏳ Analyse du fichier via IA (peut prendre 15-20 secondes)…</p>
             )}
 
             {nouvelleTypologie !== null && (
@@ -1478,11 +1523,11 @@ export default function Projet() {
               </div>
             )}
 
-            {importGranuloStep !== 2 && getBatiments().length === 0 && !showAddBatiment && (
+            {importGranuloStep === 0 && getBatiments().length === 0 && !showAddBatiment && (
               <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
             )}
 
-            {importGranuloStep !== 2 && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {importGranuloStep === 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {getBatiments().map((bat, i) => (
                 <div
                   key={i}

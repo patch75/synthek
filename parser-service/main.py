@@ -2,6 +2,9 @@
 Synthek Parser Service — microservice local (port 5001)
 Parsing amélioré de fichiers DPGF/CCTP/PDF avec reconstruction hiérarchie parent/enfant.
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, request, jsonify
 import openpyxl
 from docx import Document
@@ -293,7 +296,8 @@ def route_granulometrie_proposer():
             return jsonify({'error': 'fichier (base64) et nom_fichier requis'}), 400
         file_bytes = base64.b64decode(data['fichier'])
         nom_fichier = data['nom_fichier']
-        result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=None)
+        nom_feuille = data.get('nom_feuille')
+        result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=None, nom_feuille=nom_feuille)
         return jsonify(result)
     except NotImplementedError as e:
         return jsonify({'error': str(e)}), 501
@@ -315,7 +319,8 @@ def route_granulometrie_import():
         file_bytes = base64.b64decode(data['fichier'])
         nom_fichier = data['nom_fichier']
         regroupement = data['regroupement']
-        result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=regroupement)
+        nom_feuille = data.get('nom_feuille')
+        result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=regroupement, nom_feuille=nom_feuille)
         return jsonify(result)
     except NotImplementedError as e:
         return jsonify({'error': str(e)}), 501
