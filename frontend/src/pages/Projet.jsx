@@ -460,7 +460,12 @@ export default function Projet() {
     setImportGranuloLoading(true)
     try {
       const buffer = await file.arrayBuffer()
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+      const bytes = new Uint8Array(buffer)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 8192))
+      }
+      const b64 = btoa(binary)
       setImportGranuloFichierB64(b64)
       setImportGranuloNomFichier(file.name)
       const res = await api.post(`/projets/${id}/granulometrie/proposer`, { fichier: b64, nom_fichier: file.name })
@@ -1303,7 +1308,7 @@ export default function Projet() {
                   <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   {isAdmin && (
                     <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
-                      <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onChange={importerGranuloFichier} />
+                      <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); importerGranuloFichier(e) }} />
                       <span className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap' }}>
                         {importGranuloLoading ? '⏳' : '📥 Importer Excel'}
                       </span>
