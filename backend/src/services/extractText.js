@@ -99,7 +99,11 @@ async function extractText(filePath, fileType, nomDocument) {
     workbook.eachSheet((sheet) => {
       text += `\n=== Feuille: ${sheet.name} ===\n`
       sheet.eachRow((row) => {
-        text += row.values.slice(1).join(',') + '\n'
+        const vals = row.values.slice(1).map(v => {
+          if (v && typeof v === 'object' && 'result' in v) return v.result ?? ''
+          return v ?? ''
+        })
+        text += vals.join(',') + '\n'
       })
     })
     return text
