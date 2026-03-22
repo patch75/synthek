@@ -8,7 +8,7 @@ Analyse et compare automatiquement des documents techniques (Programmes, CCTP, D
 - **Frontend** : React + Vite, servi par Nginx
 - **Backend** : Node.js + Express, géré par PM2 (port 3000)
 - **Base de données** : PostgreSQL (Docker) + Prisma ORM
-- **IA** : API Anthropic — Haiku (rapide/cheap) et Sonnet (précis)
+- **IA** : API Anthropic — Sonnet (précis)
 
 ## Structure du projet
 ```
