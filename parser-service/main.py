@@ -320,6 +320,11 @@ def route_granulometrie_import():
         nom_fichier = data['nom_fichier']
         regroupement = data['regroupement']
         nom_feuille = data.get('nom_feuille')
+        import json
+        print("=== BODY /granulometrie/import ===", flush=True)
+        print("nom_fichier:", nom_fichier, flush=True)
+        print("regroupement:", json.dumps(regroupement, ensure_ascii=False, indent=2), flush=True)
+        print("=== FIN BODY ===", flush=True)
         result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=regroupement, nom_feuille=nom_feuille)
         return jsonify(result)
     except NotImplementedError as e:
