@@ -286,6 +286,15 @@ export default function Projet() {
   const [showAddBatiment, setShowAddBatiment] = useState(false)
   const [newBatimentNom, setNewBatimentNom] = useState('')
   const [newBatimentTypos, setNewBatimentTypos] = useState([])
+  // Import granulométrie depuis fichier architecte
+  const [importGranuloStep, setImportGranuloStep] = useState(0) // 0=caché, 1=proposition, 2=résultat
+  const [importGranuloLoading, setImportGranuloLoading] = useState(false)
+  const [importGranuloError, setImportGranuloError] = useState(null)
+  const [importGranuloFichierB64, setImportGranuloFichierB64] = useState(null)
+  const [importGranuloNomFichier, setImportGranuloNomFichier] = useState('')
+  const [propositionRegroupement, setPropositionRegroupement] = useState(null) // { groupName: [montees] }
+  const [regroupementEdite, setRegroupementEdite] = useState(null)
+  const [granulometreD1, setGranulometreD1] = useState(null)
 
   // V3 — Config IA
   const [showConfig, setShowConfig] = useState(false)
@@ -321,6 +330,16 @@ export default function Projet() {
       setProjet(pRes.data)
       setAlertes(aRes.data)
       setTypologiesCustom(tRes.data)
+      // Détecter format D1 et restaurer le tableau granulométrie
+      if (pRes.data.batimentsComposition) {
+        try {
+          const bats = JSON.parse(pRes.data.batimentsComposition)
+          if (bats?.length && ('LLI' in bats[0] || 'acces_std' in bats[0])) {
+            setGranulometreD1({ batiments: bats, total_logements: bats.reduce((s, b) => s + (b.nb_logements || 0), 0), donnees_manquantes: [], source: '' })
+            setImportGranuloStep(2)
+          }
+        } catch {}
+      }
       setLoading(false)
     })
   }, [id])
@@ -432,6 +451,47 @@ export default function Projet() {
     const updated = [...getBatiments(), { nom: newBatimentNom.trim(), typologies: newBatimentTypos }]
     await saveBatiments(updated)
     setNewBatimentNom(''); setNewBatimentTypos([]); setShowAddBatiment(false)
+  }
+
+  async function importerGranuloFichier(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportGranuloError(null)
+    setImportGranuloLoading(true)
+    try {
+      const buffer = await file.arrayBuffer()
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+      setImportGranuloFichierB64(b64)
+      setImportGranuloNomFichier(file.name)
+      const res = await api.post(`/projets/${id}/granulometrie/proposer`, { fichier: b64, nom_fichier: file.name })
+      setPropositionRegroupement(res.data.proposition_regroupement)
+      setRegroupementEdite(JSON.parse(JSON.stringify(res.data.proposition_regroupement)))
+      setImportGranuloStep(1)
+    } catch (err) {
+      setImportGranuloError(err.response?.data?.error || err.message)
+    } finally {
+      setImportGranuloLoading(false)
+    }
+  }
+
+  async function confirmerGranulo() {
+    if (!regroupementEdite) return
+    setImportGranuloLoading(true)
+    setImportGranuloError(null)
+    try {
+      const res = await api.post(`/projets/${id}/granulometrie/import`, {
+        fichier: importGranuloFichierB64,
+        nom_fichier: importGranuloNomFichier,
+        regroupement: regroupementEdite
+      })
+      setGranulometreD1(res.data)
+      setProjet(prev => ({ ...prev, batimentsComposition: JSON.stringify(res.data.batiments) }))
+      setImportGranuloStep(2)
+    } catch (err) {
+      setImportGranuloError(err.response?.data?.error || err.message)
+    } finally {
+      setImportGranuloLoading(false)
+    }
   }
 
   async function sauvegarderBatimentEdit(idx) {
@@ -1234,19 +1294,150 @@ export default function Projet() {
             <div className="section-title-row" style={{ cursor: 'pointer', marginBottom: showBatiments ? 12 : 0 }} onClick={() => setShowBatiments(v => !v)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
                 <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🏢</span> Bâtiments
+                  <span style={{ fontSize: 16 }}>🏢</span> Bâtiments — Granulométrie
                 </h2>
                 <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showBatiments ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
               </div>
               <div className="section-title-btns">
                 {showBatiments && (<>
                   <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
+                  {isAdmin && (
+                    <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                      <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onChange={importerGranuloFichier} />
+                      <span className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                        {importGranuloLoading ? '⏳' : '📥 Importer Excel'}
+                      </span>
+                    </label>
+                  )}
                   <button onClick={e => { e.stopPropagation(); setNouvelleTypologie(v => v === null ? '' : null) }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>⚙️ Typologies</button>
                 </>)}
               </div>
             </div>
 
             {showBatiments && (<>
+
+            {/* Import granulométrie — Étape 1 : proposition regroupement éditable */}
+            {importGranuloStep === 1 && regroupementEdite && (() => {
+              // Construire la liste montée → bâtiment depuis regroupementEdite
+              const monteeVersGroupe = {}
+              Object.entries(regroupementEdite).forEach(([groupe, montees]) => {
+                montees.forEach(m => { monteeVersGroupe[m] = groupe })
+              })
+              const toutesLesMontees = Object.keys(monteeVersGroupe)
+              const tousLesGroupes = Object.keys(regroupementEdite)
+
+              function changerGroupe(montee, nouveauGroupe) {
+                setRegroupementEdite(prev => {
+                  const next = {}
+                  Object.entries(prev).forEach(([g, ms]) => {
+                    next[g] = ms.filter(m => m !== montee)
+                  })
+                  if (!next[nouveauGroupe]) next[nouveauGroupe] = []
+                  next[nouveauGroupe] = [...next[nouveauGroupe], montee]
+                  // Supprimer les groupes vides
+                  Object.keys(next).forEach(g => { if (next[g].length === 0) delete next[g] })
+                  return next
+                })
+              }
+
+              return (
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: 14, marginBottom: 12 }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: '#0369a1' }}>📥 Proposition de regroupement — vérifier et corriger si besoin</p>
+                  <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', marginBottom: 10 }}>
+                    <thead>
+                      <tr style={{ background: '#e0f2fe', textAlign: 'left' }}>
+                        <th style={{ padding: '5px 10px', fontWeight: 700 }}>Montée</th>
+                        <th style={{ padding: '5px 10px', fontWeight: 700 }}>Bâtiment</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {toutesLesMontees.map(montee => (
+                        <tr key={montee} style={{ borderTop: '1px solid #bae6fd' }}>
+                          <td style={{ padding: '5px 10px', fontWeight: 600 }}>{montee}</td>
+                          <td style={{ padding: '5px 10px' }}>
+                            <select
+                              value={monteeVersGroupe[montee]}
+                              onChange={e => changerGroupe(montee, e.target.value)}
+                              style={{ fontSize: 13, padding: '2px 6px', borderRadius: 4, border: '1px solid #bae6fd' }}
+                            >
+                              {tousLesGroupes.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {importGranuloError && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{importGranuloError}</p>}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={confirmerGranulo} className="btn-primary" style={{ fontSize: 12 }} disabled={importGranuloLoading}>
+                      {importGranuloLoading ? '⏳ Import...' : '✓ Confirmer et importer'}
+                    </button>
+                    <button onClick={() => { setImportGranuloStep(0); setImportGranuloError(null) }} className="btn-ghost" style={{ fontSize: 12 }}>Annuler</button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Import granulométrie — Étape 2 : tableau D1 */}
+            {importGranuloStep === 2 && granulometreD1 && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: 14, marginBottom: 12 }}>
+                <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#15803d' }}>✅ {granulometreD1.total_logements} logements importés depuis {granulometreD1.source}</p>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
+                        {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                          <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {granulometreD1.batiments.map((b, i) => (
+                        <tr key={i} style={{ borderTop: '1px solid #bbf7d0' }}>
+                          <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
+                          <td style={{ padding: '4px 8px', color: '#64748b' }}>{b.montees?.join(', ')}</td>
+                          <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nb_logements}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.LLI || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.LLS || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.BRS || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.acces_std || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.acces_premium || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{b.villas || '-'}</td>
+                          <td style={{ padding: '4px 8px', color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ borderTop: '2px solid #86efac', background: '#dcfce7' }}>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>TOTAL</td>
+                        <td style={{ padding: '5px 8px' }}></td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.nb_logements || 0), 0)}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.LLI || 0), 0) || '-'}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.LLS || 0), 0) || '-'}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.BRS || 0), 0) || '-'}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.acces_std || 0), 0) || '-'}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.acces_premium || 0), 0) || '-'}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.villas || 0), 0) || '-'}</td>
+                        <td style={{ padding: '5px 8px' }}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                {granulometreD1.donnees_manquantes?.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    {granulometreD1.donnees_manquantes.map((w, i) => (
+                      <p key={i} style={{ fontSize: 11, color: '#f59e0b', margin: 0 }}>⚠ {w}</p>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setImportGranuloStep(0)} className="btn-ghost" style={{ fontSize: 12, marginTop: 8 }}>Fermer</button>
+              </div>
+            )}
+
+            {importGranuloError && importGranuloStep === 0 && (
+              <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>⚠ {importGranuloError}</p>
+            )}
+
             {nouvelleTypologie !== null && (
               <div style={{ background: 'var(--bg-muted)', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
                 <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Typologies disponibles</p>
@@ -1282,11 +1473,11 @@ export default function Projet() {
               </div>
             )}
 
-            {getBatiments().length === 0 && !showAddBatiment && (
+            {importGranuloStep !== 2 && getBatiments().length === 0 && !showAddBatiment && (
               <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {importGranuloStep !== 2 && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {getBatiments().map((bat, i) => (
                 <div
                   key={i}
@@ -1363,7 +1554,7 @@ export default function Projet() {
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
             </>)}
           </section>
         )}

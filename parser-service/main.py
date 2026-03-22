@@ -11,6 +11,7 @@ import io
 import traceback
 from comparaison_cctp_dpgf import extraire_cctp, extraire_dpgf, detecter_alertes, extraire_programme
 from equivalences_fluides import est_ligne_exclue, sont_equivalents
+from extraire_granulometrie import extraire_granulometrie, proposer_regroupement
 
 app = Flask(__name__)
 
@@ -279,6 +280,47 @@ def route_compare_cctp_dpgf():
             'nb_conformes': max(0, len(articles) - len(alertes)),
         })
 
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/granulometrie/proposer', methods=['POST'])
+def route_granulometrie_proposer():
+    try:
+        data = request.get_json()
+        if not data or 'fichier' not in data or 'nom_fichier' not in data:
+            return jsonify({'error': 'fichier (base64) et nom_fichier requis'}), 400
+        file_bytes = base64.b64decode(data['fichier'])
+        nom_fichier = data['nom_fichier']
+        result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=None)
+        return jsonify(result)
+    except NotImplementedError as e:
+        return jsonify({'error': str(e)}), 501
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/granulometrie/import', methods=['POST'])
+def route_granulometrie_import():
+    try:
+        data = request.get_json()
+        if not data or 'fichier' not in data or 'nom_fichier' not in data:
+            return jsonify({'error': 'fichier (base64) et nom_fichier requis'}), 400
+        if 'regroupement' not in data:
+            return jsonify({'error': 'regroupement requis - appeler /granulometrie/proposer dabord'}), 400
+        file_bytes = base64.b64decode(data['fichier'])
+        nom_fichier = data['nom_fichier']
+        regroupement = data['regroupement']
+        result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=regroupement)
+        return jsonify(result)
+    except NotImplementedError as e:
+        return jsonify({'error': str(e)}), 501
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

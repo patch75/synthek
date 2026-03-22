@@ -188,12 +188,13 @@ router.delete('/:id/sous-programmes/:spId', async (req, res) => {
 router.patch('/:id', authMiddleware, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   const projetId = parseInt(req.params.id)
-  const { nom, client, metadonnees } = req.body
+  const { nom, client, metadonnees, batimentsComposition } = req.body
 
   const data = {}
   if (nom?.trim()) data.nom = nom.trim()
   if (client?.trim()) data.client = client.trim()
   if (metadonnees !== undefined) data.metadonnees = metadonnees ? JSON.stringify(metadonnees) : null
+  if (batimentsComposition !== undefined) data.batimentsComposition = batimentsComposition || null
 
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
 
@@ -416,6 +417,51 @@ router.post('/:id/rapport-jalon', async (req, res) => {
     destinataires: bureauControle.map(u => u.email),
     signatureGlobale
   })
+})
+
+// POST /projets/:id/granulometrie/proposer — Étape 1 : propose le regroupement depuis fichier Excel
+router.post('/:id/granulometrie/proposer', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const { fichier, nom_fichier } = req.body
+  if (!fichier || !nom_fichier) return res.status(400).json({ error: 'fichier (base64) et nom_fichier requis' })
+  try {
+    const response = await fetch('http://127.0.0.1:5001/granulometrie/proposer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fichier, nom_fichier })
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (e) {
+    res.status(503).json({ error: 'Parser Python indisponible', detail: e.message })
+  }
+})
+
+// POST /projets/:id/granulometrie/import — Étape 2 : confirme le regroupement et sauvegarde en BDD
+router.post('/:id/granulometrie/import', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { fichier, nom_fichier, regroupement } = req.body
+  if (!fichier || !nom_fichier || !regroupement) return res.status(400).json({ error: 'fichier, nom_fichier et regroupement requis' })
+  try {
+    const response = await fetch('http://127.0.0.1:5001/granulometrie/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fichier, nom_fichier, regroupement })
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    // Sauvegarder en BDD
+    await prisma.projet.update({
+      where: { id: projetId },
+      data: { batimentsComposition: JSON.stringify(data.batiments) }
+    })
+    console.log(`[granulometrie] Projet ${projetId} : ${data.batiments?.length} bâtiments importés, ${data.total_logements} logements`)
+    res.json(data)
+  } catch (e) {
+    res.status(503).json({ error: 'Parser Python indisponible', detail: e.message })
+  }
 })
 
 // PATCH /projets/:id/intervenants — mettre à jour les intervenants (admin only)
