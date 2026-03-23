@@ -497,12 +497,12 @@ router.post('/:id/batiments', async (req, res) => {
       nom: nom.trim(),
       montees: Array.isArray(montees) && montees.length ? JSON.stringify(montees) : null,
       nbLogements: nbLogements != null ? parseInt(nbLogements) : null,
-      lli: lli != null ? parseInt(lli) : null,
-      lls: lls != null ? parseInt(lls) : null,
-      brs: brs != null ? parseInt(brs) : null,
-      acceStd: acceStd != null ? parseInt(acceStd) : null,
-      accesPremium: accesPremium != null ? parseInt(accesPremium) : null,
-      villas: villas != null ? parseInt(villas) : null,
+      lli: lli != null ? parseInt(lli) : 0,
+      lls: lls != null ? parseInt(lls) : 0,
+      brs: brs != null ? parseInt(brs) : 0,
+      acceStd: acceStd != null ? parseInt(acceStd) : 0,
+      accesPremium: accesPremium != null ? parseInt(accesPremium) : 0,
+      villas: villas != null ? parseInt(villas) : 0,
     }
   })
   res.status(201).json(bat)
