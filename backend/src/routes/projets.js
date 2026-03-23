@@ -455,27 +455,34 @@ router.post('/:id/granulometrie/import', async (req, res) => {
     if (!response.ok) return res.status(response.status).json(data)
     // Sauvegarder dans table Batiment — merge intelligent
     if (data.batiments?.length) {
+      // Normalise : supprime le préfixe "BAT " pour comparer "BAT A" avec "A", "BAT E" avec "E1"/"E2"
+      const norm = s => s.trim().toLowerCase().replace(/^bat\s+/i, '')
       const existants = await prisma.batiment.findMany({ where: { projetId } })
-      const newNoms = data.batiments.map(b => b.nom.trim().toLowerCase())
+      const newNomsNorm = data.batiments.map(b => norm(b.nom))
 
-      // Détection parents remplacés par subdivisions :
-      // Si "BAT A" n'est pas dans le nouveau fichier mais "BAT A1" et "BAT A2" y sont → supprimer "BAT A"
+      // Détection parents remplacés par subdivisions (comparaison normalisée)
+      // Ex: "BAT A" norm="a" absent du nouveau fichier + "a1","a2" présents → supprimer "BAT A"
       const aSupprimer = existants.filter(e => {
-        const nom = e.nom.trim().toLowerCase()
-        const absentDuNouveauFichier = !newNoms.includes(nom)
-        const nbSubdivisions = newNoms.filter(n => n.startsWith(nom) && n.length > nom.length).length
-        return absentDuNouveauFichier && nbSubdivisions >= 2
+        const n = norm(e.nom)
+        const absent = !newNomsNorm.some(nn => nn === n)
+        const nbSubdivisions = newNomsNorm.filter(nn => nn.startsWith(n) && nn.length > n.length).length
+        return absent && nbSubdivisions >= 2
       })
       if (aSupprimer.length > 0) {
         await prisma.batiment.deleteMany({ where: { id: { in: aSupprimer.map(b => b.id) } } })
-        console.log(`[granulometrie] Parents supprimés (subdivisés) : ${aSupprimer.map(b => b.nom).join(', ')}`)
+        console.log(`[granulometrie] Parents supprimés : ${aSupprimer.map(b => b.nom).join(', ')}`)
       }
 
-      // Merge : update si existe, create si nouveau
+      // Merge : update si existe (exact ou normalisé), create si nouveau
+      // Ex: "B" dans nouveau fichier → matche "BAT B" en DB
       const existantsMaj = await prisma.batiment.findMany({ where: { projetId } })
       for (const b of data.batiments) {
-        const existant = existantsMaj.find(e => e.nom.trim().toLowerCase() === b.nom.trim().toLowerCase())
+        const bn = norm(b.nom)
+        const existant = existantsMaj.find(e =>
+          e.nom.trim().toLowerCase() === b.nom.trim().toLowerCase() || norm(e.nom) === bn
+        )
         const payload = {
+          nom: b.nom, // met à jour le nom avec la version courte si nécessaire
           montees: b.montees?.length ? JSON.stringify(b.montees) : null,
           nosComptes: b.nos_comptes?.length ? JSON.stringify(b.nos_comptes) : null,
           nbLogements: b.nb_logements ?? null,
@@ -486,7 +493,7 @@ router.post('/:id/granulometrie/import', async (req, res) => {
         if (existant) {
           await prisma.batiment.update({ where: { id: existant.id }, data: payload })
         } else {
-          await prisma.batiment.create({ data: { projetId, nom: b.nom, ...payload } })
+          await prisma.batiment.create({ data: { projetId, ...payload } })
         }
       }
     }
