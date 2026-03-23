@@ -27,6 +27,7 @@ import datetime
 from typing import Optional
 
 import openpyxl
+import pdfplumber
 import anthropic
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,56 @@ Format de sortie exact :
   "hypotheses": []
 }"""
 
+PROMPT_SYSTEME_PDF = """Ne réfléchis pas à voix haute. Commence ta réponse immédiatement par { sans aucun texte avant.
+
+Tu es un parser de données immobilières spécialisé en programmes de logements.
+Tu reçois le contenu texte extrait d'un document PDF (programme architecte, tableau de logements).
+
+Extrais les informations suivantes par bâtiment ou groupe de bâtiments :
+- nom du bâtiment ou groupe (ex: A, BAT A, Bâtiment A)
+- montees : sous-entrées du bâtiment si présentes (ex: A1, A2) — [] si absent
+- nos_comptes : liste exhaustive de tous les N° de logements pour ce bâtiment
+- nb_logements : nombre de logements (len(nos_comptes) si disponible)
+- LLI, LLS, BRS, acces_std, acces_premium, villas : déduits des annotations ou colonnes
+
+Règles :
+- Cherche les tableaux de logements, programmes, ou listes numérotées
+- Les annotations entre parenthèses indiquent le financement : (LLS), (BRS), (LLI)
+- Sans annotation → accession libre (acces_std)
+- Si une donnée est absente ou non déductible → null
+- Fiabilité "haute" si nos_comptes rempli, "estimee" sinon
+- Retourne UNIQUEMENT le JSON valide, sans texte avant ni après, sans backticks
+
+Format de sortie exact :
+{
+  "projet": null,
+  "source": "nom_fichier",
+  "batiments": [
+    {
+      "nom": "A",
+      "montees": ["A1", "A2"],
+      "nos_comptes": ["001", "002 (BRS)"],
+      "nb_logements": 2,
+      "LLI": null,
+      "LLS": 0,
+      "BRS": 1,
+      "acces_std": 1,
+      "acces_premium": null,
+      "villas": 0,
+      "fiabilite": "haute",
+      "section_cctp": null,
+      "feuilles_dpgf": [],
+      "systeme_chauffage": null,
+      "systeme_vmc": null,
+      "regulation": null,
+      "notes": null
+    }
+  ],
+  "total_logements": 2,
+  "donnees_manquantes": [],
+  "hypotheses": []
+}"""
+
 
 # ─────────────────────────────────────────────────────────────────
 # ÉTAPE 1 — EXTRACTION TEXTE BRUT EXCEL
@@ -169,6 +220,34 @@ def _extraire_texte_brut_excel(file_bytes: bytes, nom_feuille: str = None) -> di
         texte = texte[:LIMITE_TEXTE_BRUT]
 
     return {'texte': texte, 'tronque': tronque, 'feuille': cible}
+
+
+def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
+    """
+    Extrait le texte d'un PDF avec pdfplumber.
+    Priorité aux tableaux, fallback sur texte brut.
+    """
+    result = []
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        for i, page in enumerate(pdf.pages, start=1):
+            tables = page.extract_tables()
+            if tables:
+                result.append(f"\n--- Page {i} ---")
+                for table in tables:
+                    for row in table:
+                        cells = [str(c).strip() if c else '' for c in row]
+                        non_empty = [c for c in cells if c]
+                        if non_empty:
+                            result.append(' | '.join(non_empty))
+            else:
+                text = page.extract_text()
+                if text:
+                    result.append(f"\n--- Page {i} ---")
+                    result.append(text)
+    texte = '\n'.join(result)
+    if len(texte) > LIMITE_TEXTE_BRUT:
+        texte = texte[:LIMITE_TEXTE_BRUT]
+    return texte
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -534,6 +613,73 @@ def _run_extraction_sonnet(
 # POINT D'ENTRÉE PRINCIPAL
 # ─────────────────────────────────────────────────────────────────
 
+def _extraire_granulometrie_pdf(
+    file_bytes: bytes,
+    nom_fichier: str,
+    regroupement_valide=None,
+) -> dict:
+    """Pipeline granulométrie pour fichiers PDF."""
+
+    # Appel 2 nouveau format : l'utilisateur renvoie la liste validée
+    if isinstance(regroupement_valide, list):
+        batiments = regroupement_valide
+        warnings = _valider(batiments)
+        total = sum((b.get('nb_logements') or 0) for b in batiments)
+        return {
+            'projet': None,
+            'source': nom_fichier,
+            'batiments': batiments,
+            'total_logements': total,
+            'donnees_manquantes': warnings,
+            'hypotheses': ['Données extraites depuis PDF via Sonnet 4.6 — vérifiées et confirmées par le BET'],
+        }
+
+    # Appel 1 : extraction + Sonnet
+    texte_brut = _extraire_texte_brut_pdf(file_bytes)
+    if not texte_brut.strip():
+        raise ValueError("Le PDF ne contient pas de texte extractible. Vérifiez qu'il n'est pas scanné.")
+
+    client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
+    message = client.messages.create(
+        model=MODELE_SONNET,
+        max_tokens=4000,
+        system=PROMPT_SYSTEME_PDF,
+        messages=[{'role': 'user', 'content': f'Fichier : {nom_fichier}\n\n{texte_brut}'}],
+    )
+    raw = message.content[0].text.strip()
+    raw = re.sub(r'^```(?:json)?\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw)
+    try:
+        json_sonnet = json.loads(raw)
+    except json.JSONDecodeError:
+        idx = raw.find('{')
+        if idx >= 0:
+            json_sonnet = json.loads(raw[idx:])
+        else:
+            raise ValueError(f"Sonnet n'a pas retourné un JSON valide.\nRéponse : {raw[:500]}")
+
+    batiments = json_sonnet.get('batiments', [])
+    batiments, warnings_nos = _verifier_et_corriger_batiments(batiments, 0)
+    total = json_sonnet.get('total_logements') or sum((b.get('nb_logements') or 0) for b in batiments)
+    donnees_manquantes = list(json_sonnet.get('donnees_manquantes', []))
+    donnees_manquantes.extend(warnings_nos)
+
+    print("=== JSON SONNET PDF BRUT ===", flush=True)
+    print(json.dumps(json_sonnet, ensure_ascii=False, indent=2), flush=True)
+    print("=== FIN JSON SONNET PDF ===", flush=True)
+
+    return {
+        'etape': 'validation',
+        'projet': json_sonnet.get('projet'),
+        'source': nom_fichier,
+        'feuille': '',
+        'batiments': batiments,
+        'total_logements': total,
+        'donnees_manquantes': donnees_manquantes,
+        'hypotheses': json_sonnet.get('hypotheses', []),
+    }
+
+
 def extraire_granulometrie(
     file_bytes: bytes,
     nom_fichier: str,
@@ -557,7 +703,7 @@ def extraire_granulometrie(
     """
     ext = nom_fichier.lower().rsplit('.', 1)[-1] if '.' in nom_fichier else ''
     if ext == 'pdf':
-        raise NotImplementedError("Parsing PDF non implémenté. Utiliser un fichier Excel.")
+        return _extraire_granulometrie_pdf(file_bytes, nom_fichier, regroupement_valide)
     if ext not in ('xlsx', 'xlsm', 'xls'):
         raise ValueError(f"Format non supporté : {ext}. Acceptés : xlsx, xlsm, xls")
 

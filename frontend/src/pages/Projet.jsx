@@ -1372,14 +1372,20 @@ export default function Projet() {
                       setProjet(res.data)
                     }} className="btn-ghost" style={{ fontSize: 13, color: '#ef4444', border: '1px solid #fca5a5' }}>🗑 Tout supprimer</button>
                   )}
-                  {isAdmin && (
+                  {isAdmin && (<>
                     <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
-                      <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onClick={e => e.target.value = ''} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); setFeuillesDisponibles(null); setRegroupementEdite(null); importerGranuloFichier(e) }} />
+                      <input type="file" accept=".xlsx,.xlsm,.xls" style={{ display: 'none' }} onClick={e => e.target.value = ''} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); setFeuillesDisponibles(null); setRegroupementEdite(null); importerGranuloFichier(e) }} />
                       <span className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap' }}>
                         {importGranuloLoading ? '⏳ Analyse IA...' : '📥 Importer Excel'}
                       </span>
                     </label>
-                  )}
+                    <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
+                      <input type="file" accept=".pdf" style={{ display: 'none' }} onClick={e => e.target.value = ''} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); setFeuillesDisponibles(null); setRegroupementEdite(null); importerGranuloFichier(e) }} />
+                      <span className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                        {importGranuloLoading ? '⏳ Analyse IA...' : '📄 Importer PDF'}
+                      </span>
+                    </label>
+                  </>)}
                   <button onClick={e => { e.stopPropagation(); setNouvelleTypologie(v => v === null ? '' : null) }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>⚙️ Typologies</button>
                 </>)}
               </div>
