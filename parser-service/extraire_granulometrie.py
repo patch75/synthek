@@ -663,7 +663,7 @@ def _extraire_granulometrie_pdf(
     client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
     message = client.messages.create(
         model=MODELE_SONNET,
-        max_tokens=4000,
+        max_tokens=8000,
         system=PROMPT_SYSTEME_PDF,
         messages=[{'role': 'user', 'content': f'Fichier : {nom_fichier}\n\n{texte_brut}'}],
     )
