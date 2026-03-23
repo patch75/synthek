@@ -463,12 +463,12 @@ router.post('/:id/granulometrie/import', async (req, res) => {
           montees: b.montees?.length ? JSON.stringify(b.montees) : null,
           nosComptes: b.nos_comptes?.length ? JSON.stringify(b.nos_comptes) : null,
           nbLogements: b.nb_logements ?? null,
-          lli: b.LLI ?? null,
-          lls: b.LLS ?? null,
-          brs: b.BRS ?? null,
-          acceStd: b.acces_std ?? null,
-          accesPremium: b.acces_premium ?? null,
-          villas: b.villas ?? null,
+          lli: b.LLI ?? 0,
+          lls: b.LLS ?? 0,
+          brs: b.BRS ?? 0,
+          acceStd: b.acces_std ?? 0,
+          accesPremium: b.acces_premium ?? 0,
+          villas: b.villas ?? 0,
           fiabilite: b.fiabilite ?? null,
         }))
       })
