@@ -527,11 +527,12 @@ export default function Projet() {
   async function sauvegarderMontee(batNom, valeur) {
     const batDb = projet?.batiments?.find(b => b.nom === batNom)
     if (!batDb) return
+    const montees = valeur ? valeur.split(',').map(s => s.trim()).filter(Boolean) : []
     try {
-      await api.patch(`/projets/${id}/batiments/${batDb.id}`, { montee: valeur || null })
+      await api.patch(`/projets/${id}/batiments/${batDb.id}`, { montees })
       setProjet(prev => ({
         ...prev,
-        batiments: prev.batiments.map(b => b.id === batDb.id ? { ...b, montee: valeur || null } : b)
+        batiments: prev.batiments.map(b => b.id === batDb.id ? { ...b, montees: JSON.stringify(montees) } : b)
       }))
     } catch (e) {
       console.error('[montee] erreur sauvegarde', e)
@@ -1556,10 +1557,10 @@ export default function Projet() {
                           <input
                             type="text"
                             placeholder="ex: BAT A"
-                            value={monteesEdit[b.nom] ?? (b.montee || '')}
+                            value={monteesEdit[b.nom] ?? (() => { try { return JSON.parse(b.montees || '[]').join(', ') } catch { return b.montees || '' } })()}
                             onChange={e => setMonteesEdit(prev => ({ ...prev, [b.nom]: e.target.value }))}
                             onBlur={e => sauvegarderMontee(b.nom, e.target.value)}
-                            style={{ width: 80, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
+                            style={{ width: 100, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
                           />
                         </td>
                         <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nbLogements ?? '?'}</td>
