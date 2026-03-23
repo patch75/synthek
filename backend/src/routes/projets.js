@@ -489,12 +489,13 @@ router.post('/:id/granulometrie/import', async (req, res) => {
 router.post('/:id/batiments', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   const projetId = parseInt(req.params.id)
-  const { nom, nbLogements, lli, lls, brs, acceStd, accesPremium, villas } = req.body
+  const { nom, montees, nbLogements, lli, lls, brs, acceStd, accesPremium, villas } = req.body
   if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
   const bat = await prisma.batiment.create({
     data: {
       projetId,
       nom: nom.trim(),
+      montees: Array.isArray(montees) && montees.length ? JSON.stringify(montees) : null,
       nbLogements: nbLogements != null ? parseInt(nbLogements) : null,
       lli: lli != null ? parseInt(lli) : null,
       lls: lls != null ? parseInt(lls) : null,

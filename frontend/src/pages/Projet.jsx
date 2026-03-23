@@ -1358,7 +1358,7 @@ export default function Projet() {
                   <button onClick={e => {
                     e.stopPropagation()
                     if (projet?.batiments?.length > 0) {
-                      setNewBatD1({ nom: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '' })
+                      setNewBatD1({ nom: '', montees: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '' })
                     } else {
                       setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([])
                     }
@@ -1615,7 +1615,9 @@ export default function Projet() {
                         <td style={{ padding: '4px 4px' }}>
                           <input autoFocus value={newBatD1.nom} onChange={e => setNewBatD1(p => ({ ...p, nom: e.target.value }))} placeholder="Bâtiment" style={{ width: 80, fontSize: 12, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
                         </td>
-                        <td style={{ padding: '4px 4px' }}>—</td>
+                        <td style={{ padding: '4px 4px' }}>
+                          <input value={newBatD1.montees} onChange={e => setNewBatD1(p => ({ ...p, montees: e.target.value }))} placeholder="A1, A2…" style={{ width: 70, fontSize: 12, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                        </td>
                         {['nbLogements','lli','lls','brs','acceStd','accesPremium','villas'].map(f => (
                           <td key={f} style={{ padding: '4px 4px' }}>
                             <input type="number" min="0" value={newBatD1[f]} onChange={e => setNewBatD1(p => ({ ...p, [f]: e.target.value }))} style={{ width: 48, fontSize: 12, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
@@ -1625,6 +1627,7 @@ export default function Projet() {
                           <button onClick={async () => {
                             if (!newBatD1.nom.trim()) return
                             const payload = { nom: newBatD1.nom.trim() }
+                            if (newBatD1.montees.trim()) payload.montees = newBatD1.montees.split(',').map(s => s.trim()).filter(Boolean)
                             ;['nbLogements','lli','lls','brs','acceStd','accesPremium','villas'].forEach(f => {
                               if (newBatD1[f] !== '') payload[f] = parseInt(newBatD1[f])
                             })
