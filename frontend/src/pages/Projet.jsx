@@ -1406,9 +1406,10 @@ export default function Projet() {
                               <td style={{ padding: '2px 4px' }}>
                                 <input
                                   type="text"
-                                  value={b.montees?.join(', ') || ''}
+                                  value={monteesEdit[`step1_${i}`] !== undefined ? monteesEdit[`step1_${i}`] : (b.montees?.join(', ') || '')}
                                   placeholder="ex: BAT A"
-                                  onChange={e => {
+                                  onChange={e => setMonteesEdit(prev => ({ ...prev, [`step1_${i}`]: e.target.value }))}
+                                  onBlur={e => {
                                     const val = e.target.value.split(',').map(s => s.trim()).filter(Boolean)
                                     setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, montees: val } : x))
                                   }}
