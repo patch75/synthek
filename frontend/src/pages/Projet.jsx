@@ -1355,14 +1355,7 @@ export default function Projet() {
               </div>
               <div className="section-title-btns">
                 {showBatiments && (<>
-                  <button onClick={e => {
-                    e.stopPropagation()
-                    if (projet?.batiments?.length > 0) {
-                      setNewBatD1({ nom: '', montees: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '' })
-                    } else {
-                      setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([])
-                    }
-                  }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
+                  <button onClick={e => { e.stopPropagation(); setNewBatD1({ nom: '', montees: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '' }) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   {projet?.batiments?.length > 0 && isAdmin && (
                     <button onClick={async e => {
                       e.stopPropagation()
@@ -1678,88 +1671,9 @@ export default function Projet() {
               </div>
             )}
 
-            {importGranuloStep === 0 && getBatiments().length === 0 && !showAddBatiment && projet?.batiments?.length === 0 && (
-              <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
+            {importGranuloStep === 0 && projet?.batiments?.length === 0 && (
+              <p className="text-muted text-sm">Aucun bâtiment défini. Utilisez "+ Ajouter" ou importez un fichier Excel/PDF.</p>
             )}
-
-            {importGranuloStep === 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {getBatiments().map((bat, i) => (
-                <div
-                  key={i}
-                  draggable={batimentEditIdx !== i}
-                  onDragStart={() => { dragBatIdx.current = i }}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => {
-                    const from = dragBatIdx.current
-                    if (from === null || from === i) return
-                    const next = [...getBatiments()]
-                    const [moved] = next.splice(from, 1)
-                    next.splice(i, 0, moved)
-                    saveBatiments(next)
-                  }}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', cursor: batimentEditIdx === i ? 'default' : 'grab' }}
-                >
-                  {batimentEditIdx === i ? (
-                    <div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                        <input
-                          value={batimentEditNom}
-                          onChange={e => setBatimentEditNom(e.target.value)}
-                          style={{ flex: 1, fontSize: 13 }}
-                          autoFocus
-                        />
-                        <button onClick={() => sauvegarderBatimentEdit(i)} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>✓</button>
-                        <button onClick={() => setBatimentEditIdx(null)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                        {TYPOLOGIES_OPTIONS.map(t => (
-                          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
-                            <input type="checkbox" checked={batimentEditTypos.includes(t)} onChange={() => setBatimentEditTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
-                            {t}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: 14, cursor: 'grab' }}>⠿</span>
-                      <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{bat.nom}</span>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 2 }}>
-                        {bat.typologies?.map(t => (
-                          <span key={t} style={{ fontSize: 11, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 12, padding: '2px 8px' }}>{t}</span>
-                        ))}
-                      </div>
-                      <button onClick={() => { setBatimentEditIdx(i); setBatimentEditNom(bat.nom); setBatimentEditTypos(bat.typologies || []) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: 0 }} title="Modifier">✎</button>
-                      <button onClick={() => supprimerBatimentLocal(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: 0 }} title="Supprimer">×</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {showAddBatiment && (
-                <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: '10px 14px' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                    <input
-                      value={newBatimentNom}
-                      onChange={e => setNewBatimentNom(e.target.value)}
-                      placeholder="Ex : Bâtiment A, Villas..."
-                      style={{ flex: 1, fontSize: 13 }}
-                      autoFocus
-                    />
-                    <button onClick={ajouterBatimentLocal} className="btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}>Ajouter</button>
-                    <button onClick={() => setShowAddBatiment(false)} className="btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}>✕</button>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                    {TYPOLOGIES_OPTIONS.map(t => (
-                      <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 13 }}>
-                        <input type="checkbox" checked={newBatimentTypos.includes(t)} onChange={() => setNewBatimentTypos(prev => prev.includes(t) ? prev.filter(v => v !== t) : [...prev, t])} style={{ width: 'auto' }} />
-                        {t}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>}
             </>)}
           </section>
         )}
