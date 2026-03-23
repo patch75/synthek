@@ -73,7 +73,6 @@ model Batiment {
   accesPremium  Int?
   villas        Int?
   fiabilite     String? // "haute" | "basse"
-  montee        String? // ex: "BAT A", "BAT B" — éditable manuellement
   sectionCctp   String? // mapping CCTP — à renseigner manuellement
   feuillesDpgf  String? @db.Text // JSON array ex: ["BAT A","BAT A BIS"]
 

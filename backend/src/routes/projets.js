@@ -492,7 +492,7 @@ router.patch('/:id/batiments/:batId', async (req, res) => {
   const data = {}
   if (sectionCctp !== undefined) data.sectionCctp = sectionCctp || null
   if (feuillesDpgf !== undefined) data.feuillesDpgf = feuillesDpgf?.length ? JSON.stringify(feuillesDpgf) : null
-  if (montees !== undefined) data.montees = montees?.length ? JSON.stringify(montees) : null
+  if (montees !== undefined) data.montees = Array.isArray(montees) && montees.length ? JSON.stringify(montees) : null
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
   const bat = await prisma.batiment.update({ where: { id: parseInt(req.params.batId) }, data })
   res.json(bat)

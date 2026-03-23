@@ -524,15 +524,13 @@ export default function Projet() {
     }
   }
 
-  async function sauvegarderMontee(batNom, valeur) {
-    const batDb = projet?.batiments?.find(b => b.nom === batNom)
-    if (!batDb) return
+  async function sauvegarderMontee(batId, valeur) {
     const montees = valeur ? valeur.split(',').map(s => s.trim()).filter(Boolean) : []
     try {
-      await api.patch(`/projets/${id}/batiments/${batDb.id}`, { montees })
+      await api.patch(`/projets/${id}/batiments/${batId}`, { montees })
       setProjet(prev => ({
         ...prev,
-        batiments: prev.batiments.map(b => b.id === batDb.id ? { ...b, montees: JSON.stringify(montees) } : b)
+        batiments: prev.batiments.map(b => b.id === batId ? { ...b, montees: JSON.stringify(montees) } : b)
       }))
     } catch (e) {
       console.error('[montee] erreur sauvegarde', e)
@@ -1569,9 +1567,9 @@ export default function Projet() {
                           <input
                             type="text"
                             placeholder="ex: BAT A"
-                            value={monteesEdit[b.nom] ?? (() => { try { return JSON.parse(b.montees || '[]').join(', ') } catch { return b.montees || '' } })()}
-                            onChange={e => setMonteesEdit(prev => ({ ...prev, [b.nom]: e.target.value }))}
-                            onBlur={e => sauvegarderMontee(b.nom, e.target.value)}
+                            value={monteesEdit[b.id] !== undefined ? monteesEdit[b.id] : (() => { try { return JSON.parse(b.montees || '[]').join(', ') } catch { return b.montees || '' } })()}
+                            onChange={e => setMonteesEdit(prev => ({ ...prev, [b.id]: e.target.value }))}
+                            onBlur={e => sauvegarderMontee(b.id, e.target.value)}
                             style={{ width: 100, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
                           />
                         </td>
