@@ -514,7 +514,8 @@ export default function Projet() {
         regroupement: regroupementEdite  // liste de batiment objects validés
       })
       setGranulometreD1(res.data)
-      setProjet(prev => ({ ...prev, batimentsComposition: JSON.stringify(res.data.batiments) }))
+      const pRes = await api.get(`/projets/${id}`)
+      setProjet(pRes.data)
       setImportGranuloStep(2)
     } catch (err) {
       setImportGranuloError(err.response?.data?.error || err.message)
