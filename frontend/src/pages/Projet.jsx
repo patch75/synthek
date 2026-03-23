@@ -1573,16 +1573,7 @@ export default function Projet() {
                     {projet.batiments.map(b => (
                       <tr key={b.id} style={{ borderTop: '1px solid #bbf7d0' }}>
                         <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
-                        <td style={{ padding: '4px 4px' }}>
-                          <input
-                            type="text"
-                            placeholder="ex: BAT A"
-                            value={monteesEdit[b.id] !== undefined ? monteesEdit[b.id] : (() => { try { return JSON.parse(b.montees || '[]').join(', ') } catch { return b.montees || '' } })()}
-                            onChange={e => setMonteesEdit(prev => ({ ...prev, [b.id]: e.target.value }))}
-                            onBlur={e => sauvegarderMontee(b.id, e.target.value)}
-                            style={{ width: 100, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
-                          />
-                        </td>
+                        <td style={{ padding: '4px 8px', color: '#64748b', fontSize: 11 }}>{(() => { try { return JSON.parse(b.montees || '[]').join(', ') } catch { return b.montees || '—' } })()}</td>
                         <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nbLogements ?? '?'}</td>
                         <td style={{ padding: '4px 8px' }}>{b.lli !== null && b.lli !== undefined ? b.lli : '?'}</td>
                         <td style={{ padding: '4px 8px' }}>{b.lls !== null && b.lls !== undefined ? b.lls : '?'}</td>
