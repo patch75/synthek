@@ -296,6 +296,7 @@ export default function Projet() {
   const [regroupementEdite, setRegroupementEdite] = useState(null) // liste de batiment objects (Sonnet)
   const [granulometreD1, setGranulometreD1] = useState(null)
   const [monteesEdit, setMonteesEdit] = useState({}) // { [batNom]: valeur en cours d'édition }
+  const [newBatD1, setNewBatD1] = useState(null) // null = caché, objet = ligne inline d'ajout
 
   // V3 — Config IA
   const [showConfig, setShowConfig] = useState(false)
@@ -1354,7 +1355,14 @@ export default function Projet() {
               </div>
               <div className="section-title-btns">
                 {showBatiments && (<>
-                  <button onClick={e => { e.stopPropagation(); setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([]) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
+                  <button onClick={e => {
+                    e.stopPropagation()
+                    if (projet?.batiments?.length > 0) {
+                      setNewBatD1({ nom: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '' })
+                    } else {
+                      setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([])
+                    }
+                  }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   {isAdmin && (
                     <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
                       <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onClick={e => e.target.value = ''} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); setFeuillesDisponibles(null); setRegroupementEdite(null); importerGranuloFichier(e) }} />
@@ -1565,7 +1573,7 @@ export default function Projet() {
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
-                      {['Bâtiment', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                      {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité', ''].map(h => (
                         <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -1583,8 +1591,36 @@ export default function Projet() {
                         <td style={{ padding: '4px 8px' }}>{b.accesPremium !== null && b.accesPremium !== undefined ? b.accesPremium : '?'}</td>
                         <td style={{ padding: '4px 8px' }}>{b.villas !== null && b.villas !== undefined ? b.villas : '?'}</td>
                         <td style={{ padding: '4px 8px', color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
+                        <td></td>
                       </tr>
                     ))}
+                    {newBatD1 && (
+                      <tr style={{ borderTop: '2px dashed #86efac', background: '#f0fdf4' }}>
+                        <td style={{ padding: '4px 4px' }}>
+                          <input autoFocus value={newBatD1.nom} onChange={e => setNewBatD1(p => ({ ...p, nom: e.target.value }))} placeholder="Bâtiment" style={{ width: 80, fontSize: 12, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                        </td>
+                        <td style={{ padding: '4px 4px' }}>—</td>
+                        {['nbLogements','lli','lls','brs','acceStd','accesPremium','villas'].map(f => (
+                          <td key={f} style={{ padding: '4px 4px' }}>
+                            <input type="number" min="0" value={newBatD1[f]} onChange={e => setNewBatD1(p => ({ ...p, [f]: e.target.value }))} style={{ width: 48, fontSize: 12, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                          </td>
+                        ))}
+                        <td style={{ padding: '4px 4px' }}>
+                          <button onClick={async () => {
+                            if (!newBatD1.nom.trim()) return
+                            const payload = { nom: newBatD1.nom.trim() }
+                            ;['nbLogements','lli','lls','brs','acceStd','accesPremium','villas'].forEach(f => {
+                              if (newBatD1[f] !== '') payload[f] = parseInt(newBatD1[f])
+                            })
+                            await api.post(`/projets/${id}/batiments`, payload)
+                            setNewBatD1(null)
+                            const res = await api.get(`/projets/${id}`)
+                            setProjet(res.data)
+                          }} className="btn-primary" style={{ fontSize: 11, padding: '2px 8px' }}>✓</button>
+                          <button onClick={() => setNewBatD1(null)} className="btn-ghost" style={{ fontSize: 11, padding: '2px 6px', marginLeft: 4 }}>✕</button>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: '2px solid #86efac', background: '#dcfce7' }}>
@@ -1596,6 +1632,7 @@ export default function Projet() {
                         const total = projet.batiments.reduce((s, b) => s + (b[f] || 0), 0)
                         return <td key={f} style={{ padding: '5px 8px', fontWeight: 700 }}>{anyNull ? '?' : total || '0'}</td>
                       })}
+                      <td></td>
                       <td></td>
                     </tr>
                   </tfoot>

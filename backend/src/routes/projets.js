@@ -485,6 +485,28 @@ router.post('/:id/granulometrie/import', async (req, res) => {
   }
 })
 
+// POST /projets/:id/batiments — ajouter un bâtiment manuellement
+router.post('/:id/batiments', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { nom, nbLogements, lli, lls, brs, acceStd, accesPremium, villas } = req.body
+  if (!nom?.trim()) return res.status(400).json({ error: 'Nom requis' })
+  const bat = await prisma.batiment.create({
+    data: {
+      projetId,
+      nom: nom.trim(),
+      nbLogements: nbLogements != null ? parseInt(nbLogements) : null,
+      lli: lli != null ? parseInt(lli) : null,
+      lls: lls != null ? parseInt(lls) : null,
+      brs: brs != null ? parseInt(brs) : null,
+      acceStd: acceStd != null ? parseInt(acceStd) : null,
+      accesPremium: accesPremium != null ? parseInt(accesPremium) : null,
+      villas: villas != null ? parseInt(villas) : null,
+    }
+  })
+  res.status(201).json(bat)
+})
+
 // PATCH /projets/:id/batiments/:batId — mapper section CCTP + feuilles DPGF
 router.patch('/:id/batiments/:batId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
