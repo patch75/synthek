@@ -507,12 +507,23 @@ export default function Projet() {
     setImportGranuloLoading(true)
     setImportGranuloError(null)
     try {
-      const res = await api.post(`/projets/${id}/granulometrie/import`, {
-        fichier: importGranuloFichierB64,
-        nom_fichier: importGranuloNomFichier,
-        regroupement: regroupementEdite  // liste de batiment objects validés
-      })
-      setGranulometreD1(res.data)
+      if (!importGranuloFichierB64) {
+        // Mode édition directe — sauvegarde chaque bâtiment en BDD sans repasser par le parser
+        await Promise.all(regroupementEdite.map(b => b._batimentId
+          ? api.patch(`/projets/${id}/batiments/${b._batimentId}`, {
+              montees: b.montees, lli: b.LLI, lls: b.LLS, brs: b.BRS,
+              acceStd: b.acces_std, accesPremium: b.acces_premium, villas: b.villas
+            })
+          : Promise.resolve()
+        ))
+      } else {
+        const res = await api.post(`/projets/${id}/granulometrie/import`, {
+          fichier: importGranuloFichierB64,
+          nom_fichier: importGranuloNomFichier,
+          regroupement: regroupementEdite
+        })
+        setGranulometreD1(res.data)
+      }
       const pRes = await api.get(`/projets/${id}`)
       setProjet(pRes.data)
       setImportGranuloStep(0)
@@ -1597,6 +1608,19 @@ export default function Projet() {
                     </tr>
                   </tfoot>
                 </table>
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => {
+                    setRegroupementEdite(projet.batiments.map(b => ({
+                      nom: b.nom,
+                      montees: (() => { try { return JSON.parse(b.montees || '[]') } catch { return [] } })(),
+                      nb_logements: b.nbLogements,
+                      LLI: b.lli, LLS: b.lls, BRS: b.brs,
+                      acces_std: b.acceStd, acces_premium: b.accesPremium, villas: b.villas,
+                      fiabilite: b.fiabilite, _batimentId: b.id
+                    })))
+                    setImportGranuloStep(1)
+                  }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>✏️ Modifier</button>
+                </div>
               </div>
             )}
 
