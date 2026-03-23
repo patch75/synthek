@@ -488,10 +488,11 @@ router.post('/:id/granulometrie/import', async (req, res) => {
 // PATCH /projets/:id/batiments/:batId — mapper section CCTP + feuilles DPGF
 router.patch('/:id/batiments/:batId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
-  const { sectionCctp, feuillesDpgf } = req.body
+  const { sectionCctp, feuillesDpgf, montee } = req.body
   const data = {}
   if (sectionCctp !== undefined) data.sectionCctp = sectionCctp || null
   if (feuillesDpgf !== undefined) data.feuillesDpgf = feuillesDpgf?.length ? JSON.stringify(feuillesDpgf) : null
+  if (montee !== undefined) data.montee = montee || null
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
   const bat = await prisma.batiment.update({ where: { id: parseInt(req.params.batId) }, data })
   res.json(bat)

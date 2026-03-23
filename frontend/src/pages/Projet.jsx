@@ -295,6 +295,7 @@ export default function Projet() {
   const [feuillesDisponibles, setFeuillesDisponibles] = useState(null) // { feuilles_disponibles, feuille_suggeree }
   const [regroupementEdite, setRegroupementEdite] = useState(null) // liste de batiment objects (Sonnet)
   const [granulometreD1, setGranulometreD1] = useState(null)
+  const [monteesEdit, setMonteesEdit] = useState({}) // { [batNom]: valeur en cours d'édition }
 
   // V3 — Config IA
   const [showConfig, setShowConfig] = useState(false)
@@ -519,6 +520,20 @@ export default function Projet() {
       setImportGranuloError(err.response?.data?.error || err.message)
     } finally {
       setImportGranuloLoading(false)
+    }
+  }
+
+  async function sauvegarderMontee(batNom, valeur) {
+    const batDb = projet?.batiments?.find(b => b.nom === batNom)
+    if (!batDb) return
+    try {
+      await api.patch(`/projets/${id}/batiments/${batDb.id}`, { montee: valeur || null })
+      setProjet(prev => ({
+        ...prev,
+        batiments: prev.batiments.map(b => b.id === batDb.id ? { ...b, montee: valeur || null } : b)
+      }))
+    } catch (e) {
+      console.error('[montee] erreur sauvegarde', e)
     }
   }
 
@@ -1430,7 +1445,7 @@ export default function Projet() {
                   <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
-                        {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                        {['Bâtiment', 'Montée', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
                           <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -1439,7 +1454,16 @@ export default function Projet() {
                       {granulometreD1.batiments.map((b, i) => (
                         <tr key={i} style={{ borderTop: '1px solid #bbf7d0' }}>
                           <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
-                          <td style={{ padding: '4px 8px', color: '#64748b' }}>{b.montees?.join(', ')}</td>
+                          <td style={{ padding: '4px 4px' }}>
+                            <input
+                              type="text"
+                              placeholder="ex: BAT A"
+                              value={monteesEdit[b.nom] ?? (projet?.batiments?.find(db => db.nom === b.nom)?.montee || '')}
+                              onChange={e => setMonteesEdit(prev => ({ ...prev, [b.nom]: e.target.value }))}
+                              onBlur={e => sauvegarderMontee(b.nom, e.target.value)}
+                              style={{ width: 80, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
+                            />
+                          </td>
                           <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nb_logements ?? '?'}</td>
                           <td style={{ padding: '4px 8px' }}>{b.LLI !== null && b.LLI !== undefined ? b.LLI : '?'}</td>
                           <td style={{ padding: '4px 8px' }}>{b.LLS !== null && b.LLS !== undefined ? b.LLS : '?'}</td>
