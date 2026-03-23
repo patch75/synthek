@@ -527,6 +527,13 @@ router.patch('/:id/batiments/:batId', async (req, res) => {
   res.json(bat)
 })
 
+// DELETE /projets/:id/batiments/:batId — supprimer un bâtiment (admin only)
+router.delete('/:id/batiments/:batId', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  await prisma.batiment.delete({ where: { id: parseInt(req.params.batId) } })
+  res.json({ ok: true })
+})
+
 // PATCH /projets/:id/intervenants — mettre à jour les intervenants (admin only)
 router.patch('/:id/intervenants', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })

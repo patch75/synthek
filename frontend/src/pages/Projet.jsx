@@ -1591,7 +1591,14 @@ export default function Projet() {
                         <td style={{ padding: '4px 8px' }}>{b.accesPremium !== null && b.accesPremium !== undefined ? b.accesPremium : '?'}</td>
                         <td style={{ padding: '4px 8px' }}>{b.villas !== null && b.villas !== undefined ? b.villas : '?'}</td>
                         <td style={{ padding: '4px 8px', color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
-                        <td></td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <button onClick={async () => {
+                            if (!window.confirm(`Supprimer « ${b.nom} » ?`)) return
+                            await api.delete(`/projets/${id}/batiments/${b.id}`)
+                            const res = await api.get(`/projets/${id}`)
+                            setProjet(res.data)
+                          }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, padding: '0 4px' }} title="Supprimer">🗑</button>
+                        </td>
                       </tr>
                     ))}
                     {newBatD1 && (
