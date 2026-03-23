@@ -105,24 +105,26 @@ Format de sortie exact :
 PROMPT_SYSTEME_PDF = """Ne réfléchis pas à voix haute. Commence ta réponse immédiatement par { sans aucun texte avant.
 
 Tu es un parser de données immobilières spécialisé en programmes de logements.
-Tu reçois le contenu texte extrait d'un document PDF (programme architecte, tableau de logements).
-Le texte est reconstruit depuis les positions XY des mots : chaque ligne = une ligne visuelle, les colonnes sont séparées par " | ".
-Plusieurs bâtiments peuvent apparaître côte à côte sur la même ligne (ex: "BAT E  |  BAT D").
+Tu reçois le contenu texte extrait d'un document PDF (tableau de surfaces architecte).
+Chaque mot est préfixé de sa position horizontale : [x=NNN]texte (NNN = position en pixels, arrondie à 10px).
+Plusieurs bâtiments apparaissent côte à côte : leur nom est dans la ligne BATIMENT, et leurs colonnes occupent une plage X.
 
-Extrais les informations suivantes par bâtiment ou groupe de bâtiments :
-- nom du bâtiment : reconstruit depuis "BAT" + lettre/numéro sur lignes adjacentes (ex: "BAT | E" → "BAT E")
-- montees : sous-entrées si présentes (ex: A1, A2) — [] si absent
-- nos_comptes : liste des N° de logements si disponibles — [] sinon
-- nb_logements : cherche un pattern "Xlgts" ou "X logements" ou compte depuis les typologies
-- LLI, LLS, BRS, acces_std, acces_premium, villas : déduits des annotations ou colonnes
+Méthode pour identifier les bâtiments et leurs logements :
+1. Repère la ligne BATIMENT → chaque nom (A1, A2, B, E1...) a une position X de début
+2. La ligne NIVEAU (RDC, R+1, R+2) définit les sous-colonnes de chaque bâtiment
+3. La ligne N° liste les numéros de logements — associe chaque N° à son bâtiment selon sa position X
+4. Les annotations (BRS), (LLS), (LLI) après un N° ou sur le nom du bâtiment indiquent le financement
+5. La section VILLAS (N° 1,2,3,4...) = villas
 
 Règles strictes :
-- Annotations de financement : (LLS) → LLS, (BRS) → BRS, (LLI) → LLI
-- Typologies de surface (T1/T2/T3/T4/T5) SANS annotation de financement → tous vont dans acces_std
-- Si nb_logements est connu et qu'aucun financement n'est précisé → acces_std = nb_logements, autres = 0
-- Ne jamais retourner null pour LLI/LLS/BRS/acces_std/acces_premium/villas si nb_logements est connu — utiliser 0
-- Ignorer les valeurs #REF! (formules Excel cassées à l'export PDF)
-- Fiabilité "haute" si nos_comptes rempli, "estimee" si nb_logements déduit des typologies
+- nb_logements = nombre exact de N° appartenant à ce bâtiment (selon position X)
+- Annotations : (LLS) → LLS, (BRS) → BRS, (LLI) → LLI, sans annotation → acces_std
+- Si financement sur le nom du bâtiment (ex: C (LLS)) → tous les logements sans annotation = LLS
+- Typologies T1/T2/T3/T4/T5 sans annotation → acces_std
+- Si nb_logements connu mais financements indéterminables → acces_std = nb_logements, autres = 0
+- Ne jamais retourner null pour LLI/LLS/BRS/acces_std/acces_premium/villas — utiliser 0
+- Ignorer #REF! (formules Excel cassées)
+- Fiabilité "haute" si nos_comptes rempli, "estimee" sinon
 - Retourne UNIQUEMENT le JSON valide, sans texte avant ni après, sans backticks
 
 Format de sortie exact :
@@ -228,12 +230,12 @@ def _extraire_texte_brut_excel(file_bytes: bytes, nom_feuille: str = None) -> di
 def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
     """
     Extrait le texte d'un PDF avec pdfplumber.
-    Utilise extract_words() avec regroupement par position Y pour reconstruire
-    les lignes dans l'ordre correct — essentiel pour les PDF exportés depuis Excel
-    en mode paysage où extract_text() mélange les colonnes.
+    Utilise extract_words() avec regroupement par position Y.
+    Inclut la position X de chaque mot (arrondie à 10px) pour permettre
+    à Sonnet d'associer chaque valeur à sa colonne/bâtiment.
     """
     result = []
-    Y_TOLERANCE = 8  # pixels de tolérance pour considérer deux mots sur la même ligne
+    Y_TOLERANCE = 10  # pixels de tolérance pour regrouper sur la même ligne
 
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
@@ -241,7 +243,6 @@ def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
             words = page.extract_words(x_tolerance=5, y_tolerance=5)
 
             if not words:
-                # Fallback texte brut si aucun mot détecté
                 text = page.extract_text()
                 if text:
                     result.append(text)
@@ -255,10 +256,12 @@ def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
                     lignes[bucket] = []
                 lignes[bucket].append(w)
 
-            # Reconstruire chaque ligne triée par X
+            # Reconstruire chaque ligne triée par X, avec position X
             for y in sorted(lignes.keys()):
                 mots = sorted(lignes[y], key=lambda w: w['x0'])
-                texte_ligne = '  |  '.join(m['text'] for m in mots)
+                # Format : [x=NNN]texte pour chaque mot — aide Sonnet à associer colonnes et bâtiments
+                parties = [f"[x={round(m['x0']/10)*10}]{m['text']}" for m in mots]
+                texte_ligne = '  '.join(parties)
                 if texte_ligne.strip():
                     result.append(texte_ligne)
 

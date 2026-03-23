@@ -13,7 +13,8 @@
       "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c 'SELECT id, \"\"documentId\"\", \"\"valeurCle\"\", \"\"typeLivrable\"\" FROM \"\"Puce\"\";')",
       "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c 'SELECT p.id, p.nom FROM \"\"Projet\"\" p;')",
       "Bash(PGPASSWORD=\"manon2005\" \"/c/Program Files/PostgreSQL/18/bin/psql\" -U postgres -p 5432 -d synthek -c 'SELECT id, \"\"projetId\"\", nom, type, \"\"contenuTexte\"\" IS NOT NULL as \"\"aTexte\"\" FROM \"\"Document\"\";')",
-      "Bash(curl -s -H \"Authorization: token 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\" https://api.github.com/user)"
+      "Bash(curl -s -H \"Authorization: token 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\" https://api.github.com/user)",
+      "Bash(python3 -c \":*)"
     ]
   }
 }
