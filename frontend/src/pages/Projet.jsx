@@ -1403,7 +1403,18 @@ export default function Projet() {
                           {regroupementEdite.map((b, i) => (
                             <tr key={i} style={{ borderTop: '1px solid #bae6fd' }}>
                               <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
-                              <td style={{ padding: '4px 8px', color: '#64748b', fontSize: 11 }}>{b.montees?.join(', ') || '—'}</td>
+                              <td style={{ padding: '2px 4px' }}>
+                                <input
+                                  type="text"
+                                  value={b.montees?.join(', ') || ''}
+                                  placeholder="ex: BAT A"
+                                  onChange={e => {
+                                    const val = e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                                    setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, montees: val } : x))
+                                  }}
+                                  style={{ width: 90, fontSize: 11, padding: '2px 4px', border: '1px solid #bae6fd', borderRadius: 4 }}
+                                />
+                              </td>
                               {['nb_logements', 'LLI', 'LLS', 'BRS', 'acces_std', 'acces_premium', 'villas'].map(field => (
                                 <td key={field} style={{ padding: '2px 4px' }}>
                                   <input
