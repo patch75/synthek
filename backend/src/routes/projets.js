@@ -453,22 +453,35 @@ router.post('/:id/granulometrie/import', async (req, res) => {
     })
     const data = await response.json()
     if (!response.ok) return res.status(response.status).json(data)
-    // Sauvegarder dans table Batiment — merge : update si existe, create si nouveau
+    // Sauvegarder dans table Batiment — merge intelligent
     if (data.batiments?.length) {
       const existants = await prisma.batiment.findMany({ where: { projetId } })
+      const newNoms = data.batiments.map(b => b.nom.trim().toLowerCase())
+
+      // Détection parents remplacés par subdivisions :
+      // Si "BAT A" n'est pas dans le nouveau fichier mais "BAT A1" et "BAT A2" y sont → supprimer "BAT A"
+      const aSupprimer = existants.filter(e => {
+        const nom = e.nom.trim().toLowerCase()
+        const absentDuNouveauFichier = !newNoms.includes(nom)
+        const nbSubdivisions = newNoms.filter(n => n.startsWith(nom) && n.length > nom.length).length
+        return absentDuNouveauFichier && nbSubdivisions >= 2
+      })
+      if (aSupprimer.length > 0) {
+        await prisma.batiment.deleteMany({ where: { id: { in: aSupprimer.map(b => b.id) } } })
+        console.log(`[granulometrie] Parents supprimés (subdivisés) : ${aSupprimer.map(b => b.nom).join(', ')}`)
+      }
+
+      // Merge : update si existe, create si nouveau
+      const existantsMaj = await prisma.batiment.findMany({ where: { projetId } })
       for (const b of data.batiments) {
-        const existant = existants.find(e => e.nom.trim().toLowerCase() === b.nom.trim().toLowerCase())
+        const existant = existantsMaj.find(e => e.nom.trim().toLowerCase() === b.nom.trim().toLowerCase())
         const payload = {
           montees: b.montees?.length ? JSON.stringify(b.montees) : null,
           nosComptes: b.nos_comptes?.length ? JSON.stringify(b.nos_comptes) : null,
           nbLogements: b.nb_logements ?? null,
-          lli: b.LLI ?? 0,
-          lls: b.LLS ?? 0,
-          brs: b.BRS ?? 0,
-          acceStd: b.acces_std ?? 0,
-          accesPremium: b.acces_premium ?? 0,
-          villas: b.villas ?? 0,
-          fiabilite: b.fiabilite ?? null,
+          lli: b.LLI ?? 0, lls: b.LLS ?? 0, brs: b.BRS ?? 0,
+          acceStd: b.acces_std ?? 0, accesPremium: b.acces_premium ?? 0,
+          villas: b.villas ?? 0, fiabilite: b.fiabilite ?? null,
         }
         if (existant) {
           await prisma.batiment.update({ where: { id: existant.id }, data: payload })
