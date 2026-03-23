@@ -46,6 +46,13 @@ Valeurs : `programme`, `cctp`, `dpgf`, `plans`, `pieces_ecrites`, `etudes_th`, `
 - `Document.sousProgrammeId` FK nullable → permet comparaisons ciblées par périmètre
 - Routes : GET/POST/DELETE `/projets/:id/sous-programmes`
 
+## Développement local — après git pull
+Après chaque `git pull`, lancer pour synchroniser la base locale :
+```bash
+./setup-local.sh
+```
+Cela fait : `npm install` + `prisma generate` + `prisma db push` (synchronise le schema.prisma vers la DB locale sans migrations).
+
 ## Base de données — IMPORTANT
 - `prisma migrate dev` ne crée pas toujours les tables → toujours vérifier + créer en SQL manuellement si besoin
 - Colonnes ajoutées hors migrations Prisma :
