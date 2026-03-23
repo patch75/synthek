@@ -155,3 +155,5 @@ backend/storage/
 instructions.rtf
 publier.bat
 granulo/
+*.xlsx
+*.pdf
