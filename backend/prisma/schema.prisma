@@ -41,7 +41,7 @@ model Projet {
   typeErp         String?   // 'M','J','U','W','PS'... si classementErp=true
   nombreLogements Int?      // si résidentiel
   adresse         String?   // pour API GPU/PLU
-  batimentsComposition String? @db.Text  // JSON [{"nom":"BAT A","typologies":["BRS","LLS"]}]
+  batimentsComposition String? @db.Text  // JSON legacy — remplacé par table Batiment
   metadonnees          String? @db.Text  // JSON {adresse, commune, reglementation, ...}
   intervenants         String? @db.Text  // JSON [{role, societe, contact, email, tel}]
 
@@ -56,6 +56,27 @@ model Projet {
   decisions       DecisionArbitrage[]
   faits           FaitDocument[]
   sousProgrammes  SousProgramme[]
+  batiments       Batiment[]
+}
+
+model Batiment {
+  id            Int     @id @default(autoincrement())
+  projetId      Int
+  nom           String
+  montees       String? @db.Text  // JSON array ex: ["A1","A2"]
+  nosComptes    String? @db.Text  // JSON array ex: ["001","101 (BRS)"]
+  nbLogements   Int?
+  lli           Int?
+  lls           Int?
+  brs           Int?
+  acceStd       Int?
+  accesPremium  Int?
+  villas        Int?
+  fiabilite     String? // "haute" | "basse"
+  sectionCctp   String? // mapping CCTP — à renseigner manuellement
+  feuillesDpgf  String? @db.Text // JSON array ex: ["BAT A","BAT A BIS"]
+
+  projet  Projet  @relation(fields: [projetId], references: [id], onDelete: Cascade)
 }
 
 model SousProgramme {

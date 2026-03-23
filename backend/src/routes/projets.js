@@ -123,7 +123,8 @@ router.get('/:id', async (req, res) => {
         }
       },
       alertes: { where: { statut: 'active' }, orderBy: { dateCreation: 'desc' } },
-      sousProgrammes: { orderBy: { nom: 'asc' } }
+      sousProgrammes: { orderBy: { nom: 'asc' } },
+      batiments: { orderBy: { nom: 'asc' } }
     }
   })
   if (!projet) return res.status(404).json({ error: 'Projet non trouvé' })
@@ -452,7 +453,27 @@ router.post('/:id/granulometrie/import', async (req, res) => {
     })
     const data = await response.json()
     if (!response.ok) return res.status(response.status).json(data)
-    // Sauvegarder en BDD
+    // Sauvegarder dans table Batiment
+    if (data.batiments?.length) {
+      await prisma.batiment.deleteMany({ where: { projetId } })
+      await prisma.batiment.createMany({
+        data: data.batiments.map(b => ({
+          projetId,
+          nom: b.nom,
+          montees: b.montees?.length ? JSON.stringify(b.montees) : null,
+          nosComptes: b.nos_comptes?.length ? JSON.stringify(b.nos_comptes) : null,
+          nbLogements: b.nb_logements ?? null,
+          lli: b.LLI ?? null,
+          lls: b.LLS ?? null,
+          brs: b.BRS ?? null,
+          acceStd: b.acces_std ?? null,
+          accesPremium: b.acces_premium ?? null,
+          villas: b.villas ?? null,
+          fiabilite: b.fiabilite ?? null,
+        }))
+      })
+    }
+    // Garder batimentsComposition pour compatibilité affichage
     await prisma.projet.update({
       where: { id: projetId },
       data: { batimentsComposition: JSON.stringify(data.batiments) }
@@ -462,6 +483,18 @@ router.post('/:id/granulometrie/import', async (req, res) => {
   } catch (e) {
     res.status(503).json({ error: 'Parser Python indisponible', detail: e.message })
   }
+})
+
+// PATCH /projets/:id/batiments/:batId — mapper section CCTP + feuilles DPGF
+router.patch('/:id/batiments/:batId', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const { sectionCctp, feuillesDpgf } = req.body
+  const data = {}
+  if (sectionCctp !== undefined) data.sectionCctp = sectionCctp || null
+  if (feuillesDpgf !== undefined) data.feuillesDpgf = feuillesDpgf?.length ? JSON.stringify(feuillesDpgf) : null
+  if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
+  const bat = await prisma.batiment.update({ where: { id: parseInt(req.params.batId) }, data })
+  res.json(bat)
 })
 
 // PATCH /projets/:id/intervenants — mettre à jour les intervenants (admin only)
