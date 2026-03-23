@@ -1363,6 +1363,15 @@ export default function Projet() {
                       setShowAddBatiment(v => !v); setNewBatimentNom(''); setNewBatimentTypos([])
                     }
                   }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
+                  {projet?.batiments?.length > 0 && isAdmin && (
+                    <button onClick={async e => {
+                      e.stopPropagation()
+                      if (!window.confirm('Supprimer tous les bâtiments ?')) return
+                      await api.delete(`/projets/${id}/batiments`)
+                      const res = await api.get(`/projets/${id}`)
+                      setProjet(res.data)
+                    }} className="btn-ghost" style={{ fontSize: 13, color: '#ef4444', border: '1px solid #fca5a5' }}>🗑 Tout supprimer</button>
+                  )}
                   {isAdmin && (
                     <label style={{ cursor: 'pointer' }} onClick={e => e.stopPropagation()}>
                       <input type="file" accept=".xlsx,.xlsm,.xls,.pdf" style={{ display: 'none' }} onClick={e => e.target.value = ''} onChange={e => { setImportGranuloStep(0); setGranulometreD1(null); setFeuillesDisponibles(null); setRegroupementEdite(null); importerGranuloFichier(e) }} />
