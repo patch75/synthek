@@ -1446,7 +1446,7 @@ export default function Projet() {
                   <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
-                        {['Bâtiment', 'Montée', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                        {['Bâtiment', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
                           <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -1455,16 +1455,6 @@ export default function Projet() {
                       {granulometreD1.batiments.map((b, i) => (
                         <tr key={i} style={{ borderTop: '1px solid #bbf7d0' }}>
                           <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
-                          <td style={{ padding: '4px 4px' }}>
-                            <input
-                              type="text"
-                              placeholder="ex: BAT A"
-                              value={monteesEdit[b.nom] ?? (projet?.batiments?.find(db => db.nom === b.nom)?.montee || '')}
-                              onChange={e => setMonteesEdit(prev => ({ ...prev, [b.nom]: e.target.value }))}
-                              onBlur={e => sauvegarderMontee(b.nom, e.target.value)}
-                              style={{ width: 80, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
-                            />
-                          </td>
                           <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nb_logements ?? '?'}</td>
                           <td style={{ padding: '4px 8px' }}>{b.LLI !== null && b.LLI !== undefined ? b.LLI : '?'}</td>
                           <td style={{ padding: '4px 8px' }}>{b.LLS !== null && b.LLS !== undefined ? b.LLS : '?'}</td>
@@ -1479,7 +1469,6 @@ export default function Projet() {
                     <tfoot>
                       <tr style={{ borderTop: '2px solid #86efac', background: '#dcfce7' }}>
                         <td style={{ padding: '5px 8px', fontWeight: 700 }}>TOTAL</td>
-                        <td style={{ padding: '5px 8px' }}></td>
                         <td style={{ padding: '5px 8px', fontWeight: 700 }}>{granulometreD1.batiments.reduce((s, b) => s + (b.nb_logements || 0), 0)}</td>
                         {['LLI','LLS','BRS','acces_std','acces_premium','villas'].slice(0,5).map(f => {
                           const anyNull = granulometreD1.batiments.some(b => b[f] === null || b[f] === undefined)
@@ -1500,8 +1489,8 @@ export default function Projet() {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button onClick={() => { setRegroupementEdite([...granulometreD1.batiments]); setImportGranuloStep(1) }} className="btn-ghost" style={{ fontSize: 12 }}>✏️ Modifier</button>
-                  <button onClick={() => setImportGranuloStep(0)} className="btn-ghost" style={{ fontSize: 12 }}>Fermer</button>
+                  <button onClick={() => { setRegroupementEdite([...granulometreD1.batiments]); setImportGranuloStep(1) }} className="btn-ghost" style={{ fontSize: 12 }}>🔄 Re-importer</button>
+                  <button onClick={() => setImportGranuloStep(0)} className="btn-primary" style={{ fontSize: 12 }}>✓ Terminer</button>
                 </div>
               </div>
             )}
