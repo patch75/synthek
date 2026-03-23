@@ -453,13 +453,12 @@ router.post('/:id/granulometrie/import', async (req, res) => {
     })
     const data = await response.json()
     if (!response.ok) return res.status(response.status).json(data)
-    // Sauvegarder dans table Batiment
+    // Sauvegarder dans table Batiment — merge : update si existe, create si nouveau
     if (data.batiments?.length) {
-      await prisma.batiment.deleteMany({ where: { projetId } })
-      await prisma.batiment.createMany({
-        data: data.batiments.map(b => ({
-          projetId,
-          nom: b.nom,
+      const existants = await prisma.batiment.findMany({ where: { projetId } })
+      for (const b of data.batiments) {
+        const existant = existants.find(e => e.nom.trim().toLowerCase() === b.nom.trim().toLowerCase())
+        const payload = {
           montees: b.montees?.length ? JSON.stringify(b.montees) : null,
           nosComptes: b.nos_comptes?.length ? JSON.stringify(b.nos_comptes) : null,
           nbLogements: b.nb_logements ?? null,
@@ -470,8 +469,13 @@ router.post('/:id/granulometrie/import', async (req, res) => {
           accesPremium: b.acces_premium ?? 0,
           villas: b.villas ?? 0,
           fiabilite: b.fiabilite ?? null,
-        }))
-      })
+        }
+        if (existant) {
+          await prisma.batiment.update({ where: { id: existant.id }, data: payload })
+        } else {
+          await prisma.batiment.create({ data: { projetId, nom: b.nom, ...payload } })
+        }
+      }
     }
     // Garder batimentsComposition pour compatibilité affichage
     await prisma.projet.update({
