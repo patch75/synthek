@@ -337,7 +337,6 @@ export default function Projet() {
           const bats = JSON.parse(pRes.data.batimentsComposition)
           if (bats?.length && ('LLI' in bats[0] || 'acces_std' in bats[0])) {
             setGranulometreD1({ batiments: bats, total_logements: bats.reduce((s, b) => s + (b.nb_logements || 0), 0), donnees_manquantes: [], source: '' })
-            setImportGranuloStep(2)
           }
         } catch {}
       }
@@ -516,7 +515,7 @@ export default function Projet() {
       setGranulometreD1(res.data)
       const pRes = await api.get(`/projets/${id}`)
       setProjet(pRes.data)
-      setImportGranuloStep(2)
+      setImportGranuloStep(0)
     } catch (err) {
       setImportGranuloError(err.response?.data?.error || err.message)
     } finally {
