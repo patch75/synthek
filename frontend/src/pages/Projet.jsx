@@ -1548,7 +1548,60 @@ export default function Projet() {
               </div>
             )}
 
-            {importGranuloStep === 0 && getBatiments().length === 0 && !showAddBatiment && (
+            {/* Table D1 permanente si bâtiments importés en DB */}
+            {importGranuloStep === 0 && projet?.batiments?.length > 0 && (
+              <div style={{ overflowX: 'auto', marginBottom: 12 }}>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
+                      {['Bâtiment', 'Montée', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                        <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projet.batiments.map(b => (
+                      <tr key={b.id} style={{ borderTop: '1px solid #bbf7d0' }}>
+                        <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nom}</td>
+                        <td style={{ padding: '4px 4px' }}>
+                          <input
+                            type="text"
+                            placeholder="ex: BAT A"
+                            value={monteesEdit[b.nom] ?? (b.montee || '')}
+                            onChange={e => setMonteesEdit(prev => ({ ...prev, [b.nom]: e.target.value }))}
+                            onBlur={e => sauvegarderMontee(b.nom, e.target.value)}
+                            style={{ width: 80, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }}
+                          />
+                        </td>
+                        <td style={{ padding: '4px 8px', fontWeight: 700 }}>{b.nbLogements ?? '?'}</td>
+                        <td style={{ padding: '4px 8px' }}>{b.lli !== null && b.lli !== undefined ? b.lli : '?'}</td>
+                        <td style={{ padding: '4px 8px' }}>{b.lls !== null && b.lls !== undefined ? b.lls : '?'}</td>
+                        <td style={{ padding: '4px 8px' }}>{b.brs !== null && b.brs !== undefined ? b.brs : '?'}</td>
+                        <td style={{ padding: '4px 8px' }}>{b.acceStd !== null && b.acceStd !== undefined ? b.acceStd : '?'}</td>
+                        <td style={{ padding: '4px 8px' }}>{b.accesPremium !== null && b.accesPremium !== undefined ? b.accesPremium : '?'}</td>
+                        <td style={{ padding: '4px 8px' }}>{b.villas !== null && b.villas !== undefined ? b.villas : '?'}</td>
+                        <td style={{ padding: '4px 8px', color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid #86efac', background: '#dcfce7' }}>
+                      <td style={{ padding: '5px 8px', fontWeight: 700 }}>TOTAL</td>
+                      <td></td>
+                      <td style={{ padding: '5px 8px', fontWeight: 700 }}>{projet.batiments.reduce((s, b) => s + (b.nbLogements || 0), 0)}</td>
+                      {['lli','lls','brs','acceStd','accesPremium','villas'].map(f => {
+                        const anyNull = projet.batiments.some(b => b[f] === null || b[f] === undefined)
+                        const total = projet.batiments.reduce((s, b) => s + (b[f] || 0), 0)
+                        return <td key={f} style={{ padding: '5px 8px', fontWeight: 700 }}>{anyNull ? '?' : total || '0'}</td>
+                      })}
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {importGranuloStep === 0 && getBatiments().length === 0 && !showAddBatiment && projet?.batiments?.length === 0 && (
               <p className="text-muted text-sm">Aucun bâtiment défini. Ajoutez les bâtiments du projet avec leurs typologies de logements.</p>
             )}
 
