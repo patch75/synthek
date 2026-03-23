@@ -106,20 +106,23 @@ PROMPT_SYSTEME_PDF = """Ne réfléchis pas à voix haute. Commence ta réponse i
 
 Tu es un parser de données immobilières spécialisé en programmes de logements.
 Tu reçois le contenu texte extrait d'un document PDF (programme architecte, tableau de logements).
+Le texte est reconstruit depuis les positions XY des mots : chaque ligne = une ligne visuelle, les colonnes sont séparées par " | ".
+Plusieurs bâtiments peuvent apparaître côte à côte sur la même ligne (ex: "BAT E  |  BAT D").
 
 Extrais les informations suivantes par bâtiment ou groupe de bâtiments :
-- nom du bâtiment ou groupe (ex: A, BAT A, Bâtiment A)
-- montees : sous-entrées du bâtiment si présentes (ex: A1, A2) — [] si absent
-- nos_comptes : liste exhaustive de tous les N° de logements pour ce bâtiment
-- nb_logements : nombre de logements (len(nos_comptes) si disponible)
+- nom du bâtiment : reconstruit depuis "BAT" + lettre/numéro sur lignes adjacentes (ex: "BAT | E" → "BAT E")
+- montees : sous-entrées si présentes (ex: A1, A2) — [] si absent
+- nos_comptes : liste des N° de logements si disponibles — [] sinon
+- nb_logements : cherche un pattern "Xlgts" ou "X logements" ou compte depuis les typologies
 - LLI, LLS, BRS, acces_std, acces_premium, villas : déduits des annotations ou colonnes
 
-Règles :
-- Cherche les tableaux de logements, programmes, ou listes numérotées
-- Les annotations entre parenthèses indiquent le financement : (LLS), (BRS), (LLI)
-- Sans annotation → accession libre (acces_std)
-- Si une donnée est absente ou non déductible → null
-- Fiabilité "haute" si nos_comptes rempli, "estimee" sinon
+Règles strictes :
+- Annotations de financement : (LLS) → LLS, (BRS) → BRS, (LLI) → LLI
+- Typologies de surface (T1/T2/T3/T4/T5) SANS annotation de financement → tous vont dans acces_std
+- Si nb_logements est connu et qu'aucun financement n'est précisé → acces_std = nb_logements, autres = 0
+- Ne jamais retourner null pour LLI/LLS/BRS/acces_std/acces_premium/villas si nb_logements est connu — utiliser 0
+- Ignorer les valeurs #REF! (formules Excel cassées à l'export PDF)
+- Fiabilité "haute" si nos_comptes rempli, "estimee" si nb_logements déduit des typologies
 - Retourne UNIQUEMENT le JSON valide, sans texte avant ni après, sans backticks
 
 Format de sortie exact :
@@ -675,6 +678,16 @@ def _extraire_granulometrie_pdf(
 
     batiments = json_sonnet.get('batiments', [])
     batiments, warnings_nos = _verifier_et_corriger_batiments(batiments, 0)
+
+    # Fallback : si tous les financements sont null mais nb_logements connu → acces_std = nb_logements
+    for b in batiments:
+        champs_fin = ('LLI', 'LLS', 'BRS', 'acces_std', 'acces_premium', 'villas')
+        tous_null = all(b.get(f) is None for f in champs_fin)
+        nb = b.get('nb_logements')
+        if tous_null and nb:
+            b['LLI'] = 0; b['LLS'] = 0; b['BRS'] = 0
+            b['acces_std'] = nb; b['acces_premium'] = 0; b['villas'] = 0
+
     total = json_sonnet.get('total_logements') or sum((b.get('nb_logements') or 0) for b in batiments)
     donnees_manquantes = list(json_sonnet.get('donnees_manquantes', []))
     donnees_manquantes.extend(warnings_nos)
