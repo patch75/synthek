@@ -225,33 +225,40 @@ def _extraire_texte_brut_excel(file_bytes: bytes, nom_feuille: str = None) -> di
 def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
     """
     Extrait le texte d'un PDF avec pdfplumber.
-    Stratégie :
-      1. extract_tables() — si des tableaux sont détectés (PDF natif avec bordures)
-      2. extract_text(layout=True) — préserve la mise en page spatiale (Excel→PDF)
-      3. extract_text() — fallback brut
+    Utilise extract_words() avec regroupement par position Y pour reconstruire
+    les lignes dans l'ordre correct — essentiel pour les PDF exportés depuis Excel
+    en mode paysage où extract_text() mélange les colonnes.
     """
     result = []
+    Y_TOLERANCE = 8  # pixels de tolérance pour considérer deux mots sur la même ligne
+
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
             result.append(f"\n--- Page {i} ---")
-            tables = page.extract_tables()
-            if tables:
-                for table in tables:
-                    for row in table:
-                        cells = [str(c).strip() if c else '' for c in row]
-                        non_empty = [c for c in cells if c]
-                        if non_empty:
-                            result.append(' | '.join(non_empty))
-            else:
-                # layout=True reconstruit la mise en page colonnes (clé pour Excel→PDF)
-                try:
-                    text = page.extract_text(layout=True)
-                except Exception:
-                    text = None
-                if not text:
-                    text = page.extract_text()
+            words = page.extract_words(x_tolerance=5, y_tolerance=5)
+
+            if not words:
+                # Fallback texte brut si aucun mot détecté
+                text = page.extract_text()
                 if text:
                     result.append(text)
+                continue
+
+            # Grouper les mots par ligne (Y proche)
+            lignes = {}
+            for w in words:
+                bucket = round(w['top'] / Y_TOLERANCE) * Y_TOLERANCE
+                if bucket not in lignes:
+                    lignes[bucket] = []
+                lignes[bucket].append(w)
+
+            # Reconstruire chaque ligne triée par X
+            for y in sorted(lignes.keys()):
+                mots = sorted(lignes[y], key=lambda w: w['x0'])
+                texte_ligne = '  |  '.join(m['text'] for m in mots)
+                if texte_ligne.strip():
+                    result.append(texte_ligne)
+
     texte = '\n'.join(result)
     if len(texte) > LIMITE_TEXTE_BRUT:
         texte = texte[:LIMITE_TEXTE_BRUT]
