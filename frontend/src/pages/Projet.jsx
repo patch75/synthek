@@ -511,7 +511,8 @@ export default function Projet() {
         // Mode édition directe — sauvegarde chaque bâtiment en BDD sans repasser par le parser
         await Promise.all(regroupementEdite.map(b => b._batimentId
           ? api.patch(`/projets/${id}/batiments/${b._batimentId}`, {
-              montees: b.montees, lli: b.LLI, lls: b.LLS, brs: b.BRS,
+              montees: b.montees, nbLogements: b.nb_logements,
+              lli: b.LLI, lls: b.LLS, brs: b.BRS,
               acceStd: b.acces_std, accesPremium: b.acces_premium, villas: b.villas
             })
           : Promise.resolve()
@@ -1564,7 +1565,7 @@ export default function Projet() {
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
-                      {['Bâtiment', 'Montée', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                      {['Bâtiment', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
                         <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
