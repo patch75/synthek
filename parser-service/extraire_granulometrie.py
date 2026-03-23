@@ -225,14 +225,17 @@ def _extraire_texte_brut_excel(file_bytes: bytes, nom_feuille: str = None) -> di
 def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
     """
     Extrait le texte d'un PDF avec pdfplumber.
-    Priorité aux tableaux, fallback sur texte brut.
+    Stratégie :
+      1. extract_tables() — si des tableaux sont détectés (PDF natif avec bordures)
+      2. extract_text(layout=True) — préserve la mise en page spatiale (Excel→PDF)
+      3. extract_text() — fallback brut
     """
     result = []
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
+            result.append(f"\n--- Page {i} ---")
             tables = page.extract_tables()
             if tables:
-                result.append(f"\n--- Page {i} ---")
                 for table in tables:
                     for row in table:
                         cells = [str(c).strip() if c else '' for c in row]
@@ -240,9 +243,14 @@ def _extraire_texte_brut_pdf(file_bytes: bytes) -> str:
                         if non_empty:
                             result.append(' | '.join(non_empty))
             else:
-                text = page.extract_text()
+                # layout=True reconstruit la mise en page colonnes (clé pour Excel→PDF)
+                try:
+                    text = page.extract_text(layout=True)
+                except Exception:
+                    text = None
+                if not text:
+                    text = page.extract_text()
                 if text:
-                    result.append(f"\n--- Page {i} ---")
                     result.append(text)
     texte = '\n'.join(result)
     if len(texte) > LIMITE_TEXTE_BRUT:
