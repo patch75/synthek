@@ -150,6 +150,7 @@ deploy.sh
 # Dossiers générés localement
 backend/uploads/
 backend/storage/
+docs/
 
 # Fichiers locaux
 instructions.rtf
