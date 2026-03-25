@@ -1,6 +1,6 @@
 # KB_SYNC — Synthek
 # Généré automatiquement à chaque push sur main
-# 2026-03-25 11:09 UTC
+# 2026-03-25 11:13 UTC
 
 ---
 ## CLAUDE.md
@@ -5957,14 +5957,24 @@ export default function Projet() {
                     <button onClick={e => { e.stopPropagation(); setEditIntervenants(false) }} className="btn-ghost" style={{ fontSize: 13 }}>Annuler</button>
                   </>
                 ) : (
-                  <button onClick={e => {
-                    e.stopPropagation()
-                    const stored = getIntervenants()
-                    const base = INTERVENANTS_BASE.map(b => ({ ...b, ...stored.find(s => s.role === b.role) || {}, label: b.label }))
-                    const custom = stored.filter(s => !INTERVENANTS_BASE.find(b => b.role === s.role))
-                    setIntervenantsEdit([...base, ...custom])
-                    setEditIntervenants(true)
-                  }} className="btn-ghost" style={{ fontSize: 13, border: '1px solid var(--border)' }}>✎ Modifier</button>
+                  <>
+                    <button onClick={e => {
+                      e.stopPropagation()
+                      const stored = getIntervenants()
+                      const base = INTERVENANTS_BASE.map(b => ({ ...b, ...stored.find(s => s.role === b.role) || {}, label: b.label }))
+                      const custom = stored.filter(s => !INTERVENANTS_BASE.find(b => b.role === s.role))
+                      setIntervenantsEdit([...base, ...custom, { role: `custom_${Date.now()}`, label: '', societe: '', contact: '', email: '', tel: '', missions: [] }])
+                      setEditIntervenants(true)
+                    }} className="btn-ghost" style={{ fontSize: 13, border: '1px solid var(--border)' }}>+ Ajouter</button>
+                    <button onClick={e => {
+                      e.stopPropagation()
+                      const stored = getIntervenants()
+                      const base = INTERVENANTS_BASE.map(b => ({ ...b, ...stored.find(s => s.role === b.role) || {}, label: b.label }))
+                      const custom = stored.filter(s => !INTERVENANTS_BASE.find(b => b.role === s.role))
+                      setIntervenantsEdit([...base, ...custom])
+                      setEditIntervenants(true)
+                    }} className="btn-ghost" style={{ fontSize: 13, border: '1px solid var(--border)' }}>✎ Modifier</button>
+                  </>
                 )}
               </div>
             )}
@@ -6039,9 +6049,6 @@ export default function Projet() {
                   </div>
                 )
               })}
-              {editIntervenants && (
-                <button onClick={() => setIntervenantsEdit(prev => [...prev, { role: `custom_${Date.now()}`, label: '', societe: '', contact: '', email: '', tel: '', missions: [] }])} className="btn-ghost" style={{ fontSize: 13, border: '1px dashed var(--border)', borderRadius: 8, padding: '10px 16px', textAlign: 'center' }}>+ Ajouter un intervenant</button>
-              )}
             </div>
           )}
         </section>
