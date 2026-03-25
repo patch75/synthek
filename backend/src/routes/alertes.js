@@ -48,6 +48,22 @@ router.patch('/:id/resoudre', async (req, res) => {
   res.json(alerte)
 })
 
+// PATCH /alertes/:id/feedback — enregistrer feedback utilisateur
+router.patch('/:id/feedback', async (req, res) => {
+  const { feedback } = req.body
+  const VALEURS = ['judicieux', 'faux_positif']
+  if (feedback && !VALEURS.includes(feedback)) return res.status(400).json({ error: `feedback invalide. Valeurs : ${VALEURS.join(', ')}` })
+  const alerte = await prisma.alerte.update({
+    where: { id: parseInt(req.params.id) },
+    data: {
+      feedbackUtilisateur: feedback || null,
+      feedbackPar: feedback ? req.user.id : null,
+      feedbackDate: feedback ? new Date() : null,
+    }
+  })
+  res.json(alerte)
+})
+
 // POST /alertes/:id/arbitrage — créer une décision d'arbitrage (V3 — Bloc 5)
 router.post('/:id/arbitrage', async (req, res) => {
   const alerteId = parseInt(req.params.id)

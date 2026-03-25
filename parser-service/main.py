@@ -15,6 +15,7 @@ import traceback
 from comparaison_cctp_dpgf import extraire_cctp, extraire_dpgf, detecter_alertes, extraire_programme
 from equivalences_fluides import est_ligne_exclue, sont_equivalents
 from extraire_granulometrie import extraire_granulometrie, proposer_regroupement
+from extraire_prestations import extraire_prestations
 
 app = Flask(__name__)
 
@@ -320,15 +321,32 @@ def route_granulometrie_import():
         nom_fichier = data['nom_fichier']
         regroupement = data['regroupement']
         nom_feuille = data.get('nom_feuille')
-        import json
-        print("=== BODY /granulometrie/import ===", flush=True)
-        print("nom_fichier:", nom_fichier, flush=True)
-        print("regroupement:", json.dumps(regroupement, ensure_ascii=False, indent=2), flush=True)
-        print("=== FIN BODY ===", flush=True)
         result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=regroupement, nom_feuille=nom_feuille)
         return jsonify(result)
     except NotImplementedError as e:
         return jsonify({'error': str(e)}), 501
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/prestations/extraire', methods=['POST'])
+def route_prestations_extraire():
+    """
+    Extrait les prestations d'une notice descriptive via Sonnet.
+    Body JSON : { fichier: base64, nom_fichier, financement }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'fichier' not in data or 'nom_fichier' not in data or 'financement' not in data:
+            return jsonify({'error': 'fichier (base64), nom_fichier et financement requis'}), 400
+        file_bytes = base64.b64decode(data['fichier'])
+        nom_fichier = data['nom_fichier']
+        financement = data['financement']
+        result = extraire_prestations(file_bytes, nom_fichier, financement)
+        return jsonify(result)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:

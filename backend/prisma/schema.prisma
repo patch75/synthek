@@ -20,6 +20,7 @@ model User {
   visas                Visa[]
   reglementationRefs   ReglementationRef[]
   decisions            DecisionArbitrage[]
+  alertesFeedback      Alerte[]  @relation("alerteFeedback")
 }
 
 model Projet {
@@ -57,24 +58,28 @@ model Projet {
   faits           FaitDocument[]
   sousProgrammes  SousProgramme[]
   batiments       Batiment[]
+  prestations     PrestationsFinancement[]
 }
 
 model Batiment {
-  id            Int     @id @default(autoincrement())
-  projetId      Int
-  nom           String
-  montees       String? @db.Text  // JSON array ex: ["A1","A2"]
-  nosComptes    String? @db.Text  // JSON array ex: ["001","101 (BRS)"]
-  nbLogements   Int?
-  lli           Int?
-  lls           Int?
-  brs           Int?
-  acceStd       Int?
-  accesPremium  Int?
-  villas        Int?
-  fiabilite     String? // "haute" | "basse"
-  sectionCctp   String? // mapping CCTP — à renseigner manuellement
-  feuillesDpgf  String? @db.Text // JSON array ex: ["BAT A","BAT A BIS"]
+  id               Int     @id @default(autoincrement())
+  projetId         Int
+  nom              String
+  montees          String? @db.Text  // JSON array ex: ["A1","A2"]
+  nosComptes       String? @db.Text  // JSON array ex: ["001","101 (BRS)"]
+  nbLogements      Int?
+  lli              Int?
+  lls              Int?
+  brs              Int?
+  acceStd          Int?
+  accesPremium     Int?
+  villas           Int?
+  fiabilite        String? // "haute" | "basse"
+  sectionCctp      String? // mapping CCTP — à renseigner manuellement
+  feuillesDpgf     String? @db.Text // JSON array ex: ["BAT A","BAT A BIS"]
+  systemeChauffage String? // ex: "PAC air/eau + chaudière gaz"
+  systemeVmc       String? // ex: "VMC DF individuelle"
+  typesLogements   String? @db.Text // JSON ex: {"Accession": 8, "BRS": 4}
 
   projet  Projet  @relation(fields: [projetId], references: [id], onDelete: Cascade)
 }
@@ -137,6 +142,7 @@ model Document {
   puce                Puce?
   visas               Visa[]
   syntheses           Synthese[]
+  prestationsSource   PrestationsFinancement[] @relation("prestationsSource")
   versionPrecedente   Document? @relation("versions", fields: [versionPrecedenteId], references: [id])
   versionsUlterieures Document[] @relation("versions")
   faits               FaitDocument[]
@@ -161,6 +167,15 @@ model Alerte {
   contexteSource          String?   @db.Text  // référence CCTP/Programme
   dpgfSource              String?   @db.Text  // extrait DPGF analysé
 
+  // Feedback utilisateur
+  feedbackUtilisateur     String?   // 'judicieux' | 'faux_positif'
+  feedbackPar             Int?
+  feedbackDate            DateTime?
+
+  // Phase 3 — agent source
+  agentSource             String?   // 'PYTHON' | 'GENERIQUE' | 'FLUIDES' | ...
+
+  feedbackUser   User?     @relation("alerteFeedback", fields: [feedbackPar], references: [id])
   projet         Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
   documents      AlerteDocument[]
   decisions      DecisionArbitrage[]
@@ -304,4 +319,35 @@ model DecisionArbitrage {
   projet          Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
   alerte          Alerte?   @relation(fields: [alerteId], references: [id])
   decidePar       User      @relation(fields: [decideParId], references: [id])
+}
+
+// Synthèse A — Prestations par financement
+model PrestationsFinancement {
+  id                 Int       @id @default(autoincrement())
+  projetId           Int
+  financement        String    // 'social' | 'brs' | 'acces_std' | 'premium'
+  documentSourceId   Int?
+  source             String    @default("manuel")  // 'manuel' | 'notice'
+  fiabilite          String    @default("a_confirmer")  // 'haute' | 'moyenne' | 'a_confirmer'
+  dateExtraction     DateTime  @default(now())
+
+  chauf_distribution String?
+  chauf_production   String?
+  chauf_emetteurs    String?   // JSON array string
+  chauf_regulation   String?   // JSON array string
+  ecs_production     String?
+  ecs_distribution   String?
+  vmc_type           String?
+  san_wc             String?
+  san_vasque         String?
+  san_douche         String?
+  san_baignoire      String?
+  san_robinetterie   String?
+  enr_type           String?
+  noteComplementaire String?   @db.Text
+
+  projet         Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  documentSource Document? @relation("prestationsSource", fields: [documentSourceId], references: [id])
+
+  @@unique([projetId, financement])
 }

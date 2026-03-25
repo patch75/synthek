@@ -489,6 +489,11 @@ router.post('/:id/granulometrie/import', async (req, res) => {
           lli: b.LLI ?? 0, lls: b.LLS ?? 0, brs: b.BRS ?? 0,
           acceStd: b.acces_std ?? 0, accesPremium: b.acces_premium ?? 0,
           villas: b.villas ?? 0, fiabilite: b.fiabilite ?? null,
+          sectionCctp: b.section_cctp || null,
+          feuillesDpgf: b.feuilles_dpgf?.length ? JSON.stringify(b.feuilles_dpgf) : null,
+          systemeChauffage: b.systeme_chauffage || null,
+          systemeVmc: b.systeme_vmc || null,
+          typesLogements: b.types_logements ? JSON.stringify(b.types_logements) : null,
         }
         if (existant) {
           await prisma.batiment.update({ where: { id: existant.id }, data: payload })
@@ -535,7 +540,7 @@ router.post('/:id/batiments', async (req, res) => {
 // PATCH /projets/:id/batiments/:batId — mapper section CCTP + feuilles DPGF
 router.patch('/:id/batiments/:batId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
-  const { sectionCctp, feuillesDpgf, montees, nbLogements, lli, lls, brs, acceStd, accesPremium, villas } = req.body
+  const { sectionCctp, feuillesDpgf, montees, nbLogements, lli, lls, brs, acceStd, accesPremium, villas, systemeChauffage, systemeVmc, typesLogements } = req.body
   const data = {}
   if (sectionCctp !== undefined) data.sectionCctp = sectionCctp || null
   if (feuillesDpgf !== undefined) data.feuillesDpgf = feuillesDpgf?.length ? JSON.stringify(feuillesDpgf) : null
@@ -547,6 +552,9 @@ router.patch('/:id/batiments/:batId', async (req, res) => {
   if (acceStd !== undefined) data.acceStd = acceStd !== null ? parseInt(acceStd) : null
   if (accesPremium !== undefined) data.accesPremium = accesPremium !== null ? parseInt(accesPremium) : null
   if (villas !== undefined) data.villas = villas !== null ? parseInt(villas) : null
+  if (systemeChauffage !== undefined) data.systemeChauffage = systemeChauffage || null
+  if (systemeVmc !== undefined) data.systemeVmc = systemeVmc || null
+  if (typesLogements !== undefined) data.typesLogements = typesLogements ? JSON.stringify(typesLogements) : null
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
   const bat = await prisma.batiment.update({ where: { id: parseInt(req.params.batId) }, data })
   res.json(bat)
@@ -564,6 +572,98 @@ router.delete('/:id/batiments/:batId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   await prisma.batiment.delete({ where: { id: parseInt(req.params.batId) } })
   res.json({ ok: true })
+})
+
+// ── PRESTATIONS FINANCEMENT ──────────────────────────────────────────────────
+
+// GET /projets/:id/prestations
+router.get('/:id/prestations', async (req, res) => {
+  const projetId = parseInt(req.params.id)
+  const prestations = await prisma.prestationsFinancement.findMany({
+    where: { projetId },
+    orderBy: { financement: 'asc' }
+  })
+  res.json(prestations)
+})
+
+// POST /projets/:id/prestations — upsert (create ou update si financement existe déjà)
+router.post('/:id/prestations', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { financement, documentSourceId, source, fiabilite, noteComplementaire, ...champs } = req.body
+  if (!financement) return res.status(400).json({ error: 'financement requis' })
+  const FINANCEMENTS_VALIDES = ['social', 'brs', 'acces_std', 'premium']
+  if (!FINANCEMENTS_VALIDES.includes(financement)) return res.status(400).json({ error: `financement invalide. Valeurs : ${FINANCEMENTS_VALIDES.join(', ')}` })
+  const data = {
+    projetId,
+    financement,
+    ...(documentSourceId !== undefined && { documentSourceId: documentSourceId || null }),
+    ...(source && { source }),
+    ...(fiabilite && { fiabilite }),
+    ...(noteComplementaire !== undefined && { noteComplementaire }),
+    ...Object.fromEntries(
+      ['chauf_distribution','chauf_production','chauf_emetteurs','chauf_regulation',
+       'ecs_production','ecs_distribution','vmc_type',
+       'san_wc','san_vasque','san_douche','san_baignoire','san_robinetterie','enr_type']
+      .filter(k => champs[k] !== undefined)
+      .map(k => [k, champs[k] || null])
+    )
+  }
+  const prestation = await prisma.prestationsFinancement.upsert({
+    where: { projetId_financement: { projetId, financement } },
+    create: data,
+    update: data
+  })
+  res.json(prestation)
+})
+
+// PATCH /projets/:id/prestations/:financement
+router.patch('/:id/prestations/:financement', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { financement } = req.params
+  const data = {}
+  const CHAMPS = ['chauf_distribution','chauf_production','chauf_emetteurs','chauf_regulation',
+                  'ecs_production','ecs_distribution','vmc_type',
+                  'san_wc','san_vasque','san_douche','san_baignoire','san_robinetterie','enr_type',
+                  'source','fiabilite','noteComplementaire','documentSourceId']
+  CHAMPS.forEach(k => { if (req.body[k] !== undefined) data[k] = req.body[k] || null })
+  if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucun champ à modifier' })
+  const prestation = await prisma.prestationsFinancement.update({
+    where: { projetId_financement: { projetId, financement } },
+    data
+  })
+  res.json(prestation)
+})
+
+// DELETE /projets/:id/prestations/:financement
+router.delete('/:id/prestations/:financement', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { financement } = req.params
+  await prisma.prestationsFinancement.delete({
+    where: { projetId_financement: { projetId, financement } }
+  })
+  res.json({ ok: true })
+})
+
+// POST /projets/:id/prestations/extraire — extraction Sonnet depuis notice
+router.post('/:id/prestations/extraire', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const { fichier, nom_fichier, financement } = req.body
+  if (!fichier || !nom_fichier || !financement) return res.status(400).json({ error: 'fichier, nom_fichier et financement requis' })
+  try {
+    const response = await fetch('http://127.0.0.1:5001/prestations/extraire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fichier, nom_fichier, financement })
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (e) {
+    res.status(503).json({ error: 'Parser Python indisponible', detail: e.message })
+  }
 })
 
 // PATCH /projets/:id/intervenants — mettre à jour les intervenants (admin only)

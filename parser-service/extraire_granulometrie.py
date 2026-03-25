@@ -590,10 +590,6 @@ def _run_extraction_sonnet(
     nb_individuels, tous_nos = _compter_logements_individuels(texte_brut)
     json_sonnet = _appeler_sonnet(texte_brut, nom_fichier, nb_logements_detectes=nb_individuels, tous_nos=tous_nos)
 
-    print("=== JSON SONNET BRUT ===", flush=True)
-    print(json.dumps(json_sonnet, ensure_ascii=False, indent=2), flush=True)
-    print("=== FIN JSON SONNET ===", flush=True)
-
     batiments = json_sonnet.get('batiments', [])
 
     # Vérification et correction via nos_comptes
@@ -694,10 +690,6 @@ def _extraire_granulometrie_pdf(
     total = json_sonnet.get('total_logements') or sum((b.get('nb_logements') or 0) for b in batiments)
     donnees_manquantes = list(json_sonnet.get('donnees_manquantes', []))
     donnees_manquantes.extend(warnings_nos)
-
-    print("=== JSON SONNET PDF BRUT ===", flush=True)
-    print(json.dumps(json_sonnet, ensure_ascii=False, indent=2), flush=True)
-    print("=== FIN JSON SONNET PDF ===", flush=True)
 
     return {
         'etape': 'validation',

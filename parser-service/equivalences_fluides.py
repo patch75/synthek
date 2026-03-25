@@ -389,6 +389,24 @@ NON_EQUIVALENCES = [
 
 
 # ============================================================
+# 2b. ÉQUIVALENCES FINANCEMENT — pour PrestationsFinancement
+# LLI et LLS sont techniquement équivalents (même niveau de prestation)
+# ============================================================
+
+FINANCEMENT_VERS_CATEGORIE = {
+    "LLI":  "social",
+    "LLS":  "social",
+    "LLTS": "social",
+    "PLS":  "social",
+    "BRS":  "brs",
+    "Accession libre": "acces_std",
+    "Accession standard": "acces_std",
+    "Accession premium": "premium",
+    "Attique": "premium",
+}
+
+
+# ============================================================
 # 3. SEUILS DE TOLÉRANCE NUMÉRIQUE
 # ============================================================
 
