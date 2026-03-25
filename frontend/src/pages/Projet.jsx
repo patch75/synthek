@@ -2082,12 +2082,22 @@ export default function Projet() {
                       {CHAMPS_AFFICHAGE.map(c => (
                         <div key={c.key} style={c.key === 'noteComplementaire' ? { gridColumn: '1/-1' } : {}}>
                           <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>{c.label}</label>
-                          <input
-                            value={getVal(c.key)}
-                            onChange={e => setPrestationProposition(prev => ({ ...(prev || {}), [c.key]: e.target.value }))}
-                            style={{ width: '100%', fontSize: 12, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', boxSizing: 'border-box' }}
-                            placeholder="—"
-                          />
+                          {c.key === 'noteComplementaire' ? (
+                            <textarea
+                              value={getVal(c.key)}
+                              onChange={e => setPrestationProposition(prev => ({ ...(prev || {}), [c.key]: e.target.value }))}
+                              rows={3}
+                              style={{ width: '100%', fontSize: 12, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', boxSizing: 'border-box', resize: 'vertical' }}
+                              placeholder="—"
+                            />
+                          ) : (
+                            <input
+                              value={getVal(c.key)}
+                              onChange={e => setPrestationProposition(prev => ({ ...(prev || {}), [c.key]: e.target.value }))}
+                              style={{ width: '100%', fontSize: 12, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', boxSizing: 'border-box' }}
+                              placeholder="—"
+                            />
+                          )}
                         </div>
                       ))}
                     </div>
