@@ -235,6 +235,8 @@ export default function Projet() {
   }
   const [showIntervenants, setShowIntervenants] = useState(false)
   const [editIntervenants, setEditIntervenants] = useState(false)
+  const [showAddIntervenant, setShowAddIntervenant] = useState(false)
+  const [newIntervenant, setNewIntervenant] = useState({ label: '', societe: '', contact: '', email: '', tel: '' })
 
   const INTERVENANTS_BASE = [
     { role: 'MOA', label: 'Maître d\'ouvrage (MOA)' },
@@ -1342,11 +1344,8 @@ export default function Projet() {
                   <>
                     <button onClick={e => {
                       e.stopPropagation()
-                      const stored = getIntervenants()
-                      const base = INTERVENANTS_BASE.map(b => ({ ...b, ...stored.find(s => s.role === b.role) || {}, label: b.label }))
-                      const custom = stored.filter(s => !INTERVENANTS_BASE.find(b => b.role === s.role))
-                      setIntervenantsEdit([...base, ...custom, { role: `custom_${Date.now()}`, label: '', societe: '', contact: '', email: '', tel: '', missions: [] }])
-                      setEditIntervenants(true)
+                      setNewIntervenant({ label: '', societe: '', contact: '', email: '', tel: '' })
+                      setShowAddIntervenant(true)
                     }} className="btn-ghost" style={{ fontSize: 13, border: '1px solid var(--border)' }}>+ Ajouter</button>
                     <button onClick={e => {
                       e.stopPropagation()
@@ -1434,6 +1433,47 @@ export default function Projet() {
             </div>
           )}
         </section>
+
+        {/* Modal ajout intervenant */}
+        {showAddIntervenant && (
+          <div className="modal-overlay" onClick={() => setShowAddIntervenant(false)}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+              <h3 style={{ marginBottom: 16 }}>Ajouter un intervenant</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: 11 }}>Intitulé / Rôle *</label>
+                  <input value={newIntervenant.label} onChange={e => setNewIntervenant(p => ({ ...p, label: e.target.value }))} placeholder="Ex : BET Acoustique" style={{ fontSize: 13 }} autoFocus />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: 11 }}>Société / Organisme</label>
+                  <input value={newIntervenant.societe} onChange={e => setNewIntervenant(p => ({ ...p, societe: e.target.value }))} style={{ fontSize: 13 }} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: 11 }}>Contact</label>
+                  <input value={newIntervenant.contact} onChange={e => setNewIntervenant(p => ({ ...p, contact: e.target.value }))} style={{ fontSize: 13 }} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: 11 }}>Email</label>
+                  <input type="email" value={newIntervenant.email} onChange={e => setNewIntervenant(p => ({ ...p, email: e.target.value }))} style={{ fontSize: 13 }} />
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label style={{ fontSize: 11 }}>Tél</label>
+                  <input value={newIntervenant.tel} onChange={e => setNewIntervenant(p => ({ ...p, tel: e.target.value }))} style={{ fontSize: 13 }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                <button className="btn-ghost" onClick={() => setShowAddIntervenant(false)}>Annuler</button>
+                <button className="btn-primary" disabled={!newIntervenant.label.trim()} onClick={async () => {
+                  const stored = getIntervenants()
+                  const updated = [...stored, { role: `custom_${Date.now()}`, ...newIntervenant }]
+                  await api.patch(`/projets/${id}/intervenants`, { intervenants: updated })
+                  setProjet(prev => ({ ...prev, intervenants: JSON.stringify(updated) }))
+                  setShowAddIntervenant(false)
+                }}>Ajouter</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bâtiments */}
         {isAdmin && (
