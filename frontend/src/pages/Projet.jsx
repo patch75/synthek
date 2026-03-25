@@ -1891,7 +1891,7 @@ export default function Projet() {
             ecs_production: 'ECS production', ecs_distribution: 'ECS distrib.',
             vmc_type: 'VMC', san_wc: 'WC', san_vasque: 'Vasque',
             san_douche: 'Douche', san_baignoire: 'Baignoire',
-            san_robinetterie: 'Robinetterie', enr_type: 'ENR',
+            san_robinetterie: 'Robinetterie',
           }
           return (
             <section className="section" style={{ marginBottom: 12 }}>
@@ -1931,7 +1931,6 @@ export default function Projet() {
                         <th style={{ padding: '5px 8px', fontWeight: 700 }}>ECS</th>
                         <th style={{ padding: '5px 8px', fontWeight: 700 }}>VMC</th>
                         <th style={{ padding: '5px 8px', fontWeight: 700 }}>Sanitaires</th>
-                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>ENR</th>
                         <th style={{ padding: '5px 8px', fontWeight: 700 }}>Source</th>
                         <th style={{ padding: '5px 8px', fontWeight: 700 }}>Fiabilité</th>
                         {isAdmin && <th style={{ padding: '5px 8px' }}></th>}
@@ -1955,14 +1954,24 @@ export default function Projet() {
                             <td style={{ padding: '6px 8px', fontSize: 11 }}>
                               {p ? [p.san_wc && `WC ${p.san_wc}`, p.san_vasque && `vasque ${p.san_vasque}`, p.san_douche && `douche ${p.san_douche}`].filter(Boolean).join(' · ') || '—' : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                             </td>
-                            <td style={{ padding: '6px 8px', fontSize: 11 }}>{p ? (p.enr_type || '—') : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                             <td style={{ padding: '6px 8px', fontSize: 11 }}>{p ? (p.source === 'notice' ? '📄 notice' : '✏️ manuel') : '—'}</td>
                             <td style={{ padding: '6px 8px' }}>
                               {p && <span style={{ fontSize: 10, fontWeight: 700, background: fib.bg, color: fib.color, padding: '2px 7px', borderRadius: 10 }}>{fib.label}</span>}
                             </td>
                             {isAdmin && (
-                              <td style={{ padding: '6px 8px' }}>
-                                {p && <button onClick={() => supprimerPrestation(fin.code)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }} title="Supprimer">🗑</button>}
+                              <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                                {p && <>
+                                  <button onClick={() => {
+                                    const prefill = { ...p }
+                                    try { if (prefill.chauf_emetteurs) prefill.chauf_emetteurs = JSON.parse(prefill.chauf_emetteurs).join(', ') } catch {}
+                                    try { if (prefill.chauf_regulation) prefill.chauf_regulation = JSON.parse(prefill.chauf_regulation).join(', ') } catch {}
+                                    setPrestationModal({ mode: 'modifier' })
+                                    setPrestationFinancement(fin.code)
+                                    setPrestationProposition(prefill)
+                                    setPrestationErreur(null)
+                                  }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: 13, padding: '0 4px' }} title="Modifier">✎</button>
+                                  <button onClick={() => supprimerPrestation(fin.code)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }} title="Supprimer">🗑</button>
+                                </>}
                               </td>
                             )}
                           </tr>
@@ -1981,28 +1990,34 @@ export default function Projet() {
           <div className="modal-overlay" onClick={() => setPrestationModal(null)}>
             <div className="modal-card" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>{prestationModal.mode === 'extraire' ? '📥 Extraire depuis notice' : '✏️ Saisie manuelle'}</h3>
+                <h3>{prestationModal.mode === 'extraire' ? '📥 Extraire depuis notice' : prestationModal.mode === 'modifier' ? '✎ Modifier les prestations' : '✏️ Saisie manuelle'}</h3>
                 <button className="btn-ghost" onClick={() => setPrestationModal(null)} style={{ padding: '4px 8px' }}>✕</button>
               </div>
 
               {/* Sélection financement */}
               <div style={{ marginBottom: 14 }}>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Financement</p>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[
-                    { code: 'social', label: 'Social (LLI/LLS)' },
-                    { code: 'brs', label: 'BRS' },
-                    { code: 'acces_std', label: 'Accession std' },
-                    { code: 'premium', label: 'Accession premium' },
-                  ].map(f => (
-                    <button
-                      key={f.code}
-                      onClick={() => setPrestationFinancement(f.code)}
-                      className={prestationFinancement === f.code ? 'btn-primary' : 'btn-ghost'}
-                      style={{ fontSize: 12 }}
-                    >{f.label}</button>
-                  ))}
-                </div>
+                {prestationModal.mode === 'modifier' ? (
+                  <span style={{ fontSize: 12, fontWeight: 700, background: 'var(--primary)', color: 'white', padding: '3px 10px', borderRadius: 10 }}>
+                    {{ social: 'Social (LLI/LLS)', brs: 'BRS', acces_std: 'Accession std', premium: 'Accession premium' }[prestationFinancement]}
+                  </span>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[
+                      { code: 'social', label: 'Social (LLI/LLS)' },
+                      { code: 'brs', label: 'BRS' },
+                      { code: 'acces_std', label: 'Accession std' },
+                      { code: 'premium', label: 'Accession premium' },
+                    ].map(f => (
+                      <button
+                        key={f.code}
+                        onClick={() => setPrestationFinancement(f.code)}
+                        className={prestationFinancement === f.code ? 'btn-primary' : 'btn-ghost'}
+                        style={{ fontSize: 12 }}
+                      >{f.label}</button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {prestationModal.mode === 'extraire' && !prestationProposition && (
@@ -2031,7 +2046,7 @@ export default function Projet() {
               )}
 
               {/* Proposition Sonnet OU saisie manuelle — le formulaire utilise prestationProposition comme état */}
-              {(prestationProposition !== null || prestationModal.mode === 'manuel') && (() => {
+              {(prestationProposition !== null || prestationModal.mode === 'manuel' || prestationModal.mode === 'modifier') && (() => {
                 const CHAMPS_AFFICHAGE = [
                   { key: 'chauf_distribution', label: 'Distribution chauffage' },
                   { key: 'chauf_production', label: 'Production chauffage' },
@@ -2045,7 +2060,6 @@ export default function Projet() {
                   { key: 'san_douche', label: 'Douche' },
                   { key: 'san_baignoire', label: 'Baignoire' },
                   { key: 'san_robinetterie', label: 'Robinetterie' },
-                  { key: 'enr_type', label: 'ENR' },
                   { key: 'noteComplementaire', label: 'Note complémentaire' },
                 ]
                 // Normalise les champs array (JSON → string pour l'affichage)
