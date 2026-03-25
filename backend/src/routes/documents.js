@@ -356,6 +356,16 @@ router.post('/:id/pre-analyse', async (req, res) => {
   }
 })
 
+// GET /documents/:id/fichier — retourne le fichier binaire brut
+router.get('/:id/fichier', async (req, res) => {
+  const doc = await prisma.document.findUnique({ where: { id: parseInt(req.params.id) }, select: { cheminFichier: true, nom: true } })
+  if (!doc) return res.status(404).json({ error: 'Document non trouvé' })
+  const filePath = path.resolve(doc.cheminFichier)
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable sur disque' })
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.nom)}"`)
+  res.sendFile(filePath)
+})
+
 // GET /documents/:id/texte — retourne le contenu texte extrait
 router.get('/:id/texte', async (req, res) => {
   const docId = parseInt(req.params.id)
