@@ -1,6 +1,6 @@
 # KB_SYNC — Synthek
 # Généré automatiquement à chaque push sur main
-# 2026-03-24 20:38 UTC
+# 2026-03-25 10:41 UTC
 
 ---
 ## CLAUDE.md
@@ -775,6 +775,11 @@ router.post('/:id/granulometrie/import', async (req, res) => {
           lli: b.LLI ?? 0, lls: b.LLS ?? 0, brs: b.BRS ?? 0,
           acceStd: b.acces_std ?? 0, accesPremium: b.acces_premium ?? 0,
           villas: b.villas ?? 0, fiabilite: b.fiabilite ?? null,
+          sectionCctp: b.section_cctp || null,
+          feuillesDpgf: b.feuilles_dpgf?.length ? JSON.stringify(b.feuilles_dpgf) : null,
+          systemeChauffage: b.systeme_chauffage || null,
+          systemeVmc: b.systeme_vmc || null,
+          typesLogements: b.types_logements ? JSON.stringify(b.types_logements) : null,
         }
         if (existant) {
           await prisma.batiment.update({ where: { id: existant.id }, data: payload })
@@ -821,7 +826,7 @@ router.post('/:id/batiments', async (req, res) => {
 // PATCH /projets/:id/batiments/:batId — mapper section CCTP + feuilles DPGF
 router.patch('/:id/batiments/:batId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
-  const { sectionCctp, feuillesDpgf, montees, nbLogements, lli, lls, brs, acceStd, accesPremium, villas } = req.body
+  const { sectionCctp, feuillesDpgf, montees, nbLogements, lli, lls, brs, acceStd, accesPremium, villas, systemeChauffage, systemeVmc, typesLogements } = req.body
   const data = {}
   if (sectionCctp !== undefined) data.sectionCctp = sectionCctp || null
   if (feuillesDpgf !== undefined) data.feuillesDpgf = feuillesDpgf?.length ? JSON.stringify(feuillesDpgf) : null
@@ -833,6 +838,9 @@ router.patch('/:id/batiments/:batId', async (req, res) => {
   if (acceStd !== undefined) data.acceStd = acceStd !== null ? parseInt(acceStd) : null
   if (accesPremium !== undefined) data.accesPremium = accesPremium !== null ? parseInt(accesPremium) : null
   if (villas !== undefined) data.villas = villas !== null ? parseInt(villas) : null
+  if (systemeChauffage !== undefined) data.systemeChauffage = systemeChauffage || null
+  if (systemeVmc !== undefined) data.systemeVmc = systemeVmc || null
+  if (typesLogements !== undefined) data.typesLogements = typesLogements ? JSON.stringify(typesLogements) : null
   if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucune donnée à modifier' })
   const bat = await prisma.batiment.update({ where: { id: parseInt(req.params.batId) }, data })
   res.json(bat)
@@ -850,6 +858,98 @@ router.delete('/:id/batiments/:batId', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
   await prisma.batiment.delete({ where: { id: parseInt(req.params.batId) } })
   res.json({ ok: true })
+})
+
+// ── PRESTATIONS FINANCEMENT ──────────────────────────────────────────────────
+
+// GET /projets/:id/prestations
+router.get('/:id/prestations', async (req, res) => {
+  const projetId = parseInt(req.params.id)
+  const prestations = await prisma.prestationsFinancement.findMany({
+    where: { projetId },
+    orderBy: { financement: 'asc' }
+  })
+  res.json(prestations)
+})
+
+// POST /projets/:id/prestations — upsert (create ou update si financement existe déjà)
+router.post('/:id/prestations', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { financement, documentSourceId, source, fiabilite, noteComplementaire, ...champs } = req.body
+  if (!financement) return res.status(400).json({ error: 'financement requis' })
+  const FINANCEMENTS_VALIDES = ['social', 'brs', 'acces_std', 'premium']
+  if (!FINANCEMENTS_VALIDES.includes(financement)) return res.status(400).json({ error: `financement invalide. Valeurs : ${FINANCEMENTS_VALIDES.join(', ')}` })
+  const data = {
+    projetId,
+    financement,
+    ...(documentSourceId !== undefined && { documentSourceId: documentSourceId || null }),
+    ...(source && { source }),
+    ...(fiabilite && { fiabilite }),
+    ...(noteComplementaire !== undefined && { noteComplementaire }),
+    ...Object.fromEntries(
+      ['chauf_distribution','chauf_production','chauf_emetteurs','chauf_regulation',
+       'ecs_production','ecs_distribution','vmc_type',
+       'san_wc','san_vasque','san_douche','san_baignoire','san_robinetterie','enr_type']
+      .filter(k => champs[k] !== undefined)
+      .map(k => [k, champs[k] || null])
+    )
+  }
+  const prestation = await prisma.prestationsFinancement.upsert({
+    where: { projetId_financement: { projetId, financement } },
+    create: data,
+    update: data
+  })
+  res.json(prestation)
+})
+
+// PATCH /projets/:id/prestations/:financement
+router.patch('/:id/prestations/:financement', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { financement } = req.params
+  const data = {}
+  const CHAMPS = ['chauf_distribution','chauf_production','chauf_emetteurs','chauf_regulation',
+                  'ecs_production','ecs_distribution','vmc_type',
+                  'san_wc','san_vasque','san_douche','san_baignoire','san_robinetterie','enr_type',
+                  'source','fiabilite','noteComplementaire','documentSourceId']
+  CHAMPS.forEach(k => { if (req.body[k] !== undefined) data[k] = req.body[k] || null })
+  if (Object.keys(data).length === 0) return res.status(400).json({ error: 'Aucun champ à modifier' })
+  const prestation = await prisma.prestationsFinancement.update({
+    where: { projetId_financement: { projetId, financement } },
+    data
+  })
+  res.json(prestation)
+})
+
+// DELETE /projets/:id/prestations/:financement
+router.delete('/:id/prestations/:financement', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const projetId = parseInt(req.params.id)
+  const { financement } = req.params
+  await prisma.prestationsFinancement.delete({
+    where: { projetId_financement: { projetId, financement } }
+  })
+  res.json({ ok: true })
+})
+
+// POST /projets/:id/prestations/extraire — extraction Sonnet depuis notice
+router.post('/:id/prestations/extraire', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Réservé aux administrateurs' })
+  const { fichier, nom_fichier, financement } = req.body
+  if (!fichier || !nom_fichier || !financement) return res.status(400).json({ error: 'fichier, nom_fichier et financement requis' })
+  try {
+    const response = await fetch('http://127.0.0.1:5001/prestations/extraire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fichier, nom_fichier, financement })
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(response.status).json(data)
+    res.json(data)
+  } catch (e) {
+    res.status(503).json({ error: 'Parser Python indisponible', detail: e.message })
+  }
 })
 
 // PATCH /projets/:id/intervenants — mettre à jour les intervenants (admin only)
@@ -1354,6 +1454,22 @@ router.patch('/:id/resoudre', async (req, res) => {
   res.json(alerte)
 })
 
+// PATCH /alertes/:id/feedback — enregistrer feedback utilisateur
+router.patch('/:id/feedback', async (req, res) => {
+  const { feedback } = req.body
+  const VALEURS = ['judicieux', 'faux_positif']
+  if (feedback && !VALEURS.includes(feedback)) return res.status(400).json({ error: `feedback invalide. Valeurs : ${VALEURS.join(', ')}` })
+  const alerte = await prisma.alerte.update({
+    where: { id: parseInt(req.params.id) },
+    data: {
+      feedbackUtilisateur: feedback || null,
+      feedbackPar: feedback ? req.user.id : null,
+      feedbackDate: feedback ? new Date() : null,
+    }
+  })
+  res.json(alerte)
+})
+
 // POST /alertes/:id/arbitrage — créer une décision d'arbitrage (V3 — Bloc 5)
 router.post('/:id/arbitrage', async (req, res) => {
   const alerteId = parseInt(req.params.id)
@@ -1447,6 +1563,7 @@ model User {
   visas                Visa[]
   reglementationRefs   ReglementationRef[]
   decisions            DecisionArbitrage[]
+  alertesFeedback      Alerte[]  @relation("alerteFeedback")
 }
 
 model Projet {
@@ -1484,24 +1601,28 @@ model Projet {
   faits           FaitDocument[]
   sousProgrammes  SousProgramme[]
   batiments       Batiment[]
+  prestations     PrestationsFinancement[]
 }
 
 model Batiment {
-  id            Int     @id @default(autoincrement())
-  projetId      Int
-  nom           String
-  montees       String? @db.Text  // JSON array ex: ["A1","A2"]
-  nosComptes    String? @db.Text  // JSON array ex: ["001","101 (BRS)"]
-  nbLogements   Int?
-  lli           Int?
-  lls           Int?
-  brs           Int?
-  acceStd       Int?
-  accesPremium  Int?
-  villas        Int?
-  fiabilite     String? // "haute" | "basse"
-  sectionCctp   String? // mapping CCTP — à renseigner manuellement
-  feuillesDpgf  String? @db.Text // JSON array ex: ["BAT A","BAT A BIS"]
+  id               Int     @id @default(autoincrement())
+  projetId         Int
+  nom              String
+  montees          String? @db.Text  // JSON array ex: ["A1","A2"]
+  nosComptes       String? @db.Text  // JSON array ex: ["001","101 (BRS)"]
+  nbLogements      Int?
+  lli              Int?
+  lls              Int?
+  brs              Int?
+  acceStd          Int?
+  accesPremium     Int?
+  villas           Int?
+  fiabilite        String? // "haute" | "basse"
+  sectionCctp      String? // mapping CCTP — à renseigner manuellement
+  feuillesDpgf     String? @db.Text // JSON array ex: ["BAT A","BAT A BIS"]
+  systemeChauffage String? // ex: "PAC air/eau + chaudière gaz"
+  systemeVmc       String? // ex: "VMC DF individuelle"
+  typesLogements   String? @db.Text // JSON ex: {"Accession": 8, "BRS": 4}
 
   projet  Projet  @relation(fields: [projetId], references: [id], onDelete: Cascade)
 }
@@ -1564,6 +1685,7 @@ model Document {
   puce                Puce?
   visas               Visa[]
   syntheses           Synthese[]
+  prestationsSource   PrestationsFinancement[] @relation("prestationsSource")
   versionPrecedente   Document? @relation("versions", fields: [versionPrecedenteId], references: [id])
   versionsUlterieures Document[] @relation("versions")
   faits               FaitDocument[]
@@ -1588,6 +1710,15 @@ model Alerte {
   contexteSource          String?   @db.Text  // référence CCTP/Programme
   dpgfSource              String?   @db.Text  // extrait DPGF analysé
 
+  // Feedback utilisateur
+  feedbackUtilisateur     String?   // 'judicieux' | 'faux_positif'
+  feedbackPar             Int?
+  feedbackDate            DateTime?
+
+  // Phase 3 — agent source
+  agentSource             String?   // 'PYTHON' | 'GENERIQUE' | 'FLUIDES' | ...
+
+  feedbackUser   User?     @relation("alerteFeedback", fields: [feedbackPar], references: [id])
   projet         Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
   documents      AlerteDocument[]
   decisions      DecisionArbitrage[]
@@ -1731,6 +1862,37 @@ model DecisionArbitrage {
   projet          Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
   alerte          Alerte?   @relation(fields: [alerteId], references: [id])
   decidePar       User      @relation(fields: [decideParId], references: [id])
+}
+
+// Synthèse A — Prestations par financement
+model PrestationsFinancement {
+  id                 Int       @id @default(autoincrement())
+  projetId           Int
+  financement        String    // 'social' | 'brs' | 'acces_std' | 'premium'
+  documentSourceId   Int?
+  source             String    @default("manuel")  // 'manuel' | 'notice'
+  fiabilite          String    @default("a_confirmer")  // 'haute' | 'moyenne' | 'a_confirmer'
+  dateExtraction     DateTime  @default(now())
+
+  chauf_distribution String?
+  chauf_production   String?
+  chauf_emetteurs    String?   // JSON array string
+  chauf_regulation   String?   // JSON array string
+  ecs_production     String?
+  ecs_distribution   String?
+  vmc_type           String?
+  san_wc             String?
+  san_vasque         String?
+  san_douche         String?
+  san_baignoire      String?
+  san_robinetterie   String?
+  enr_type           String?
+  noteComplementaire String?   @db.Text
+
+  projet         Projet    @relation(fields: [projetId], references: [id], onDelete: Cascade)
+  documentSource Document? @relation("prestationsSource", fields: [documentSourceId], references: [id])
+
+  @@unique([projetId, financement])
 }
 ```
 
@@ -3886,10 +4048,6 @@ def _run_extraction_sonnet(
     nb_individuels, tous_nos = _compter_logements_individuels(texte_brut)
     json_sonnet = _appeler_sonnet(texte_brut, nom_fichier, nb_logements_detectes=nb_individuels, tous_nos=tous_nos)
 
-    print("=== JSON SONNET BRUT ===", flush=True)
-    print(json.dumps(json_sonnet, ensure_ascii=False, indent=2), flush=True)
-    print("=== FIN JSON SONNET ===", flush=True)
-
     batiments = json_sonnet.get('batiments', [])
 
     # Vérification et correction via nos_comptes
@@ -3990,10 +4148,6 @@ def _extraire_granulometrie_pdf(
     total = json_sonnet.get('total_logements') or sum((b.get('nb_logements') or 0) for b in batiments)
     donnees_manquantes = list(json_sonnet.get('donnees_manquantes', []))
     donnees_manquantes.extend(warnings_nos)
-
-    print("=== JSON SONNET PDF BRUT ===", flush=True)
-    print(json.dumps(json_sonnet, ensure_ascii=False, indent=2), flush=True)
-    print("=== FIN JSON SONNET PDF ===", flush=True)
 
     return {
         'etape': 'validation',
@@ -4116,6 +4270,7 @@ import traceback
 from comparaison_cctp_dpgf import extraire_cctp, extraire_dpgf, detecter_alertes, extraire_programme
 from equivalences_fluides import est_ligne_exclue, sont_equivalents
 from extraire_granulometrie import extraire_granulometrie, proposer_regroupement
+from extraire_prestations import extraire_prestations
 
 app = Flask(__name__)
 
@@ -4421,15 +4576,32 @@ def route_granulometrie_import():
         nom_fichier = data['nom_fichier']
         regroupement = data['regroupement']
         nom_feuille = data.get('nom_feuille')
-        import json
-        print("=== BODY /granulometrie/import ===", flush=True)
-        print("nom_fichier:", nom_fichier, flush=True)
-        print("regroupement:", json.dumps(regroupement, ensure_ascii=False, indent=2), flush=True)
-        print("=== FIN BODY ===", flush=True)
         result = extraire_granulometrie(file_bytes, nom_fichier, regroupement_valide=regroupement, nom_feuille=nom_feuille)
         return jsonify(result)
     except NotImplementedError as e:
         return jsonify({'error': str(e)}), 501
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/prestations/extraire', methods=['POST'])
+def route_prestations_extraire():
+    """
+    Extrait les prestations d'une notice descriptive via Sonnet.
+    Body JSON : { fichier: base64, nom_fichier, financement }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'fichier' not in data or 'nom_fichier' not in data or 'financement' not in data:
+            return jsonify({'error': 'fichier (base64), nom_fichier et financement requis'}), 400
+        file_bytes = base64.b64decode(data['fichier'])
+        nom_fichier = data['nom_fichier']
+        financement = data['financement']
+        result = extraire_prestations(file_bytes, nom_fichier, financement)
+        return jsonify(result)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -4648,6 +4820,7 @@ export default function Projet() {
   const [showTexteModal, setShowTexteModal] = useState(null) // { id, nom, contenuTexte, loading }
   const [showPreAnalyse, setShowPreAnalyse] = useState(null) // { loading, data, error }
   const [preAnalyseFeedback, setPreAnalyseFeedback] = useState({}) // { idx: 'ok'|'fp' }
+  const [alerteFeedback, setAlerteFeedback] = useState({}) // { alerteId: 'judicieux'|'faux_positif' }
 
   const [triDoc, setTriDoc] = useState({ col: 'dateDepot', dir: 'desc' })
   const [modifierEnCours, setModifierEnCours] = useState(null) // docId en cours d'upload
@@ -4744,6 +4917,16 @@ export default function Projet() {
   const [monteesEdit, setMonteesEdit] = useState({}) // { [batNom]: valeur en cours d'édition }
   const [newBatD1, setNewBatD1] = useState(null) // null = caché, objet = ligne inline d'ajout
 
+  // Prestations financement
+  const [prestations, setPrestations] = useState([])
+  const [showPrestations, setShowPrestations] = useState(false)
+  const [prestationModal, setPrestationModal] = useState(null) // { mode: 'extraire'|'manuel', financement? }
+  const [prestationProposition, setPrestationProposition] = useState(null)
+  const [prestationLoading, setPrestationLoading] = useState(false)
+  const [prestationErreur, setPrestationErreur] = useState(null)
+  const [prestationDocId, setPrestationDocId] = useState('')
+  const [prestationFinancement, setPrestationFinancement] = useState('social')
+
   // V3 — Config IA
   const [showConfig, setShowConfig] = useState(false)
   const [configPrompt, setConfigPrompt] = useState('')
@@ -4773,11 +4956,16 @@ export default function Projet() {
     Promise.all([
       api.get(`/projets/${id}`),
       api.get(`/alertes/${id}`),
+      api.get(`/projets/${id}/prestations`),
       api.get('/typologies')
-    ]).then(([pRes, aRes, tRes]) => {
+    ]).then(([pRes, aRes, presRes, tRes]) => {
       setProjet(pRes.data)
       setAlertes(aRes.data)
+      setPrestations(presRes.data)
       setTypologiesCustom(tRes.data)
+      const fb = {}
+      aRes.data.forEach(a => { if (a.feedbackUtilisateur) fb[a.id] = a.feedbackUtilisateur })
+      setAlerteFeedback(fb)
       // Détecter format D1 et restaurer le tableau granulométrie
       if (pRes.data.batimentsComposition) {
         try {
@@ -4960,7 +5148,11 @@ export default function Projet() {
           ? api.patch(`/projets/${id}/batiments/${b._batimentId}`, {
               montees: b.montees, nbLogements: b.nb_logements,
               lli: b.LLI, lls: b.LLS, brs: b.BRS,
-              acceStd: b.acces_std, accesPremium: b.acces_premium, villas: b.villas
+              acceStd: b.acces_std, accesPremium: b.acces_premium, villas: b.villas,
+              sectionCctp: b.section_cctp || null,
+              feuillesDpgf: b.feuilles_dpgf?.length ? b.feuilles_dpgf : null,
+              systemeChauffage: b.systeme_chauffage || null,
+              systemeVmc: b.systeme_vmc || null,
             })
           : Promise.resolve()
         ))
@@ -4980,6 +5172,41 @@ export default function Projet() {
     } finally {
       setImportGranuloLoading(false)
     }
+  }
+
+  async function enregistrerFeedbackAlerte(alerteId, feedback) {
+    const next = alerteFeedback[alerteId] === feedback ? null : feedback
+    setAlerteFeedback(prev => ({ ...prev, [alerteId]: next }))
+    await api.patch(`/alertes/${alerteId}/feedback`, { feedback: next })
+  }
+
+  async function extrairePresations(financement) {
+    const doc = projet.documents.find(d => d.id === parseInt(prestationDocId))
+    if (!doc) return
+    setPrestationLoading(true)
+    setPrestationErreur(null)
+    try {
+      const fileRes = await api.get(`/documents/${doc.id}/fichier`, { responseType: 'arraybuffer' })
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(fileRes.data)))
+      const res = await api.post(`/projets/${id}/prestations/extraire`, { fichier: b64, nom_fichier: doc.nom, financement })
+      setPrestationProposition(res.data)
+    } catch (err) {
+      setPrestationErreur(err.response?.data?.error || err.message)
+    } finally {
+      setPrestationLoading(false)
+    }
+  }
+
+  async function sauvegarderPrestation(data) {
+    await api.post(`/projets/${id}/prestations`, data)
+    const res = await api.get(`/projets/${id}/prestations`)
+    setPrestations(res.data)
+  }
+
+  async function supprimerPrestation(financement) {
+    if (!window.confirm(`Supprimer les prestations "${financement}" ?`)) return
+    await api.delete(`/projets/${id}/prestations/${financement}`)
+    setPrestations(prev => prev.filter(p => p.financement !== financement))
   }
 
   async function sauvegarderMontee(batId, valeur) {
@@ -5620,8 +5847,23 @@ export default function Projet() {
                               <span className="text-muted text-sm">
                                 Documents : {alerte.documents.map(d => d.document.nom).join(', ')}
                               </span>
-                              {!isBureauControle && (
-                                <div style={{ display: 'flex', gap: 6 }}>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {(() => {
+                                  const fb = alerteFeedback[alerte.id]
+                                  return (<>
+                                    <button
+                                      onClick={() => enregistrerFeedbackAlerte(alerte.id, 'judicieux')}
+                                      style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, border: '1px solid #22c55e', cursor: 'pointer', fontWeight: 600, background: fb === 'judicieux' ? '#22c55e' : 'transparent', color: fb === 'judicieux' ? 'white' : '#22c55e' }}
+                                      title="Marquer comme judicieux"
+                                    >✓</button>
+                                    <button
+                                      onClick={() => enregistrerFeedbackAlerte(alerte.id, 'faux_positif')}
+                                      style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, border: '1px solid #94a3b8', cursor: 'pointer', fontWeight: 600, background: fb === 'faux_positif' ? '#94a3b8' : 'transparent', color: fb === 'faux_positif' ? 'white' : '#94a3b8' }}
+                                      title="Marquer comme faux positif"
+                                    >✗</button>
+                                  </>)
+                                })()}
+                                {!isBureauControle && (<>
                                   <button onClick={() => { setShowResolModal(alerte.id); setResolType('manuelle'); setResolJustif('') }} className="btn-success">
                                     Résoudre
                                   </button>
@@ -5633,8 +5875,8 @@ export default function Projet() {
                                     }}
                                     style={{ fontSize: 12, padding: '4px 10px', background: '#ef4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
                                   >Supprimer</button>
-                                </div>
-                              )}
+                                </>)}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -5801,7 +6043,7 @@ export default function Projet() {
               </div>
               <div className="section-title-btns">
                 {showBatiments && (<>
-                  <button onClick={e => { e.stopPropagation(); setNewBatD1({ nom: '', montees: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '' }) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
+                  <button onClick={e => { e.stopPropagation(); setNewBatD1({ nom: '', montees: '', nbLogements: '', lli: '', lls: '', brs: '', acceStd: '', accesPremium: '', villas: '', sectionCctp: '', feuillesDpgf: '', systemeChauffage: '', systemeVmc: '' }) }} className="btn-secondary" style={{ fontSize: 13 }}>+ Ajouter</button>
                   {projet?.batiments?.length > 0 && isAdmin && (
                     <button onClick={async e => {
                       e.stopPropagation()
@@ -5865,7 +6107,7 @@ export default function Projet() {
                       <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                         <thead>
                           <tr style={{ background: '#e0f2fe', textAlign: 'left' }}>
-                            {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité'].map(h => (
+                            {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Sec.CCTP', 'Feuilles DPGF', 'Chauffage', 'VMC', 'Fiabilité'].map(h => (
                               <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
@@ -5901,6 +6143,42 @@ export default function Projet() {
                                   />
                                 </td>
                               ))}
+                              <td style={{ padding: '2px 4px' }}>
+                                <input
+                                  type="text"
+                                  value={b.section_cctp || ''}
+                                  placeholder={`CCTP_section_${i + 3}`}
+                                  onChange={e => setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, section_cctp: e.target.value } : x))}
+                                  style={{ width: 100, fontSize: 11, padding: '2px 4px', border: '1px solid #bae6fd', borderRadius: 4 }}
+                                />
+                              </td>
+                              <td style={{ padding: '2px 4px' }}>
+                                <input
+                                  type="text"
+                                  value={b.feuilles_dpgf?.join(', ') || ''}
+                                  placeholder={b.nom}
+                                  onChange={e => setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, feuilles_dpgf: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : x))}
+                                  style={{ width: 100, fontSize: 11, padding: '2px 4px', border: '1px solid #bae6fd', borderRadius: 4 }}
+                                />
+                              </td>
+                              <td style={{ padding: '2px 4px' }}>
+                                <input
+                                  type="text"
+                                  value={b.systeme_chauffage || ''}
+                                  placeholder="PAC, chaudière…"
+                                  onChange={e => setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, systeme_chauffage: e.target.value } : x))}
+                                  style={{ width: 110, fontSize: 11, padding: '2px 4px', border: '1px solid #bae6fd', borderRadius: 4 }}
+                                />
+                              </td>
+                              <td style={{ padding: '2px 4px' }}>
+                                <input
+                                  type="text"
+                                  value={b.systeme_vmc || ''}
+                                  placeholder="DF, SF hygro…"
+                                  onChange={e => setRegroupementEdite(prev => prev.map((x, j) => j === i ? { ...x, systeme_vmc: e.target.value } : x))}
+                                  style={{ width: 90, fontSize: 11, padding: '2px 4px', border: '1px solid #bae6fd', borderRadius: 4 }}
+                                />
+                              </td>
                               <td style={{ padding: '4px 8px', fontSize: 11, color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
                             </tr>
                           ))}
@@ -6027,7 +6305,7 @@ export default function Projet() {
                 <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#dcfce7', textAlign: 'left' }}>
-                      {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Fiabilité', ''].map(h => (
+                      {['Bâtiment', 'Montées', 'Logements', 'LLI', 'LLS', 'BRS', 'Acc.std', 'Acc.premium', 'Villas', 'Sec.CCTP', 'F.DPGF', 'Chauffage', 'VMC', 'Fiabilité', ''].map(h => (
                         <th key={h} style={{ padding: '4px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -6044,6 +6322,10 @@ export default function Projet() {
                         <td style={{ padding: '4px 8px' }}>{b.acceStd !== null && b.acceStd !== undefined ? b.acceStd : '?'}</td>
                         <td style={{ padding: '4px 8px' }}>{b.accesPremium !== null && b.accesPremium !== undefined ? b.accesPremium : '?'}</td>
                         <td style={{ padding: '4px 8px' }}>{b.villas !== null && b.villas !== undefined ? b.villas : '?'}</td>
+                        <td style={{ padding: '4px 8px', fontSize: 11, color: b.sectionCctp ? 'var(--text)' : '#94a3b8' }}>{b.sectionCctp || '—'}</td>
+                        <td style={{ padding: '4px 8px', fontSize: 11, color: b.feuillesDpgf ? 'var(--text)' : '#94a3b8' }}>{(() => { try { return JSON.parse(b.feuillesDpgf || 'null')?.join(', ') || '—' } catch { return '—' } })()}</td>
+                        <td style={{ padding: '4px 8px', fontSize: 11, color: b.systemeChauffage ? 'var(--text)' : '#94a3b8' }}>{b.systemeChauffage || '—'}</td>
+                        <td style={{ padding: '4px 8px', fontSize: 11, color: b.systemeVmc ? 'var(--text)' : '#94a3b8' }}>{b.systemeVmc || '—'}</td>
                         <td style={{ padding: '4px 8px', color: b.fiabilite === 'haute' ? '#15803d' : '#f59e0b' }}>{b.fiabilite}</td>
                         <td style={{ padding: '4px 8px' }}>
                           <button onClick={async () => {
@@ -6069,6 +6351,18 @@ export default function Projet() {
                           </td>
                         ))}
                         <td style={{ padding: '4px 4px' }}>
+                          <input value={newBatD1.sectionCctp} onChange={e => setNewBatD1(p => ({ ...p, sectionCctp: e.target.value }))} placeholder="CCTP_section_3" style={{ width: 96, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                        </td>
+                        <td style={{ padding: '4px 4px' }}>
+                          <input value={newBatD1.feuillesDpgf} onChange={e => setNewBatD1(p => ({ ...p, feuillesDpgf: e.target.value }))} placeholder="BAT A, BAT B" style={{ width: 90, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                        </td>
+                        <td style={{ padding: '4px 4px' }}>
+                          <input value={newBatD1.systemeChauffage} onChange={e => setNewBatD1(p => ({ ...p, systemeChauffage: e.target.value }))} placeholder="PAC…" style={{ width: 90, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                        </td>
+                        <td style={{ padding: '4px 4px' }}>
+                          <input value={newBatD1.systemeVmc} onChange={e => setNewBatD1(p => ({ ...p, systemeVmc: e.target.value }))} placeholder="DF…" style={{ width: 70, fontSize: 11, padding: '2px 4px', border: '1px solid #86efac', borderRadius: 4 }} />
+                        </td>
+                        <td style={{ padding: '4px 4px' }}>
                           <button onClick={async () => {
                             if (!newBatD1.nom.trim()) return
                             const payload = { nom: newBatD1.nom.trim() }
@@ -6076,6 +6370,10 @@ export default function Projet() {
                             ;['nbLogements','lli','lls','brs','acceStd','accesPremium','villas'].forEach(f => {
                               if (newBatD1[f] !== '') payload[f] = parseInt(newBatD1[f])
                             })
+                            if (newBatD1.sectionCctp.trim()) payload.sectionCctp = newBatD1.sectionCctp.trim()
+                            if (newBatD1.feuillesDpgf.trim()) payload.feuillesDpgf = newBatD1.feuillesDpgf.split(',').map(s => s.trim()).filter(Boolean)
+                            if (newBatD1.systemeChauffage.trim()) payload.systemeChauffage = newBatD1.systemeChauffage.trim()
+                            if (newBatD1.systemeVmc.trim()) payload.systemeVmc = newBatD1.systemeVmc.trim()
                             await api.post(`/projets/${id}/batiments`, payload)
                             setNewBatD1(null)
                             const res = await api.get(`/projets/${id}`)
@@ -6096,6 +6394,7 @@ export default function Projet() {
                         const total = projet.batiments.reduce((s, b) => s + (b[f] || 0), 0)
                         return <td key={f} style={{ padding: '5px 8px', fontWeight: 700 }}>{anyNull ? '?' : total || '0'}</td>
                       })}
+                      <td></td><td></td><td></td><td></td>
                       <td></td>
                       <td></td>
                     </tr>
@@ -6103,16 +6402,21 @@ export default function Projet() {
                 </table>
                 <div style={{ marginTop: 8 }}>
                   <button onClick={() => {
-                    setRegroupementEdite(projet.batiments.map(b => ({
+                    setRegroupementEdite(projet.batiments.map((b, i) => ({
                       nom: b.nom,
                       montees: (() => { try { return JSON.parse(b.montees || '[]') } catch { return [] } })(),
                       nb_logements: b.nbLogements,
                       LLI: b.lli, LLS: b.lls, BRS: b.brs,
                       acces_std: b.acceStd, acces_premium: b.accesPremium, villas: b.villas,
-                      fiabilite: b.fiabilite, _batimentId: b.id
+                      fiabilite: b.fiabilite, _batimentId: b.id,
+                      section_cctp: b.sectionCctp || `CCTP_section_${i + 3}`,
+                      feuilles_dpgf: (() => { try { return JSON.parse(b.feuillesDpgf || 'null') || [b.nom] } catch { return [b.nom] } })(),
+                      systeme_chauffage: b.systemeChauffage || '',
+                      systeme_vmc: b.systemeVmc || '',
                     })))
                     setImportGranuloStep(1)
                   }} className="btn-ghost" style={{ fontSize: 12, border: '1px solid var(--border)' }}>✏️ Modifier</button>
+
                 </div>
               </div>
             )}
@@ -6122,6 +6426,252 @@ export default function Projet() {
             )}
             </>)}
           </section>
+        )}
+
+        {/* ── Prestations Financement ── */}
+        {projet && (() => {
+          const FINANCEMENTS = [
+            { code: 'social',    label: 'Social (LLI/LLS)',       color: '#3b82f6' },
+            { code: 'brs',       label: 'BRS',                    color: '#8b5cf6' },
+            { code: 'acces_std', label: 'Accession standard',     color: '#f59e0b' },
+            { code: 'premium',   label: 'Accession premium',      color: '#10b981' },
+          ]
+          const FIABILITE_BADGE = {
+            haute:       { bg: '#dcfce7', color: '#15803d', label: 'haute' },
+            moyenne:     { bg: '#fef3c7', color: '#92400e', label: 'moyenne' },
+            a_confirmer: { bg: '#fee2e2', color: '#991b1b', label: 'à confirmer' },
+          }
+          const CHAMP_LABEL = {
+            chauf_distribution: 'Distribution', chauf_production: 'Production',
+            chauf_emetteurs: 'Émetteurs', chauf_regulation: 'Régulation',
+            ecs_production: 'ECS production', ecs_distribution: 'ECS distrib.',
+            vmc_type: 'VMC', san_wc: 'WC', san_vasque: 'Vasque',
+            san_douche: 'Douche', san_baignoire: 'Baignoire',
+            san_robinetterie: 'Robinetterie', enr_type: 'ENR',
+          }
+          return (
+            <section className="section" style={{ marginBottom: 12 }}>
+              <div
+                className="section-title-row"
+                style={{ cursor: 'pointer', marginBottom: showPrestations ? 12 : 0 }}
+                onClick={() => setShowPrestations(v => !v)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                  <h2 className="section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>📋</span> Prestations
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>({prestations.length}/4)</span>
+                  </h2>
+                  <span style={{ fontSize: 16, color: 'var(--text-muted)', display: 'inline-block', transform: showPrestations ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>▶</span>
+                </div>
+                {showPrestations && isAdmin && (
+                  <div className="section-title-btns" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => { setPrestationModal({ mode: 'extraire' }); setPrestationProposition(null); setPrestationErreur(null); setPrestationDocId(''); setPrestationFinancement('social') }}
+                      className="btn-ghost" style={{ fontSize: 13 }}
+                    >📥 Extraire depuis notice</button>
+                    <button
+                      onClick={() => { setPrestationModal({ mode: 'manuel' }); setPrestationProposition({}); setPrestationErreur(null); setPrestationFinancement('social') }}
+                      className="btn-ghost" style={{ fontSize: 13 }}
+                    >✏️ Saisie manuelle</button>
+                  </div>
+                )}
+              </div>
+
+              {showPrestations && (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-muted)', textAlign: 'left' }}>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>Financement</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>Chauffage</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>ECS</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>VMC</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>Sanitaires</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>ENR</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>Source</th>
+                        <th style={{ padding: '5px 8px', fontWeight: 700 }}>Fiabilité</th>
+                        {isAdmin && <th style={{ padding: '5px 8px' }}></th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FINANCEMENTS.map(fin => {
+                        const p = prestations.find(x => x.financement === fin.code)
+                        const fib = FIABILITE_BADGE[p?.fiabilite] || FIABILITE_BADGE.a_confirmer
+                        const parseArr = v => { try { return JSON.parse(v || '[]').join(', ') } catch { return v || '—' } }
+                        return (
+                          <tr key={fin.code} style={{ borderTop: '1px solid var(--border)', background: p ? 'transparent' : 'var(--bg-muted)' }}>
+                            <td style={{ padding: '6px 8px' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, background: fin.color, color: 'white', padding: '2px 8px', borderRadius: 10 }}>{fin.label}</span>
+                            </td>
+                            <td style={{ padding: '6px 8px', fontSize: 11 }}>
+                              {p ? <>{p.chauf_production || '—'}{p.chauf_emetteurs && <span style={{ color: 'var(--text-muted)' }}> · {parseArr(p.chauf_emetteurs)}</span>}</> : <span style={{ color: 'var(--text-muted)' }}>non renseigné</span>}
+                            </td>
+                            <td style={{ padding: '6px 8px', fontSize: 11 }}>{p ? (p.ecs_production || '—') : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 11 }}>{p ? (p.vmc_type || '—') : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 11 }}>
+                              {p ? [p.san_wc && `WC ${p.san_wc}`, p.san_vasque && `vasque ${p.san_vasque}`, p.san_douche && `douche ${p.san_douche}`].filter(Boolean).join(' · ') || '—' : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '6px 8px', fontSize: 11 }}>{p ? (p.enr_type || '—') : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                            <td style={{ padding: '6px 8px', fontSize: 11 }}>{p ? (p.source === 'notice' ? '📄 notice' : '✏️ manuel') : '—'}</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              {p && <span style={{ fontSize: 10, fontWeight: 700, background: fib.bg, color: fib.color, padding: '2px 7px', borderRadius: 10 }}>{fib.label}</span>}
+                            </td>
+                            {isAdmin && (
+                              <td style={{ padding: '6px 8px' }}>
+                                {p && <button onClick={() => supprimerPrestation(fin.code)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '0 4px' }} title="Supprimer">🗑</button>}
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )
+        })()}
+
+        {/* Modal Prestations — Extraction / Saisie manuelle */}
+        {prestationModal && (
+          <div className="modal-overlay" onClick={() => setPrestationModal(null)}>
+            <div className="modal-card" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>{prestationModal.mode === 'extraire' ? '📥 Extraire depuis notice' : '✏️ Saisie manuelle'}</h3>
+                <button className="btn-ghost" onClick={() => setPrestationModal(null)} style={{ padding: '4px 8px' }}>✕</button>
+              </div>
+
+              {/* Sélection financement */}
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Financement</p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[
+                    { code: 'social', label: 'Social (LLI/LLS)' },
+                    { code: 'brs', label: 'BRS' },
+                    { code: 'acces_std', label: 'Accession std' },
+                    { code: 'premium', label: 'Accession premium' },
+                  ].map(f => (
+                    <button
+                      key={f.code}
+                      onClick={() => setPrestationFinancement(f.code)}
+                      className={prestationFinancement === f.code ? 'btn-primary' : 'btn-ghost'}
+                      style={{ fontSize: 12 }}
+                    >{f.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {prestationModal.mode === 'extraire' && !prestationProposition && (
+                <>
+                  <div style={{ marginBottom: 14 }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Notice descriptive (PDF ou DOCX)</p>
+                    <select
+                      value={prestationDocId}
+                      onChange={e => setPrestationDocId(e.target.value)}
+                      style={{ width: '100%', fontSize: 13, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)' }}
+                    >
+                      <option value="">— Choisir un document —</option>
+                      {projet.documents.filter(d => ['programme', 'pieces_ecrites', 'autre'].includes(d.categorieDoc)).map(d => (
+                        <option key={d.id} value={d.id}>{d.nom}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {prestationErreur && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{prestationErreur}</p>}
+                  <div className="form-actions">
+                    <button onClick={() => extrairePresations(prestationFinancement)} disabled={!prestationDocId || prestationLoading} className="btn-primary">
+                      {prestationLoading ? '⏳ Extraction...' : '▶ Lancer extraction Sonnet'}
+                    </button>
+                    <button onClick={() => setPrestationModal(null)} className="btn-ghost">Annuler</button>
+                  </div>
+                </>
+              )}
+
+              {/* Proposition Sonnet OU saisie manuelle — le formulaire utilise prestationProposition comme état */}
+              {(prestationProposition !== null || prestationModal.mode === 'manuel') && (() => {
+                const CHAMPS_AFFICHAGE = [
+                  { key: 'chauf_distribution', label: 'Distribution chauffage' },
+                  { key: 'chauf_production', label: 'Production chauffage' },
+                  { key: 'chauf_emetteurs', label: 'Émetteurs (virgule si multiple)' },
+                  { key: 'chauf_regulation', label: 'Régulation (virgule si multiple)' },
+                  { key: 'ecs_production', label: 'ECS — production' },
+                  { key: 'ecs_distribution', label: 'ECS — distribution' },
+                  { key: 'vmc_type', label: 'VMC' },
+                  { key: 'san_wc', label: 'WC' },
+                  { key: 'san_vasque', label: 'Vasque' },
+                  { key: 'san_douche', label: 'Douche' },
+                  { key: 'san_baignoire', label: 'Baignoire' },
+                  { key: 'san_robinetterie', label: 'Robinetterie' },
+                  { key: 'enr_type', label: 'ENR' },
+                  { key: 'noteComplementaire', label: 'Note complémentaire' },
+                ]
+                // Normalise les champs array (JSON → string pour l'affichage)
+                const getVal = key => {
+                  const v = (prestationProposition || {})[key]
+                  if (!v) return ''
+                  if (key === 'chauf_emetteurs' || key === 'chauf_regulation') {
+                    try { return JSON.parse(v).join(', ') } catch { return v }
+                  }
+                  return v
+                }
+                return (
+                  <>
+                    {prestationProposition && (
+                      <p style={{ fontSize: 12, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '6px 10px', marginBottom: 10, color: '#15803d' }}>
+                        ✓ Extraction Sonnet terminée — fiabilité : <strong>{prestationProposition.fiabilite || 'a_confirmer'}</strong>. Vérifiez et corrigez si besoin.
+                      </p>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', marginBottom: 14 }}>
+                      {CHAMPS_AFFICHAGE.map(c => (
+                        <div key={c.key} style={c.key === 'noteComplementaire' ? { gridColumn: '1/-1' } : {}}>
+                          <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>{c.label}</label>
+                          <input
+                            value={getVal(c.key)}
+                            onChange={e => setPrestationProposition(prev => ({ ...(prev || {}), [c.key]: e.target.value }))}
+                            style={{ width: '100%', fontSize: 12, padding: '4px 6px', borderRadius: 4, border: '1px solid var(--border)', boxSizing: 'border-box' }}
+                            placeholder="—"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {prestationErreur && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{prestationErreur}</p>}
+                    <div className="form-actions">
+                      <button
+                        onClick={async () => {
+                          setPrestationLoading(true)
+                          try {
+                            const src = prestationProposition || {}
+                            const payload = {
+                              financement: prestationFinancement,
+                              source: src.source || 'manuel',
+                              fiabilite: src.fiabilite || 'a_confirmer',
+                            }
+                            CHAMPS_AFFICHAGE.forEach(c => {
+                              const v = (src[c.key] || '').trim()
+                              if (c.key === 'chauf_emetteurs' || c.key === 'chauf_regulation') {
+                                payload[c.key] = v ? JSON.stringify(v.split(',').map(s => s.trim()).filter(Boolean)) : null
+                              } else {
+                                payload[c.key] = v || null
+                              }
+                            })
+                            await sauvegarderPrestation(payload)
+                            setPrestationModal(null)
+                            setPrestationProposition(null)
+                          } catch (err) {
+                            setPrestationErreur(err.response?.data?.error || err.message)
+                          } finally {
+                            setPrestationLoading(false)
+                          }
+                        }}
+                        disabled={prestationLoading}
+                        className="btn-primary"
+                      >{prestationLoading ? 'Enregistrement...' : '✓ Enregistrer'}</button>
+                      <button onClick={() => { setPrestationModal(null); setPrestationProposition(null) }} className="btn-ghost">Annuler</button>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
         )}
 
         {/* Programme - Notices */}
@@ -6808,20 +7358,6 @@ export default function Projet() {
                 </div>
               </div>
             )}
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>Modèle IA</p>
-              <div style={{ display: 'flex', gap: 16 }}>
-                {[
-                  { value: 'haiku', label: 'Haiku', desc: 'rapide' },
-                  { value: 'sonnet', label: 'Sonnet', desc: 'précis' },
-                ].map(opt => (
-                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14 }}>
-                    <input type="radio" name="modeleIA" value={opt.value} checked={comparerModele === opt.value} onChange={() => setComparerModele(opt.value)} />
-                    <span>{opt.label} <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>({opt.desc})</span></span>
-                  </label>
-                ))}
-              </div>
-            </div>
             <div className="form-actions" style={{ marginTop: 8 }}>
               <button onClick={lancerComparaison} disabled={comparerEnCours || comparerIdsRef.length === 0} className="btn-primary">
                 {comparerEnCours ? 'Lancement...' : `Lancer${comparerIdsRef.length > 0 ? ` (${comparerIdsRef.length} fichier${comparerIdsRef.length > 1 ? 's' : ''})` : ''}`}
