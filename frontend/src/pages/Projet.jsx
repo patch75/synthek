@@ -1341,8 +1341,10 @@ export default function Projet() {
                 ) : (
                   <button onClick={e => {
                     e.stopPropagation()
-                    const base = INTERVENANTS_BASE.map(b => ({ ...b, ...getIntervenant(b.role), label: b.label }))
-                    setIntervenantsEdit(base)
+                    const stored = getIntervenants()
+                    const base = INTERVENANTS_BASE.map(b => ({ ...b, ...stored.find(s => s.role === b.role) || {}, label: b.label }))
+                    const custom = stored.filter(s => !INTERVENANTS_BASE.find(b => b.role === s.role))
+                    setIntervenantsEdit([...base, ...custom])
                     setEditIntervenants(true)
                   }} className="btn-ghost" style={{ fontSize: 13, border: '1px solid var(--border)' }}>✎ Modifier</button>
                 )}
@@ -1352,39 +1354,49 @@ export default function Projet() {
 
           {showIntervenants && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {INTERVENANTS_BASE.map((base, idx) => {
-                const iv = getIntervenant(base.role)
-                const editIv = intervenantsEdit[idx] || {}
-                const vide = !iv.societe && !iv.contact && !iv.email && !iv.tel
+              {(editIntervenants ? intervenantsEdit : (() => {
+                const stored = getIntervenants()
+                const base = INTERVENANTS_BASE.map(b => ({ ...b, ...stored.find(s => s.role === b.role) || {} }))
+                const custom = stored.filter(s => !INTERVENANTS_BASE.find(b => b.role === s.role))
+                return [...base, ...custom]
+              })()).map((item, idx) => {
+                const vide = !item.societe && !item.contact && !item.email && !item.tel
                 return (
-                  <div key={base.role} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
-                    <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--primary)', marginBottom: 8 }}>{base.label}</p>
+                  <div key={item.role + idx} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
+                    {editIntervenants ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <input value={item.label || item.role} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))} placeholder="Intitulé du rôle" style={{ fontWeight: 700, fontSize: 13, color: 'var(--primary)', flex: 1, border: '1px solid var(--border)', borderRadius: 4, padding: '3px 6px' }} />
+                        <button onClick={() => setIntervenantsEdit(prev => prev.filter((_, i) => i !== idx))} style={{ color: '#e74c3c', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 4px' }}>✕</button>
+                      </div>
+                    ) : (
+                      <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--primary)', marginBottom: 8 }}>{item.label || item.role}</p>
+                    )}
                     {editIntervenants ? (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label style={{ fontSize: 11 }}>Société / Organisme</label>
-                          <input value={editIv.societe || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, societe: e.target.value } : x))} style={{ fontSize: 13 }} />
+                          <input value={item.societe || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, societe: e.target.value } : x))} style={{ fontSize: 13 }} />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label style={{ fontSize: 11 }}>Contact</label>
-                          <input value={editIv.contact || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, contact: e.target.value } : x))} style={{ fontSize: 13 }} />
+                          <input value={item.contact || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, contact: e.target.value } : x))} style={{ fontSize: 13 }} />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label style={{ fontSize: 11 }}>Email</label>
-                          <input type="email" value={editIv.email || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, email: e.target.value } : x))} style={{ fontSize: 13 }} />
+                          <input type="email" value={item.email || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, email: e.target.value } : x))} style={{ fontSize: 13 }} />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label style={{ fontSize: 11 }}>Tél</label>
-                          <input value={editIv.tel || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, tel: e.target.value } : x))} style={{ fontSize: 13 }} />
+                          <input value={item.tel || ''} onChange={e => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, tel: e.target.value } : x))} style={{ fontSize: 13 }} />
                         </div>
-                        {base.role === 'BCT' && (
+                        {item.role === 'BCT' && (
                           <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
                             <label style={{ fontSize: 11 }}>Missions</label>
                             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                               {BCT_MISSIONS.map(m => (
                                 <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
                                   <input type="checkbox" style={{ width: 'auto' }}
-                                    checked={(editIv.missions || []).includes(m)}
+                                    checked={(item.missions || []).includes(m)}
                                     onChange={() => setIntervenantsEdit(prev => prev.map((x, i) => i === idx ? { ...x, missions: (x.missions || []).includes(m) ? x.missions.filter(v => v !== m) : [...(x.missions || []), m] } : x))}
                                   /> {m}
                                 </label>
@@ -1397,18 +1409,21 @@ export default function Projet() {
                       <p className="text-muted text-sm" style={{ margin: 0 }}>— Non renseigné</p>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '4px 16px', fontSize: 13 }}>
-                        {iv.societe && <span><strong>Société :</strong> {iv.societe}</span>}
-                        {iv.contact && <span><strong>Contact :</strong> {iv.contact}</span>}
-                        {iv.email && <span><strong>Email :</strong> <a href={`mailto:${iv.email}`} style={{ color: 'var(--primary)' }}>{iv.email}</a></span>}
-                        {iv.tel && <span><strong>Tél :</strong> {iv.tel}</span>}
-                        {base.role === 'BCT' && iv.missions?.length > 0 && (
-                          <span style={{ gridColumn: '1 / -1' }}><strong>Missions :</strong> {iv.missions.join(', ')}</span>
+                        {item.societe && <span><strong>Société :</strong> {item.societe}</span>}
+                        {item.contact && <span><strong>Contact :</strong> {item.contact}</span>}
+                        {item.email && <span><strong>Email :</strong> <a href={`mailto:${item.email}`} style={{ color: 'var(--primary)' }}>{item.email}</a></span>}
+                        {item.tel && <span><strong>Tél :</strong> {item.tel}</span>}
+                        {item.role === 'BCT' && item.missions?.length > 0 && (
+                          <span style={{ gridColumn: '1 / -1' }}><strong>Missions :</strong> {item.missions.join(', ')}</span>
                         )}
                       </div>
                     )}
                   </div>
                 )
               })}
+              {editIntervenants && (
+                <button onClick={() => setIntervenantsEdit(prev => [...prev, { role: `custom_${Date.now()}`, label: '', societe: '', contact: '', email: '', tel: '', missions: [] }])} className="btn-ghost" style={{ fontSize: 13, border: '1px dashed var(--border)', borderRadius: 8, padding: '10px 16px', textAlign: 'center' }}>+ Ajouter un intervenant</button>
+              )}
             </div>
           )}
         </section>
